@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function profile()  { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function hasProfile(){ return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function active()   { return hasProfile() && profile().active == true; }
+    function isAdmin()  { return active() && profile().isAdmin == true; }
+    // صلاحية معيّنة داخل مديول معيّن (للمديولات اللي هتتضاف بعدين)
+    function can(mod, act) {
+      return active() && (profile().isAdmin == true ||
+        (profile().access.keys().hasAny([mod]) && profile().access[mod].hasAny([act])));
+    }
+
+    // المستخدمين: كل واحد يقرا بياناته، والمدير بس هو اللي يضيف ويعدّل
+    match /users/{uid} {
+      allow read:  if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // (للتأمينات — متأجلة) بيانات الموظفين
+    match /empChunks/{id} {
+      allow read:  if can('insurance','report') || can('insurance','s1') || can('insurance','s6');
+      allow write: if can('insurance','import') || can('insurance','edit');
+    }
+    match /settings/{id} {
+      allow read:  if active();
+      allow write: if isAdmin() || can('insurance','edit');
+    }
+
+    // أي حاجة تانية مقفولة
+    match /{document=**} { allow read, write: if false; }
+  }
+}
