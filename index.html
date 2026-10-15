@@ -300,11 +300,11 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
       <!-- استقالة -->
       <div id="pn_resign" hidden>
         <div class="opts" style="border-top:0;margin-top:0;padding-top:0">
+          <label class="r_cl"><input type="checkbox" id="r_cl" checked> إخلاء طرف</label>
           <label class="r_rq"><input type="checkbox" id="r_rq" checked> طلب استقالة</label>
           <label class="r_rf"><input type="checkbox" id="r_rf" checked> نموذج طلب الاستقالة (وزارة العمل)</label>
           <label class="r_er"><input type="checkbox" id="r_er" checked> إنهاء علاقة العمل بالتوافق</label>
           <label class="r_ho"><input type="checkbox" id="r_ho" checked> الاستلام والتسليم</label>
-          <label class="r_cl"><input type="checkbox" id="r_cl" checked> إخلاء طرف</label>
           <label><input type="checkbox" id="k_dx_r" checked> طباعة وش وظهر</label>
           <span class="sp"></span><span class="cnt" id="cnt_r"></span>
           <button class="pbtn" type="button">طباعة كل الأوراق</button>
@@ -378,7 +378,7 @@ function contractPages(n, total){
   <p>وعلي الطرف الثاني توفير الادوات اللزمة لممارسة عمله من عضوية كارنية النقابة المهنية او رخصة القيادة المهنية او الخاصة بحسب الاحوال او اي تراخيص حكومية لازمة لممارسة عمله .</p>
   <p>وقدأقر الطرفان المتعاقدان بأهليتهما المعتبرة قانونا للتعاقد واتفقا فيما بينهما على تحرير عقد عمل وفقا للأحكام والشروط الآتية :-</p>
   <span class="bn">البند الأول: الوظيفة ومدة العقد</span>
-  <p>يوافق الطرف الأول على تعيين الطرف الثاني للعمل في وظيفة / ${F('job',14)}</p>
+  <p>يوافق الطرف الأول على تعيين الطرف الثاني للعمل في وظيفة / ${B(16)}</p>
   <p>وذلك اعتبارا من ${B(1.6)} / ${B(1.6)} / 202${B(1.2)} ولمدة سنة تنتهي في ${B(1.6)} / ${B(1.6)} / 202${B(1.2)} دون الحاجة إلى تنبيــه أو إنذار بانتهاء المدة ودون الحاجة إلى اتخاذ أي إجراء قانوني أو قضائي، على أن يكون للطرف الأول الحق في أن يعهد إلى الطرف الثاني بأي عمل أخر يتفق مع طبيعة مؤهلاته أوان يصبح أهلا لأدائه بما اكتسب من خبرة وتدريب في خدمة الطرف الأول، كما أن للطرف الأول الحق في نقل الطرف الثاني لأي فرع من فروع الشركة وكذا إلى أي شركة أخرى تابعة للطرف الأول أيا كان موقعها.</p>
   <p>كما اتفق الطرفان انه في حالة رغبة الطرف الثاني في انهاء علاقة العمل بينهما فعليه اخطار الطرف الاول (صاحب العمل )او من ينوب عنه ويمثله قانونا بموجب اخطار كتابي بمدة لا تقل عن ( ${B(1.6)} )شهر والا يكون ملتزما برد راتب ( ${B(1.6)} ) شهر للطرف الاول تعويضا عما اصابه من ضرر نتيجة لترك العمل لديه دون سابق اخطار .</p>
   </div>`;
@@ -547,6 +547,22 @@ function acksPages(){
    <p>أقر وأتعهد أنا الموقع أدناه بالإلتزام بالقيام بواجباتي في الشركة والمحافظة على ممتلكاتها وأسرارها وعدم السماح بالتضارب في المصالح معها.</p>
    <p>كما أقر بأني إتطلعت على لائحة العمل الداخلية وسياسات العمل وأتعهد بالإلتزام بهذه اللوائح إلتزاماُ تاماُ والعمل بموجبها.</p>
    <div class="sigrow" style="font-weight:600"><span>المقر بما فيه: &nbsp; الأسم: ${F('name',12)}</span><span>التوقيع: ${B(10)}</span></div>
+  </div>`,'',null));
+  // إيصال استلام مهمات عمل
+  P.push(textPage(`<div class="ak" style="padding-top:8mm;line-height:2.15">
+   <h2>إيصـــــــــال استلام مهمات عمل</h2>
+   <p style="margin-top:8mm">إستلمت انا / ${F('name',22)}</p>
+   <p>المقيم / ${F('addr',30)}</p>
+   <p>واحمل بطاقة قومي رقم / ${F('nid',14)} &nbsp; واعمل بوظيفة / ${F('job',14)}</p>
+   <p>من شركة / ${B(14)} &nbsp; ويمثلها قانونا السيد / ${B(14)}</p>
+   <p>ماهو عبارة عن / ${B(28)}</p>
+   <p>بمواصفات / ${B(30)}</p>
+   <p style="margin-top:4mm">وذلك لاستخدامه في انجازجميع اعمال الشركة المسنودة لي من قبل الشركة داخلها وخارجها .</p>
+   <p>وذلك على سبيل الامانة علي ان اقوم بردها للشركة حين انتهاء علاقة العمل او طلب الشركة رده في اي وقت وفي حالة عدم رده او هلاكه اعتبر خائنا للأمانة ومبددا له واتحمل المسئولية القانونية بشقيها المدنية والجنائية .</p>
+   <p style="margin-top:6mm"><b>المستلم /</b> ${F('name',22)}</p>
+   <p><b>التوقيع /</b> ${B(18)}</p>
+   <p><b>رقم البطاقة قومي /</b> ${F('nid',16)}</p>
+   <p><b>البصمة /</b> ${B(18)}</p>
   </div>`,'',null));
   // 7) إقرار محل إقامة
   P.push(textPage(`<div class="ak" style="padding-top:16mm">
@@ -1088,11 +1104,11 @@ function mountHiring(){
 function buildResign(){
   const dx=$('k_dx_r').checked, out=[];
   const on=(id,act)=>can('resign',act)&&$(id).checked;
+  if(on('r_cl','cl')) addDoc(out,[clearancePage()],dx);
   if(on('r_rq','rq')) addDoc(out,resignPages(),dx);
   if(on('r_rf','rf')) addDoc(out,A.rs.rf.map(fitPage),dx);
   if(on('r_er','er')) addDoc(out,A.rs.er.map(fitPage),dx);
   if(on('r_ho','ho')) addDoc(out,A.rs.hd.map(fitPage),dx);
-  if(on('r_cl','cl')) addDoc(out,[clearancePage()],dx);
   renderSheets(out,'cnt_r',dx);
 }
 function mountResign(){
