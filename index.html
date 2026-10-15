@@ -228,6 +228,7 @@ table.xf td{padding:0;overflow:visible;white-space:nowrap;line-height:1;vertical
 table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
 .xfw img.lg{position:absolute}
 @media print{
+  #sheets{transform:none !important;width:auto !important;margin:0 !important}
   #nav,#home,#panel,#view,#login,#boot,.toast,.modal{display:none !important}
   body{background:#fff}
 }
@@ -238,6 +239,8 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
 .pn-wrap{padding:0}
 
 .shp{position:absolute;box-sizing:border-box;border:1.5px solid #000;background:#fff;display:flex;align-items:center;justify-content:center;text-align:center;direction:rtl;font-family:"Calibri","Segoe UI",Arial,sans-serif;line-height:1.1;color:#000;overflow:hidden;white-space:nowrap}
+
+#mod{overflow-x:hidden}
 
 </style>
 <script src="firebase-config.js"></script>
@@ -942,9 +945,10 @@ function evalB(b,rec,nf){
 const XF_SC=0.91, PXMM=25.4/96*XF_SC, PTMM=25.4/72*XF_SC;
 const BSTY={thin:'1px solid',hair:'1px dotted',medium:'2px solid',thick:'3px solid',dashed:'1px dashed',dotted:'1px dotted',double:'3px double',mediumDashed:'2px dashed',dashDot:'1px dashed',mediumDashDot:'2px dashed',slantDashDot:'2px dashed',dashDotDot:'1px dashed',mediumDashDotDot:'2px dashed'};
 const XF_CACHE={};
+const XF_ROWFIX={s1:{53:38,87:58,94:58},s6:{84:58,90:58}};   // أطوال أكبر لصفوف التوقيع (بالـ pt) علشان التوقيع جوه الأقواس
 function xfPrep(key){
   if(XF_CACHE[key]) return XF_CACHE[key];
-  const F=FORMS[key]; const R=F.rows.length, C=F.cols.length;
+  const F=FORMS[key]; Object.entries(XF_ROWFIX[key]||{}).forEach(([r,h])=>{ F.rows[r-1]=h; }); const R=F.rows.length, C=F.cols.length;
   const grid=Array.from({length:R+2},()=>Array(C+2).fill(null)); const cov=Array.from({length:R+2},()=>Array(C+2).fill(false));
   F.cells.forEach(c=>{ grid[c.r][c.c]=c; for(let r=c.r;r<c.r+(c.rs||1);r++)for(let k=c.c;k<c.c+(c.cs||1);k++) if(r!==c.r||k!==c.c) cov[r][k]=true; });
   return XF_CACHE[key]={F,grid,cov,R,C};
@@ -956,7 +960,7 @@ function xfCell(c,rec){
   let inner='';
   if(c.f){
     const [fn,sz,b,i,u,col]=c.f; const al=c.al||[];
-    const fam=/Bodoni/i.test(fn)?`"${fn}","Segoe UI Black","Arial Black",Arial,sans-serif`:`"${fn}","Segoe UI",Calibri,Arial,sans-serif`;
+    const fam=/Bodoni/i.test(fn)?`'${fn}','Segoe UI Black','Arial Black',Arial,sans-serif`:`'${fn}','Segoe UI',Calibri,Arial,sans-serif`;
     st.push(`font-family:${fam};font-size:${(sz*XF_SC).toFixed(2)}pt;color:#${col}`);
     if(b) st.push('font-weight:700'); if(i) st.push('font-style:italic'); if(u) st.push('text-decoration:underline');
     const h=al[0]; st.push(`text-align:${h==='center'?'center':h==='left'?'left':'right'}`);
@@ -965,7 +969,7 @@ function xfCell(c,rec){
     let txt = c.b ? evalB(c.b,rec,c.nf) : S(c.v);
     inner = txt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>');
   }
-  return `<td${cls?` class="${cls}"`:''}${c.rs?` rowspan="${c.rs}"`:''}${c.cs?` colspan="${c.cs}"`:''} style="${st.join(';')}">${inner}</td>`;
+  return `<td${c.b?` data-bt="${c.b.t}"`:''}${cls?` class="${cls}"`:''}${c.rs?` rowspan="${c.rs}"`:''}${c.cs?` colspan="${c.cs}"`:''} style="${st.join(';')}">${inner}</td>`;
 }
 function xfPages(key,rec){
   const {F,grid,cov,R,C}=xfPrep(key);
@@ -1063,11 +1067,17 @@ function fitXf(){
     });
   });
 }
+function resetScale(){ const sh=$('sheets'); sh.style.transform=''; sh.style.width=''; sh.style.marginBottom=''; sh.style.marginRight=''; sh.style.transformOrigin=''; sh.style.zoom=''; }
 function refreshV(){
-  const sh=$('sheets'); sh.style.zoom=1;
+  const sh=$('sheets'); resetScale();
   document.querySelectorAll('[data-f]').forEach(el=>{ el.textContent=V[el.dataset.f]; });
   fitAll(); fitXf();
-  const w=document.documentElement.clientWidth; sh.style.zoom = w<818 ? (w-16)/794 : 1;
+  /* على الموبايل: تصغير بالـ transform (مش zoom) علشان الخانات والأرقام ماتتزحزحش */
+  const w=document.documentElement.clientWidth, s=(w-12)/794;
+  if(s<1){
+    sh.style.width='794px'; sh.style.transformOrigin='top right'; sh.style.transform=`scale(${s})`;
+    sh.style.marginBottom=(-(1-s)*sh.offsetHeight)+'px'; sh.style.marginRight=((w-794*s)/2)+'px';
+  }
 }
 
 /* ---------------- مديول: أوراق التعيين ---------------- */
@@ -1422,7 +1432,7 @@ document.addEventListener('click',e=>{
   const pb=t.closest('.pbtn'); if(pb){
     if(CUR.mod==='hiring'){ const bad=[]; if(!V.name) bad.push('الاسم'); if(V.nid.length!==14) bad.push('الرقم القومي (14 رقم)'); if(bad.length && !confirm('ناقص: '+bad.join('، ')+'\nتكمل الطباعة كده؟')) return; }
     if(CUR.mod==='insurance' && !INS.sel && !confirm('لسه ماختارتش موظف — هتتطبع الاستمارة فاضية. تكمل؟')) return;
-    $('sheets').style.zoom=1; setTimeout(()=>window.print(),50);
+    resetScale(); setTimeout(()=>window.print(),50);
   }
   const cb=t.closest('.cb'); if(cb){ const r=+cb.dataset.r,c=+cb.dataset.c; if(CK[r]===c) delete CK[r]; else CK[r]=c;
     document.querySelectorAll(`.cb[data-r="${r}"]`).forEach(x=>x.firstElementChild.classList.toggle('on',CK[r]===+x.dataset.c)); }
@@ -1467,7 +1477,7 @@ $('loginForm').addEventListener('submit',async e=>{
   $('lg_btn').disabled=false;
 });
 window.addEventListener('hashchange',route);
-window.addEventListener('beforeprint',()=>{ $('sheets').style.zoom=1; });
+window.addEventListener('beforeprint',resetScale);
 window.addEventListener('afterprint',refreshV);
 window.addEventListener('resize',refreshV);
 boot();
