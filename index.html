@@ -484,6 +484,16 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
 
   <!-- الإعدادات -->
   <div id="tab-settings" class="tab-content hidden animate-fade-in">
+    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6">
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="flex-1 min-w-[220px]"><h3 class="text-sm font-bold"><i class="fa-solid fa-file-excel text-emerald-600 ml-1"></i> استيراد / تصدير بيانات الشقق (Excel)</h3>
+          <p class="text-xs text-slate-500 mt-1">ملف واحد فيه كل الحقول: بيانات الشقة (النوع، المكان، واتساب، الموقع، السراير، الإيجار، نهاية العقد، المشرف) + الساكنين (صف لكل ساكن).</p></div>
+        <button onclick="exportAptsXlsx()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl"><i class="fa-solid fa-download ml-1"></i> تصدير كل البيانات</button>
+        <button onclick="downloadAptsTemplate()" class="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-xs font-bold rounded-xl">تنزيل نموذج</button>
+        <label class="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-xl cursor-pointer"><i class="fa-solid fa-upload ml-1"></i> استيراد من Excel<input type="file" id="apts-import-file" accept=".xlsx,.xls,.csv" class="hidden"></label>
+      </div>
+      <div id="apts-import-box" class="hidden mt-4 text-xs"></div>
+    </div>
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div class="lg:col-span-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
         <div class="flex items-center gap-3 pb-3 mb-4 border-b border-slate-100">
@@ -4078,6 +4088,196 @@ window.copyIframeCode = () => {
   const t = $('iframe-code-output'); t.select();
   navigator.clipboard ? navigator.clipboard.writeText(t.value) : document.execCommand('copy');
   toast('تم نسخ الكود', 'success');
+};
+
+/* ---------------------- استيراد/تصدير بيانات الشقق (Excel) ---------------------- */
+const APT_COLS = ['رقم الشقة', 'نوع الشقة', 'المكان', 'رابط واتساب', 'رابط الموقع', 'عدد السراير', 'قيمة الإيجار', 'نهاية العقد', 'المشرف (الاسم)', 'المشرف (الإيميل)', 'اسم الساكن', 'الوظيفة', 'تاريخ الدخول', 'رقم السرير'];
+const APT_KEYS = {
+  number: ['رقم الشقة', 'الشقة', 'رقم/اسم الشقة', 'اسم الشقة'], type: ['نوع الشقة', 'النوع'], location: ['المكان', 'العنوان', 'الموقع'],
+  wa: ['رابط واتساب', 'واتساب', 'جروب الواتساب'], map: ['رابط الموقع', 'اللوكيشن', 'لوكيشن', 'الخريطة', 'رابط الخريطة'],
+  beds: ['عدد السراير', 'السراير', 'الطاقة'], rent: ['قيمة الإيجار', 'الإيجار', 'الايجار', 'قيمة الايجار'], contract: ['نهاية العقد', 'تاريخ نهاية العقد'],
+  supName: ['المشرف (الاسم)', 'المشرف', 'اسم المشرف'], supEmail: ['المشرف (الإيميل)', 'إيميل المشرف', 'ايميل المشرف', 'المشرف (الايميل)'],
+  empName: ['اسم الساكن', 'الساكن', 'اسم الموظف', 'الاسم'], role: ['الوظيفة'], entry: ['تاريخ الدخول', 'تاريخ التسكين'], bed: ['رقم السرير', 'السرير']
+};
+const aptNorm = s => String(s ?? '').replace(/[\s‏‎]+/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').toLowerCase();
+function aptToISO(v) {
+  if (v === '' || v == null) return '';
+  if (typeof v === 'number' && v > 20000 && v < 80000) { const d = new Date(Math.round((v - 25569) * 86400000)); return d.toISOString().slice(0, 10); }
+  const s = String(v).trim();
+  let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/); if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/); if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  return '';
+}
+function aptTypeNorm(v) {
+  const s = String(v || '');
+  if (/مهندس/.test(s)) return 'شقة مهندسين';
+  if (/مدير/.test(s)) return 'شقة مديرين';
+  return 'شقة عمال';
+}
+function aptSheetRows() {
+  const rows = [];
+  sortedApts().forEach(a => {
+    const occ = occupantsOf(a.id);
+    const sup = S.users.find(u => u.id === a.supervisorUid);
+    const base = [a.number, a.type, a.location || '', a.whatsappLink || '', a.mapLink || '', a.totalBeds, S.fin[a.id] ?? 0, a.contractEnd || '', a.supervisorName || (sup ? sup.name : ''), sup ? sup.email : ''];
+    if (!occ.length) rows.push([...base, '', '', '', '']);
+    else occ.forEach(e => rows.push([...base, e.name, e.role, e.entryDate, e.bedIndex]));
+  });
+  return rows;
+}
+function aptWriteBook(rows, name) {
+  const ws = XLSX.utils.aoa_to_sheet([APT_COLS, ...rows]);
+  ws['!cols'] = APT_COLS.map((c, i) => ({ wch: [22, 14, 26, 30, 30, 11, 12, 13, 18, 26, 24, 18, 13, 10][i] }));
+  ws['!views'] = [{ RTL: true }];
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'الشقق والساكنين');
+  XLSX.writeFile(wb, name);
+}
+window.exportAptsXlsx = async () => {
+  if (!isAdmin()) return;
+  try { await loadXLSX(); } catch (e) { return toast('تعذر تحميل مكتبة Excel', 'error'); }
+  aptWriteBook(aptSheetRows(), `الشقق-والساكنين-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  toast('تم تصدير كل بيانات الشقق', 'success');
+};
+window.downloadAptsTemplate = async () => {
+  try { await loadXLSX(); } catch (e) { return toast('تعذر تحميل مكتبة Excel', 'error'); }
+  aptWriteBook([
+    ['شقة 105 - عمائر الأمل', 'شقة عمال', 'التجمع الخامس - المنطقة 3', 'https://chat.whatsapp.com/xxxx', 'https://maps.app.goo.gl/xxxx', 4, 8000, '2027-06-30', 'اسم المشرف', 'supervisor@gmail.com', 'أحمد محمد', 'عامل إنتاج', '2026-09-01', 1],
+    ['شقة 105 - عمائر الأمل', 'شقة عمال', '', '', '', '', '', '', '', '', 'محمود علي', 'فني صيانة', '2026-09-05', 2],
+    ['شقة 210 - المنطقة 7', 'شقة مهندسين', 'التجمع الخامس', '', '', 3, 9500, '2027-01-31', '', '', '', '', '', '']
+  ], 'نموذج-استيراد-الشقق.xlsx');
+};
+let aptPlan = null;
+function aptBuildPlan(matrix, mode) {
+  const hdr = matrix[0].map(aptNorm), idx = {};
+  Object.entries(APT_KEYS).forEach(([k, names]) => { const nn = names.map(aptNorm); idx[k] = hdr.findIndex(h => nn.includes(h)); });
+  if (idx.number < 0) throw new Error('مفيش عمود «رقم الشقة» في الملف');
+  const warn = [], groups = new Map();
+  matrix.slice(1).forEach((r, i) => {
+    const g = k => idx[k] < 0 ? '' : r[idx[k]];
+    const num = String(g('number') ?? '').trim();
+    if (!num) { if (r.some(x => String(x ?? '').trim())) warn.push(`صف ${i + 2}: بدون رقم شقة (اتجاهل)`); return; }
+    const key = aptNorm(num);
+    if (!groups.has(key)) groups.set(key, { number: num, rows: [] });
+    groups.get(key).rows.push({ g, line: i + 2 });
+  });
+  const plan = { apts: [], newApts: 0, updApts: 0, newEmps: 0, updEmps: 0, evict: 0, warn };
+  groups.forEach(gr => {
+    const first = k => { for (const x of gr.rows) { const v = x.g(k); if (v !== '' && v != null && String(v).trim() !== '') return v; } return ''; };
+    const ex = S.apts.find(a => aptNorm(a.number) === aptNorm(gr.number));
+    const p = { ex, id: ex ? ex.id : null, number: ex ? ex.number : gr.number };
+    p.type = first('type') ? aptTypeNorm(first('type')) : (ex ? ex.type : 'شقة عمال');
+    p.location = String(first('location') || (ex ? ex.location : '') || 'غير محدد').trim();
+    let wa = String(first('wa')).trim(); if (wa && !WA_RE.test(wa)) { warn.push(`${gr.number}: رابط واتساب غير صحيح (اتجاهل)`); wa = ''; }
+    p.wa = wa || (ex ? ex.whatsappLink || '' : '');
+    let mp = String(first('map')).trim(); if (mp) { const nm = normMap(mp); if (nm === null) { warn.push(`${gr.number}: رابط الموقع غير صحيح (اتجاهل)`); mp = ''; } else mp = nm; }
+    p.map = mp || (ex ? ex.mapLink || '' : '');
+    p.contract = aptToISO(first('contract')) || (ex ? ex.contractEnd || '' : '');
+    const rent = first('rent'); p.rent = rent !== '' && !isNaN(parseFloat(rent)) ? parseFloat(rent) : (ex ? (S.fin[ex.id] ?? 0) : 0);
+    const se = String(first('supEmail')).trim().toLowerCase(), sn = String(first('supName')).trim();
+    let sup = null;
+    if (se) sup = S.users.find(u => (u.email || '').toLowerCase() === se);
+    if (!sup && sn) sup = S.users.find(u => aptNorm(u.name) === aptNorm(sn));
+    if ((se || sn) && !sup) warn.push(`${gr.number}: المشرف (${se || sn}) مش موجود في المستخدمين — اتسابت الشقة بدون تغيير مشرف`);
+    p.supUid = sup ? sup.id : (ex ? ex.supervisorUid || '' : ''); p.supName = sup ? sup.name : (ex ? ex.supervisorName || '' : '');
+    // السكان
+    const existing = ex ? occupantsOf(ex.id) : [];
+    const used = new Set(); const emps = [];
+    gr.rows.forEach(x => {
+      const nm = String(x.g('empName') ?? '').trim(); if (!nm) return;
+      const dup = emps.find(e => aptNorm(e.name) === aptNorm(nm)); if (dup) { warn.push(`${gr.number}: «${nm}» مكرر في الملف (اتجاهل)`); return; }
+      const old = existing.find(e => aptNorm(e.name) === aptNorm(nm));
+      emps.push({ name: nm, role: String(x.g('role') ?? '').trim() || (old ? old.role : 'غير محدد'), entry: aptToISO(x.g('entry')) || (old ? old.entryDate : new Date().toISOString().slice(0, 10)),
+        bedWant: parseInt(x.g('bed')) || 0, old });
+    });
+    const need = Math.max(emps.length, ...emps.map(e => e.bedWant), 0);
+    const bedsCell = parseInt(first('beds'));
+    p.beds = bedsCell > 0 ? bedsCell : (ex ? Math.max(ex.totalBeds, mode === 'replace' ? 0 : 0) : Math.max(4, need));
+    if (p.beds < need) { warn.push(`${gr.number}: عدد السراير (${p.beds}) أقل من الساكنين/أرقام الأسرّة — اتزوّد لـ ${need}`); p.beds = need; }
+    // الأسرّة: اللي مش في الملف ثابتين (merge) أو بيتخلوا (replace)
+    const inFile = new Set(emps.filter(e => e.old).map(e => e.old.id));
+    p.evict = mode === 'replace' ? existing.filter(e => !inFile.has(e.id)) : [];
+    existing.forEach(e => { if (!p.evict.includes(e)) used.add(e.bedIndex); });
+    emps.filter(e => e.old).forEach(e => { used.add(e.old.bedIndex); });
+    emps.forEach(e => {
+      if (e.old) { e.bed = e.old.bedIndex; return; }
+    });
+    // الجدد: السرير المطلوب لو فاضي، وإلا أول فاضي
+    emps.filter(e => !e.old).forEach(e => {
+      let b = e.bedWant && e.bedWant <= p.beds && !used.has(e.bedWant) ? e.bedWant : 0;
+      if (!b) for (let i = 1; i <= p.beds; i++) if (!used.has(i)) { b = i; break; }
+      if (!b) { p.beds++; b = p.beds; warn.push(`${gr.number}: مفيش سرير فاضي لـ «${e.name}» — اتزوّد سرير`); }
+      used.add(b); e.bed = b;
+    });
+    p.emps = emps;
+    ex ? plan.updApts++ : plan.newApts++;
+    emps.forEach(e => e.old ? plan.updEmps++ : plan.newEmps++);
+    plan.evict += p.evict.length;
+    plan.apts.push(p);
+  });
+  return plan;
+}
+function aptRenderPreview(plan, name) {
+  const box = $('apts-import-box'); box.classList.remove('hidden');
+  box.innerHTML = `<div class="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-3">
+    <div class="font-bold">ملف: ${esc(name)} — ${plan.apts.length} شقة</div>
+    <div class="flex flex-wrap gap-2 text-[11px] font-bold">
+      <span class="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700">شقق جديدة: ${plan.newApts}</span>
+      <span class="px-2 py-1 rounded-lg bg-sky-50 text-sky-700">شقق هتتحدّث: ${plan.updApts}</span>
+      <span class="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700">ساكنين جدد: ${plan.newEmps}</span>
+      <span class="px-2 py-1 rounded-lg bg-sky-50 text-sky-700">ساكنين هيتحدّثوا: ${plan.updEmps}</span>
+      ${plan.evict ? `<span class="px-2 py-1 rounded-lg bg-rose-50 text-rose-700">هيتخلّوا: ${plan.evict}</span>` : ''}
+    </div>
+    <div class="flex flex-wrap gap-4">
+      <label class="flex items-center gap-1.5"><input type="radio" name="apts-imp-mode" value="merge" ${aptMode === 'merge' ? 'checked' : ''} onchange="aptSetMode('merge')"> تحديث وإضافة (بيحافظ على باقي الساكنين)</label>
+      <label class="flex items-center gap-1.5"><input type="radio" name="apts-imp-mode" value="replace" ${aptMode === 'replace' ? 'checked' : ''} onchange="aptSetMode('replace')"> استبدال ساكني الشقق اللي في الملف (بيخلّي اللي مش فيه)</label>
+    </div>
+    ${plan.warn.length ? `<div class="text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 max-h-32 overflow-y-auto custom-scrollbar">${plan.warn.slice(0, 30).map(w => `<div>• ${esc(w)}</div>`).join('')}${plan.warn.length > 30 ? `<div>… و${plan.warn.length - 30} تنبيه آخر</div>` : ''}</div>` : ''}
+    <div class="flex gap-2"><button onclick="runAptsImport()" id="apts-imp-go" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl">تنفيذ الاستيراد</button>
+      <button onclick="aptCancelImport()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 font-bold rounded-xl">إلغاء</button></div>
+    <div id="apts-imp-msg" class="text-slate-500"></div></div>`;
+}
+let aptMode = 'merge', aptMatrix = null, aptFileName = '';
+window.aptSetMode = m => { aptMode = m; try { aptPlan = aptBuildPlan(aptMatrix, aptMode); aptRenderPreview(aptPlan, aptFileName); } catch (e) { toast(e.message, 'error'); } };
+window.aptCancelImport = () => { aptPlan = null; aptMatrix = null; $('apts-import-box').classList.add('hidden'); $('apts-import-box').innerHTML = ''; };
+$('apts-import-file').addEventListener('change', async ev => {
+  const f = ev.target.files[0]; ev.target.value = ''; if (!f || !isAdmin()) return;
+  try {
+    await loadXLSX();
+    const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const m = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
+    if (m.length < 2) throw new Error('الملف فاضي');
+    aptMatrix = m; aptFileName = f.name; aptMode = 'merge';
+    aptPlan = aptBuildPlan(m, aptMode); aptRenderPreview(aptPlan, f.name);
+  } catch (e) { toast('تعذر قراءة الملف: ' + (e.message || e), 'error'); }
+});
+window.runAptsImport = async () => {
+  if (!aptPlan || !isAdmin()) return;
+  const btn = $('apts-imp-go'); btn.disabled = true; const msg = $('apts-imp-msg');
+  try {
+    const ops = []; const now = Date.now();
+    aptPlan.apts.forEach(p => {
+      const ref = p.id ? doc(db, 'apartments', p.id) : doc(collection(db, 'apartments')); const id = ref.id;
+      ops.push(b => b.set(ref, { number: p.number, type: p.type, location: p.location, totalBeds: p.beds, contractEnd: p.contract, supervisorUid: p.supUid, supervisorName: p.supName, whatsappLink: p.wa, mapLink: p.map }));
+      ops.push(b => b.set(doc(db, 'apartmentsFinance', id), { rent: p.rent }));
+      p.evict.forEach(e => ops.push(b => b.delete(doc(db, 'employees', e.id))));
+      p.emps.forEach(e => {
+        if (e.old) ops.push(b => b.update(doc(db, 'employees', e.old.id), { name: e.name, role: e.role, entryDate: e.entry, category: p.type, supervisorUid: p.supUid }));
+        else ops.push(b => b.set(doc(collection(db, 'employees')), { name: e.name, role: e.role, category: p.type, entryDate: e.entry, aptId: id, bedIndex: e.bed, supervisorUid: p.supUid, createdAt: now }));
+      });
+      if (p.ex && p.ex.supervisorUid !== p.supUid) {
+        S.emps.filter(x => x.aptId === id && !p.emps.some(e => e.old && e.old.id === x.id)).forEach(x => ops.push(b => b.update(doc(db, 'employees', x.id), { supervisorUid: p.supUid })));
+        S.reqs.filter(x => x.aptId === id).forEach(x => ops.push(b => b.update(doc(db, 'requests', x.id), { supervisorUid: p.supUid })));
+        S.docs.filter(x => x.aptId === id).forEach(x => ops.push(b => b.update(doc(db, 'documents', x.id), { supervisorUid: p.supUid })));
+      }
+    });
+    for (let i = 0; i < ops.length; i += 400) {
+      const b = writeBatch(db); ops.slice(i, i + 400).forEach(f => f(b)); await b.commit();
+      msg.textContent = `جارٍ الحفظ… ${Math.min(ops.length, i + 400)} / ${ops.length}`;
+    }
+    toast(`تم الاستيراد: ${aptPlan.newApts} شقة جديدة، ${aptPlan.updApts} محدّثة، ${aptPlan.newEmps} ساكن جديد`, 'success');
+    window.aptCancelImport();
+  } catch (err) { toast(errMsg(err), 'error'); btn.disabled = false; }
 };
 
 /* ---------------------- نقل البيانات من الموقع القديم (obakhousing) ---------------------- */
