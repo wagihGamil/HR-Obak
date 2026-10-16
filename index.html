@@ -241,6 +241,104 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
 .shp{position:absolute;box-sizing:border-box;border:1.5px solid #000;background:#fff;display:flex;align-items:center;justify-content:center;text-align:center;direction:rtl;font-family:"Calibri","Segoe UI",Arial,sans-serif;line-height:1.1;color:#000;overflow:hidden;white-space:nowrap}
 
 #mod{overflow-x:hidden}
+/* ===== مصادر موارد بشرية ===== */
+.crumbs{font-size:15px;font-weight:600}
+.crumbs a{cursor:pointer;color:var(--navy);text-decoration:none;padding:2px 4px;border-radius:4px}
+.crumbs a:hover{background:#eef0f6}
+.szsw{display:inline-flex;border:1.5px solid #c3c6cf;border-radius:6px;overflow:hidden}
+.szsw button{font:inherit;font-size:13px;border:0;background:#fff;padding:6px 10px;cursor:pointer}
+.szsw button.on{background:var(--navy);color:#fff}
+#fdrop.dragging{outline:3px dashed var(--red);outline-offset:-6px;background:#fff6f6}
+.fgrid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));min-height:220px;align-content:start}
+.fgrid.md{grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}
+.fgrid.ls{grid-template-columns:1fr;gap:2px}
+.fi{position:relative;border-radius:10px;padding:12px 8px 8px;text-align:center;cursor:pointer;user-select:none;border:2px solid transparent}
+.fi:hover,.fi:focus-visible{background:#eaf1ff;border-color:#b9cdf5;outline:none}
+.fi .fic{height:112px;display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+.fi .fic svg{height:100%;width:auto;max-width:100%;filter:drop-shadow(0 3px 4px rgba(0,0,0,.22))}
+.fi .fic img{max-height:100%;max-width:100%;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.3);background:#fff}
+.fi .fnm{font-size:14px;font-weight:600;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4}
+.fi .fsz{font-size:12px;color:var(--mut);margin-top:2px}
+.fgrid.md .fic{height:68px}.fgrid.md .fnm{font-size:12.5px}
+.fgrid.ls .fi{display:flex;align-items:center;gap:12px;text-align:right;padding:6px 10px}
+.fgrid.ls .fic{height:34px;width:34px;margin:0}.fgrid.ls .fnm{flex:1;-webkit-line-clamp:1}.fgrid.ls .fsz{margin:0;min-width:70px}
+.fm{position:absolute;top:4px;left:4px;font-size:18px;line-height:1;border:0;background:rgba(255,255,255,.9);border-radius:6px;width:28px;height:28px;cursor:pointer;opacity:0;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.fi:hover .fm,.fi:focus-within .fm{opacity:1}
+@media (hover:none){.fm{opacity:1}}
+.fgrid.ls .fm{position:static;opacity:1;order:5}
+.fpop{position:absolute;top:34px;left:4px;background:#fff;border-radius:8px;box-shadow:0 6px 22px rgba(0,0,0,.3);z-index:20;min-width:140px;padding:4px;text-align:right}
+.fpop button{display:block;width:100%;text-align:right;border:0;background:none;font:inherit;font-size:14px;padding:8px 10px;border-radius:6px;cursor:pointer}
+.fpop button:hover{background:#f1f2f6}
+.fpop .bad{color:var(--red-d)}
+.fempty{padding:60px 10px;text-align:center;font-size:16px;color:var(--mut);border:2px dashed #d3d6e0;border-radius:12px;margin:8px 0}
+.box.fv{width:min(960px,100%)}
+
+/* مصادر الموارد البشرية */
+.rslayout{display:grid;grid-template-columns:270px 1fr;gap:14px;align-items:start}
+@media(max-width:820px){.rslayout{grid-template-columns:1fr}}
+.rsside{padding:10px}
+.rsstabs{display:flex;gap:4px;margin-bottom:8px}
+.rsstabs button{flex:1;font:inherit;font-size:13px;padding:6px;border:0;background:#eef0f6;border-radius:6px;cursor:pointer}
+.rsstabs button.on{background:var(--navy);color:#fff;font-weight:700}
+.rstree{max-height:calc(100vh - 220px);overflow:auto}
+.rsf{display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:6px;cursor:pointer;font-size:14px;color:var(--ink);text-decoration:none}
+.rsf:hover{background:#f1f2f6}.rsf.on{background:#fde5e6;color:var(--red-d);font-weight:700}
+.rsf b{margin-right:auto;background:#e8ecf7;color:var(--navy);border-radius:10px;padding:0 8px;font-size:12px;font-weight:600}
+.rsl{margin-bottom:6px}.rsL{display:block;font-weight:700;color:var(--red-d);padding:4px 10px;border-bottom:1px solid var(--line);margin-bottom:2px}
+.rsfile{display:block;padding:4px 14px;font-size:13px;cursor:pointer;color:var(--ink)}.rsfile:hover{background:#f1f2f6}
+.rssearch{position:relative;flex:1;min-width:240px}
+.rssearch .ic{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--mut);display:flex}
+.rssearch input{width:100%;padding:9px 38px 9px 12px !important;font-size:15px !important;min-width:0 !important}
+.rsrow{display:flex;gap:12px;align-items:flex-start;padding:10px 4px;border-bottom:1px solid #eceef3}
+.rsrow:last-child{border-bottom:0}
+.rsext{flex:none;width:46px;height:46px;border-radius:9px;color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif}
+.rsmain{flex:1;min-width:0}
+.rsname{font-weight:700;font-size:15px;color:var(--navy);cursor:pointer;word-break:break-word}.rsname:hover{text-decoration:underline}
+.rsmeta{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;margin-top:3px;font-size:12.5px}
+.rsdesc{font-size:13px;color:#444;margin-top:3px}
+.rsact{flex:none;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:210px}
+@media(max-width:600px){.rsrow{flex-wrap:wrap}.rsact{max-width:none;width:100%;justify-content:flex-start}}
+
+.fpath{white-space:normal !important;font-size:11px !important;color:#7a7f92 !important}
+
+/* مصادر موارد بشرية */
+.fwrap{display:flex;gap:14px;align-items:flex-start}
+.fside{width:290px;flex:none;position:sticky;top:60px;max-height:calc(100vh - 80px);overflow:auto}
+.fmain{flex:1;min-width:0}
+.ftabs{display:flex;gap:4px;margin-bottom:8px}
+.ftabs button{flex:1;font:inherit;font-size:13.5px;font-weight:700;padding:6px;border:0;border-radius:6px;background:#eef0f6;cursor:pointer}
+.ftabs button.on{background:var(--navy);color:#fff}
+.sbox{display:flex;align-items:center;gap:6px;border:1.5px solid #c3c6cf;border-radius:8px;padding:0 10px;background:#fff;flex:1;min-width:240px}
+.sbox:focus-within{outline:3px solid rgba(215,25,32,.25);border-color:var(--red)}
+.sbox svg{color:var(--mut);flex:none}
+.sbox input{border:0 !important;outline:0 !important;flex:1;min-width:0;font:inherit;font-size:15px;padding:9px 0 !important;background:transparent}
+ul.tree{list-style:none;margin:0;padding:0 14px 0 0}
+ul.tree ul.tree{border-right:1px dotted #c3c6cf;margin-right:8px}
+.tn{display:flex;align-items:center;gap:2px;border-radius:6px;font-size:13.5px}
+.tn a,li.lf a,.ag a,.lnk{cursor:pointer;color:var(--ink);text-decoration:none}
+.tn a{flex:1;padding:5px 6px}
+.tn:hover,li.lf:hover{background:#f1f2f6}
+.tn.sel{background:#e8ecf7;font-weight:700}
+.tn .tg{border:0;background:none;cursor:pointer;width:20px;font-size:12px;color:var(--mut)}
+.cn{font-size:11px;background:#eef0f6;border-radius:9px;padding:0 6px;color:var(--mut)}
+li.lf a{display:flex;align-items:center;gap:6px;padding:3px 6px;font-size:13px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.fico{display:inline-flex;align-items:center;justify-content:center;min-width:38px;height:24px;border-radius:5px;color:#fff;font-size:10px;font-weight:700;flex:none;padding:0 4px}
+.frow{display:flex;gap:12px;align-items:flex-start;padding:10px 6px;border-bottom:1px solid #eceef3}
+.frow .fico{min-width:46px;height:34px;font-size:11px;margin-top:2px}
+.fbody{flex:1;min-width:0}
+.fname{font-weight:700;font-size:15px;cursor:pointer;color:var(--navy);text-decoration:none;word-break:break-word}
+.fname:hover{text-decoration:underline}
+.fmeta{font-size:12.5px;color:var(--mut);margin-top:2px}
+.fdesc{font-size:13px;margin-top:3px;color:#333}
+.fact{display:flex;gap:4px;flex-wrap:wrap;flex:none}
+.lnk{color:var(--red-d)}
+mark{background:#ffe27a;border-radius:3px;padding:0 1px}
+.ag{margin-bottom:8px}.ag b{display:block;background:#eef0f6;padding:2px 8px;border-radius:5px;margin-bottom:2px;font-size:13px}
+.ag a{display:block;padding:3px 10px;font-size:13px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.ag a:hover{background:#f1f2f6}
+.uprow{display:grid;grid-template-columns:1fr auto;gap:2px 10px;margin-bottom:8px;font-size:13.5px}
+.uprow .prog{grid-column:1/-1;margin-top:2px}
+@media (max-width:820px){.fwrap{flex-direction:column}.fside{width:100%;position:static;max-height:260px}.frow{flex-wrap:wrap}.fact{width:100%}}
 
 </style>
 <script src="firebase-config.js"></script>
@@ -703,6 +801,8 @@ function applyEd(){
 const FBCFG = (window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey && !/YOUR|XXXX/i.test(window.FIREBASE_CONFIG.apiKey)) ? window.FIREBASE_CONFIG : null;
 const FB_VER = '10.12.2';
 const CHUNK = 150;
+const FILE_CHUNK = 900000;          // حجم الشريحة (بايت) — أقل من حد Firestore (1MiB)
+const FILE_MAX = 10*1024*1024;     // أقصى حجم للملف الواحد
 
 const LS = {
   get:(k,d)=>{ try{ const v=JSON.parse(localStorage.getItem(k)); return v==null?d:v; }catch(e){ return d; } },
@@ -721,6 +821,8 @@ function authMsg(e){
   if(c==='no-profile') return 'الحساب ده مش متفعّل في النظام — كلّم المسؤول';
   return (e&&e.message)||'حصل خطأ غير متوقع';
 }
+
+
 
 /* ---------------- وضع تجريبي (localStorage) ---------------- */
 const LocalBackend = {
@@ -749,7 +851,24 @@ const LocalBackend = {
   async saveEmployees(rows,onProgress){ LS.set('demo_emps',rows); onProgress&&onProgress(1); },
   async updateEmployee(row){ const r=LS.get('demo_emps',[]); const i=r.findIndex(x=>x.code===row.code); if(i>=0){ r[i]=row; LS.set('demo_emps',r);} },
   async loadSettings(){ return LS.get('demo_settings',{}); },
-  async saveSettings(s){ LS.set('demo_settings',s); }
+  async saveSettings(s){ LS.set('demo_settings',s); },
+
+  /* --- مصادر الموارد البشرية (وضع تجريبي: IndexedDB) --- */
+  _idb(){ return this._db||(this._db=new Promise((res,rej)=>{ const r=indexedDB.open('hr_local',1); r.onupgradeneeded=()=>{ r.result.createObjectStore('files',{keyPath:'id'}); r.result.createObjectStore('blobs'); }; r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); })); },
+  async _tx(store,mode,fn){ const db=await this._idb(); return new Promise((res,rej)=>{ const t=db.transaction(store,mode); const out=fn(t); t.oncomplete=()=>res(out&&out.result!==undefined?out.result:out); t.onerror=()=>rej(t.error); }); },
+  async listFiles(){ const db=await this._idb(); return new Promise((res,rej)=>{ const r=db.transaction('files').objectStore('files').getAll(); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); },
+  async uploadFile(file,meta,onProgress){
+    const id='f'+Date.now()+Math.random().toString(36).slice(2,7);
+    const rec={id,...meta,name:file.name,size:file.size,type:file.type||'',chunks:1,at:Date.now()};
+    const db=await this._idb();
+    await new Promise((res,rej)=>{ const t=db.transaction(['files','blobs'],'readwrite'); t.objectStore('blobs').put(file,id); t.objectStore('files').put(rec); t.oncomplete=res; t.onerror=()=>rej(t.error); });
+    onProgress&&onProgress(1); return rec;
+  },
+  async getFileBlob(f){ const db=await this._idb(); return new Promise((res,rej)=>{ const r=db.transaction('blobs').objectStore('blobs').get(f.id); r.onsuccess=()=>{ const b=r.result; res(new Blob([b],{type:f.type||b.type})); }; r.onerror=()=>rej(r.error); }); },
+  async updateFileMeta(id,patch){ const db=await this._idb(); await new Promise((res,rej)=>{ const t=db.transaction('files','readwrite'); const s=t.objectStore('files'); const g=s.get(id); g.onsuccess=()=>{ s.put({...g.result,...patch}); }; t.oncomplete=res; t.onerror=()=>rej(t.error); }); },
+  async deleteFile(f){ const db=await this._idb(); await new Promise((res,rej)=>{ const t=db.transaction(['files','blobs'],'readwrite'); t.objectStore('files').delete(f.id); t.objectStore('blobs').delete(f.id); t.oncomplete=res; t.onerror=()=>rej(t.error); }); },
+  async loadFolders(){ return LS.get('demo_folders',[]); },
+  async saveFolders(l){ LS.set('demo_folders',l); },
 };
 
 /* ---------------- Firebase ---------------- */
@@ -826,7 +945,48 @@ const FirebaseBackend = {
     });
   },
   async loadSettings(){ const {Fs}=this.S; const s=await Fs.getDoc(Fs.doc(this.db,'settings','insurance')); return s.exists()?s.data():{}; },
-  async saveSettings(v){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(this.db,'settings','insurance'),v); }
+  async saveSettings(v){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(this.db,'settings','insurance'),v); },
+
+  /* --- مصادر الموارد البشرية: الملفات بتتخزن في Firestore على شرائح (بيشتغل على خطة Spark المجانية) --- */
+  async listFiles(){
+    const {Fs}=this.S; const s=await Fs.getDocs(Fs.collection(this.db,'hrFiles'));
+    return s.docs.map(d=>({id:d.id,...d.data()}));
+  },
+  async uploadFile(file,meta,onProgress){
+    const {Fs}=this.S; const id=Fs.doc(Fs.collection(this.db,'hrFiles')).id;
+    const buf=new Uint8Array(await file.arrayBuffer()); const n=Math.max(1,Math.ceil(buf.length/FILE_CHUNK));
+    try{
+      for(let i=0;i<n;i++){
+        await Fs.setDoc(Fs.doc(this.db,'hrChunks',id+'_'+i),{f:id,i,data:Fs.Bytes.fromUint8Array(buf.slice(i*FILE_CHUNK,(i+1)*FILE_CHUNK))});
+        onProgress&&onProgress((i+1)/n*0.95);
+      }
+      const rec={...meta,name:file.name,size:file.size,type:file.type||'',chunks:n,at:Date.now()};
+      await Fs.setDoc(Fs.doc(this.db,'hrFiles',id),rec);
+      onProgress&&onProgress(1); return {id,...rec};
+    }catch(e){
+      for(let i=0;i<n;i++){ try{ await Fs.deleteDoc(Fs.doc(this.db,'hrChunks',id+'_'+i)); }catch(_){} }
+      throw e;
+    }
+  },
+  async getFileBlob(f,onProgress){
+    const {Fs}=this.S; const parts=new Array(f.chunks); let done=0;
+    const idx=[...Array(f.chunks).keys()];
+    for(let k=0;k<idx.length;k+=4){
+      await Promise.all(idx.slice(k,k+4).map(async i=>{
+        const s=await Fs.getDoc(Fs.doc(this.db,'hrChunks',f.id+'_'+i));
+        if(!s.exists()) throw {message:'الملف ناقص (شريحة مفقودة)'};
+        parts[i]=s.data().data.toUint8Array(); done++; onProgress&&onProgress(done/f.chunks);
+      }));
+    }
+    return new Blob(parts,{type:f.type||'application/octet-stream'});
+  },
+  async updateFileMeta(id,patch){ const {Fs}=this.S; await Fs.updateDoc(Fs.doc(this.db,'hrFiles',id),patch); },
+  async deleteFile(f){
+    const {Fs}=this.S; await Fs.deleteDoc(Fs.doc(this.db,'hrFiles',f.id));
+    for(let i=0;i<f.chunks;i+=400){ const b=Fs.writeBatch(this.db); for(let k=i;k<Math.min(f.chunks,i+400);k++) b.delete(Fs.doc(this.db,'hrChunks',f.id+'_'+k)); await b.commit(); }
+  },
+  async loadFolders(){ const {Fs}=this.S; const s=await Fs.getDoc(Fs.doc(this.db,'hrMeta','folders')); return s.exists()?(s.data().list||[]):[]; },
+  async saveFolders(l){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(this.db,'hrMeta','folders'),{list:l}); },
 };
 
 /* =====================================================================
@@ -1000,6 +1160,190 @@ function xfPages(key,rec){
 }
 
 /* =====================================================================
+   مديول: مصادر موارد بشرية (رفع ملفات + بحث + فهرس)
+   ===================================================================== */
+const FL={files:[],folders:[],q:'',sel:'',sort:'new',tab:'tree',open:new Set(),loaded:false};
+const FILE_EXT_COLORS={pdf:'#d93025',doc:'#1a5dc8',docx:'#1a5dc8',xls:'#188038',xlsx:'#188038',csv:'#188038',ppt:'#d9622b',pptx:'#d9622b',jpg:'#8e44ad',jpeg:'#8e44ad',png:'#8e44ad',gif:'#8e44ad',zip:'#6b6f7a',rar:'#6b6f7a',txt:'#5f6368'};
+const extOf = n => (S(n).split('.').length>1 ? S(n).split('.').pop().toLowerCase() : '');
+const MIME_BY_EXT={pdf:'application/pdf',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',txt:'text/plain'};
+function normAr(s){
+  return S(s).toLowerCase().replace(/[\u064B-\u0652\u0640]/g,'').replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
+    .replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+}
+const fmtSize = b => b<1024?b+' بايت':b<1048576?(b/1024).toFixed(0)+' ك.ب':(b/1048576).toFixed(1)+' م.ب';
+const fmtDate = ms => { if(!ms) return ''; const d=new Date(ms); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; };
+const hay = f => f._h || (f._h = normAr([f.name,f.folder,f.desc,f.tags,f.byName].join(' ')));
+function fileIcon(f){
+  const e=extOf(f.name), col=FILE_EXT_COLORS[e]||'#6b6f7a';
+  return `<span class="fico" style="background:${col}">${esc((e||'file').slice(0,4).toUpperCase())}</span>`;
+}
+function hl(text,terms){
+  let t=esc(text); if(!terms.length) return t;
+  // تظليل بسيط على النص الأصلي (بعد التطبيع الأحرف بتفضل بنفس الأطوال في أغلب الحالات)
+  const n=normAr(text); const ranges=[];
+  terms.forEach(q=>{ let i=0; while((i=n.indexOf(q,i))>=0){ ranges.push([i,i+q.length]); i+=q.length; } });
+  if(!ranges.length||n.length!==S(text).length) return t;
+  ranges.sort((a,b)=>a[0]-b[0]); const m=[]; ranges.forEach(r=>{ if(m.length&&r[0]<=m[m.length-1][1]) m[m.length-1][1]=Math.max(m[m.length-1][1],r[1]); else m.push(r.slice()); });
+  let out='',p=0; m.forEach(([a,b])=>{ out+=esc(text.slice(p,a))+'<mark>'+esc(text.slice(a,b))+'</mark>'; p=b; }); return out+esc(text.slice(p));
+}
+
+async function mountFiles(){
+  setLayout({view:true});
+  $('view').innerHTML='<div class="card muted">جارٍ تحميل الملفات…</div>';
+  try{ await filesLoad(); }catch(e){ $('view').innerHTML=`<div class="card bad">${esc(authMsg(e))}</div>`; return; }
+  if(CUR.mod!=='files') return;
+  renderFilesShell();
+}
+async function filesLoad(){
+  const [files,folders]=await Promise.all([BE.listFiles(),BE.loadFolders().catch(()=>[])]);
+  FL.files=files; FL.folders=folders||[]; FL.loaded=true;
+}
+function allFolderPaths(){
+  const set=new Set(FL.folders.filter(Boolean)); FL.files.forEach(f=>{ if(f.folder) set.add(f.folder); });
+  const out=new Set(); set.forEach(p=>{ const parts=p.split('/'); for(let i=1;i<=parts.length;i++) out.add(parts.slice(0,i).join('/')); });
+  return [...out].sort((a,b)=>a.localeCompare(b,'ar'));
+}
+function buildTree(){
+  const root={name:'',path:'',kids:new Map(),files:[],count:0};
+  allFolderPaths().forEach(p=>{ let n=root; p.split('/').forEach((seg,i,arr)=>{ const path=arr.slice(0,i+1).join('/'); if(!n.kids.has(seg)) n.kids.set(seg,{name:seg,path,kids:new Map(),files:[],count:0}); n=n.kids.get(seg); }); });
+  FL.files.forEach(f=>{ let n=root; n.count++; if(f.folder){ f.folder.split('/').forEach(seg=>{ n=n.kids.get(seg); n.count++; }); } n.files.push(f); });
+  return root;
+}
+function sideTreeHtml(n,terms){
+  const sortedKids=[...n.kids.values()].sort((a,b)=>a.name.localeCompare(b.name,'ar'));
+  const files=n.files.slice().sort((a,b)=>a.name.localeCompare(b.name,'ar'));
+  return `<ul class="tree">${sortedKids.map(k=>{
+    const open=FL.open.has(k.path);
+    return `<li><div class="tn ${FL.sel===k.path?'sel':''}"><button class="tg" data-tg="${esc(k.path)}" aria-label="فتح/قفل">${open?'▾':'◂'}</button><a data-fsel="${esc(k.path)}">📁 ${esc(k.name)} <span class="cn">${k.count}</span></a></div>${open?sideTreeHtml(k):''}</li>`;
+  }).join('')}${files.map(f=>`<li class="lf"><a data-fopen="${esc(f.id)}" title="${esc(f.name)}">${fileIcon(f)} ${esc(f.name)}</a></li>`).join('')}</ul>`;
+}
+function alphaIndexHtml(){
+  const groups=new Map();
+  FL.files.slice().sort((a,b)=>normAr(a.name).localeCompare(normAr(b.name),'ar')).forEach(f=>{ const k=(normAr(f.name).replace(/^[^a-z0-9\u0600-\u06FF]+/,'')[0]||'#').toUpperCase(); if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(f); });
+  return [...groups.entries()].map(([k,l])=>`<div class="ag"><b>${esc(k)}</b>${l.map(f=>`<a data-fopen="${esc(f.id)}" title="${esc(f.name)}">${esc(f.name)}</a>`).join('')}</div>`).join('')||'<div class="muted">مفيش ملفات.</div>';
+}
+function renderFilesShell(){
+  const canUp=can('files','upload');
+  $('view').innerHTML=`<div class="fwrap">
+   <aside class="fside card">
+     <div class="ftabs"><button data-ftab="tree" class="${FL.tab==='tree'?'on':''}">الفهرس</button><button data-ftab="alpha" class="${FL.tab==='alpha'?'on':''}">أبجدي</button></div>
+     <div class="fsrc" id="fl_side"></div>
+     ${canUp?'<button class="btn sm" id="fl_newfolder" style="margin-top:8px">+ مجلد جديد</button>':''}
+   </aside>
+   <section class="fmain">
+     <div class="card">
+       <div class="tb">
+         <div class="sbox"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+         <input type="search" id="fl_q" placeholder="ابحث باسم الملف أو الوصف أو المجلد…" value="${esc(FL.q)}" autocomplete="off"></div>
+         <select id="fl_sort"><option value="new">الأحدث</option><option value="name">الاسم</option><option value="size">الحجم</option></select>
+         <span class="sp" style="flex:1"></span>
+         <button class="btn" id="fl_reload" type="button">تحديث</button>
+         ${canUp?'<button class="btn pri" id="fl_up" type="button">⬆ رفع ملفات</button>':''}
+       </div>
+       <div class="muted" id="fl_info"></div>
+       <div id="fl_list"></div>
+     </div>
+   </section></div>`;
+  $('fl_sort').value=FL.sort;
+  renderFilesParts();
+}
+function filteredFiles(){
+  const terms=normAr(FL.q).split(/\s+/).filter(Boolean);
+  let l=FL.files.filter(f=>(!FL.sel||f.folder===FL.sel||S(f.folder).startsWith(FL.sel+'/')) && terms.every(t=>hay(f).includes(t)));
+  l=l.slice().sort(FL.sort==='name'?(a,b)=>a.name.localeCompare(b.name,'ar'):FL.sort==='size'?(a,b)=>b.size-a.size:(a,b)=>(b.at||0)-(a.at||0));
+  return {l,terms};
+}
+function renderFilesParts(){
+  const {l,terms}=filteredFiles(); const canMg=can('files','manage');
+  $('fl_side').innerHTML = FL.tab==='tree' ? `<div class="tn ${FL.sel===''?'sel':''}"><a data-fsel="">🗂 كل الملفات <span class="cn">${FL.files.length}</span></a></div>`+sideTreeHtml(buildTree()) : alphaIndexHtml();
+  $('fl_info').innerHTML=`${l.length} من ${FL.files.length} ملف`+(FL.sel?` — المجلد: <b>${esc(FL.sel)}</b> <a data-fsel="" class="lnk">(إلغاء)</a>`:'');
+  $('fl_list').innerHTML = l.length ? l.map(f=>`<div class="frow">
+    ${fileIcon(f)}
+    <div class="fbody"><a class="fname" data-fopen="${esc(f.id)}">${hl(f.name,terms)}</a>
+      <div class="fmeta">${f.folder?`<a data-fsel="${esc(f.folder)}" class="lnk">📁 ${hl(f.folder,terms)}</a> · `:''}${fmtSize(f.size||0)} · ${fmtDate(f.at)}${f.byName?` · ${esc(f.byName)}`:''}</div>
+      ${f.desc?`<div class="fdesc">${hl(f.desc,terms)}</div>`:''}</div>
+    <div class="fact"><button class="btn sm" data-fopen="${esc(f.id)}">فتح</button><button class="btn sm" data-fdl="${esc(f.id)}">تحميل</button>${canMg?`<button class="btn sm" data-fedit="${esc(f.id)}">تعديل</button><button class="btn sm" data-fdel="${esc(f.id)}">حذف</button>`:''}</div></div>`).join('')
+    : `<div class="muted" style="padding:24px;text-align:center">${FL.files.length?'مفيش نتايج للبحث ده.':'لسه مفيش ملفات. '+(can('files','upload')?'اضغط «رفع ملفات» للبدء.':'')}</div>`;
+}
+async function fileOpen(id,download){
+  const f=FL.files.find(x=>x.id===id); if(!f) return;
+  const type=f.type||MIME_BY_EXT[extOf(f.name)]||'';
+  const prev=!download && /^(application\/pdf|image\/|text\/plain)/.test(type);
+  let w=null; if(prev) w=window.open('','_blank');
+  toast('جارٍ تحميل الملف…');
+  try{
+    const blob=await BE.getFileBlob({...f,type});
+    const url=URL.createObjectURL(blob);
+    if(prev&&w){ w.location=url; } else { const a=document.createElement('a'); a.href=url; a.download=f.name; document.body.appendChild(a); a.click(); a.remove(); }
+    setTimeout(()=>URL.revokeObjectURL(url),120000);
+  }catch(e){ if(w) w.close(); toast(authMsg(e),true); }
+}
+async function addFolderPath(p){
+  p=S(p).split('/').map(x=>x.trim()).filter(Boolean).join('/'); if(!p) return '';
+  if(!allFolderPaths().includes(p)){ FL.folders=[...new Set([...FL.folders,p])]; try{ await BE.saveFolders(FL.folders); }catch(e){ toast(authMsg(e),true); } }
+  return p;
+}
+function uploadModal(){
+  const m=document.createElement('div'); m.className='modal'; m.id='fmodal';
+  m.innerHTML=`<div class="box"><h3>رفع ملفات</h3>
+   <div class="drop" id="up_drop"><p style="margin:0 0 8px">اسحب الملفات هنا أو اختارها</p><input type="file" id="up_files" multiple><div class="muted" style="margin-top:6px">أقصى حجم للملف الواحد ${fmtSize(FILE_MAX)}</div></div>
+   <div class="form2" style="margin-top:12px"><div><label>المجلد (اختياري — ممكن مسار زي: لوائح/سياسات)</label><input id="up_folder" list="up_fl" value="${esc(FL.sel)}"><datalist id="up_fl">${allFolderPaths().map(p=>`<option value="${esc(p)}">`).join('')}</datalist></div>
+   <div style="grid-column:1/-1"><label>وصف / كلمات للبحث (اختياري)</label><input id="up_desc"></div></div>
+   <div id="up_list" style="margin-top:12px"></div><div class="lerr" id="up_err"></div>
+   <div style="display:flex;gap:8px;margin-top:12px"><button class="btn pri" id="up_go" type="button" disabled>رفع</button><button class="btn" id="up_cancel" type="button">إغلاق</button></div></div>`;
+  document.body.appendChild(m);
+  let files=[];
+  const show=()=>{ $('up_list').innerHTML=files.map((f,i)=>`<div class="uprow"><span>${esc(f.name)} <span class="muted">${fmtSize(f.size)}</span></span><span id="upst${i}" class="${f.size>FILE_MAX?'bad':'muted'}">${f.size>FILE_MAX?'أكبر من الحد المسموح':'جاهز'}</span><div class="prog"><i id="uppg${i}"></i></div></div>`).join(''); $('up_go').disabled=!files.some(f=>f.size<=FILE_MAX); };
+  const add=l=>{ files=[...files,...l]; show(); };
+  $('up_files').onchange=e=>add([...e.target.files]);
+  const dr=$('up_drop'); ['dragover','dragenter'].forEach(ev=>dr.addEventListener(ev,e=>{ e.preventDefault(); dr.style.background='#eef3ff'; })); ['dragleave','drop'].forEach(ev=>dr.addEventListener(ev,e=>{ e.preventDefault(); dr.style.background=''; }));
+  dr.addEventListener('drop',e=>add([...e.dataTransfer.files]));
+  $('up_cancel').onclick=()=>m.remove();
+  $('up_go').onclick=async()=>{
+    $('up_go').disabled=true; $('up_err').textContent='';
+    const folder=await addFolderPath($('up_folder').value); const desc=$('up_desc').value.trim(); let ok=0,fail=0;
+    for(let i=0;i<files.length;i++){
+      const f=files[i]; if(f.size>FILE_MAX) continue; const st=$('upst'+i); st.textContent='جارٍ الرفع…';
+      try{ await BE.uploadFile(f,{folder,desc,tags:'',by:ME.uid,byName:ME.name||ME.email},p=>{ $('uppg'+i).style.width=Math.round(p*100)+'%'; }); st.textContent='تم ✓'; st.className='ok'; ok++; }
+      catch(e){ st.textContent=authMsg(e); st.className='bad'; fail++; }
+    }
+    $('up_err').innerHTML=ok?`<span class="ok">اترفع ${ok} ملف.</span>`:''; $('up_cancel').textContent='إغلاق';
+    if(ok){ try{ await filesLoad(); renderFilesParts(); }catch(e){} }
+  };
+}
+function editFileModal(f){
+  const m=document.createElement('div'); m.className='modal'; m.id='fmodal';
+  m.innerHTML=`<div class="box"><h3>تعديل بيانات الملف</h3><div class="form2">
+   <div><label>اسم الملف</label><input id="ef_name" value="${esc(f.name)}"></div>
+   <div><label>المجلد</label><input id="ef_folder" list="ef_fl" value="${esc(f.folder||'')}"><datalist id="ef_fl">${allFolderPaths().map(p=>`<option value="${esc(p)}">`).join('')}</datalist></div>
+   <div style="grid-column:1/-1"><label>الوصف / كلمات البحث</label><input id="ef_desc" value="${esc(f.desc||'')}"></div></div>
+   <div class="lerr" id="ef_err"></div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn pri" id="ef_save">حفظ</button><button class="btn" id="ef_cancel">إلغاء</button></div></div>`;
+  document.body.appendChild(m);
+  $('ef_cancel').onclick=()=>m.remove();
+  $('ef_save').onclick=async()=>{
+    const name=$('ef_name').value.trim(); if(!name){ $('ef_err').textContent='اكتب اسم الملف'; return; }
+    try{ const folder=await addFolderPath($('ef_folder').value); const patch={name,folder,desc:$('ef_desc').value.trim()}; await BE.updateFileMeta(f.id,patch); Object.assign(f,patch); delete f._h; m.remove(); renderFilesParts(); toast('تم الحفظ ✓'); }
+    catch(e){ $('ef_err').textContent=authMsg(e); }
+  };
+}
+document.addEventListener('click',async e=>{
+  if(CUR.mod!=='files') return; const t=e.target;
+  const g=s=>t.closest(s);
+  if(g('[data-ftab]')){ FL.tab=g('[data-ftab]').dataset.ftab; renderFilesShell(); return; }
+  if(g('[data-tg]')){ const p=g('[data-tg]').dataset.tg; FL.open.has(p)?FL.open.delete(p):FL.open.add(p); renderFilesParts(); return; }
+  if(g('[data-fsel]')){ const p=g('[data-fsel]').dataset.fsel; FL.sel=p; if(p) p.split('/').forEach((_,i,a)=>FL.open.add(a.slice(0,i+1).join('/'))); renderFilesParts(); return; }
+  if(g('[data-fopen]')){ fileOpen(g('[data-fopen]').dataset.fopen,false); return; }
+  if(g('[data-fdl]')){ fileOpen(g('[data-fdl]').dataset.fdl,true); return; }
+  if(g('[data-fedit]')){ const f=FL.files.find(x=>x.id===g('[data-fedit]').dataset.fedit); if(f) editFileModal(f); return; }
+  if(g('[data-fdel]')){ const f=FL.files.find(x=>x.id===g('[data-fdel]').dataset.fdel); if(f&&confirm(`حذف «${f.name}» نهائيًا؟`)){ try{ await BE.deleteFile(f); FL.files=FL.files.filter(x=>x!==f); renderFilesParts(); toast('تم الحذف'); }catch(er){ toast(authMsg(er),true); } } return; }
+  if(g('#fl_up')){ uploadModal(); return; }
+  if(g('#fl_reload')){ try{ await filesLoad(); renderFilesParts(); toast('تم التحديث'); }catch(er){ toast(authMsg(er),true); } return; }
+  if(g('#fl_newfolder')){ const p=prompt('اسم المجلد الجديد (ممكن مسار زي: لوائح/سياسات):'); if(p){ const x=await addFolderPath(p); if(x){ FL.sel=x; x.split('/').forEach((_,i,a)=>FL.open.add(a.slice(0,i+1).join('/'))); renderFilesParts(); } } return; }
+});
+document.addEventListener('input',e=>{ if(e.target.id==='fl_q'){ FL.q=e.target.value; renderFilesParts(); } });
+document.addEventListener('change',e=>{ if(e.target.id==='fl_sort'){ FL.sort=e.target.value; renderFilesParts(); } });
+
+/* =====================================================================
    الغلاف العام + المديولات
    ===================================================================== */
 const ENABLE_INSURANCE=true;
@@ -1007,6 +1351,7 @@ let BE=null, ME=null, CUR={mod:null,sub:null};
 const PERM = {
   hiring:{label:'أوراق تعيين الموظف',acts:{acks:'الإقرارات (أولها إيصال استلام المسوغات)',kin:'إقرار صلات القرابة',contract:'عقد العمل',policy:'سياسة الدوام'}},
   insurance:{label:'مستندات التأمينات الاجتماعية',acts:{report:'الجدول الأساسي (عرض)',s1:'استمارة 1 (طلب اشتراك)',s6:'استمارة 6 (إخطار انتهاء اشتراك)',edit:'تعديل الجدول والإعدادات',import:'استيراد ملف الموظفين'}},
+  files:{label:'مصادر موارد بشرية',acts:{view:'عرض وبحث وتحميل الملفات',upload:'رفع ملفات ومجلدات',manage:'تعديل بيانات الملفات وحذفها'}},
   resign:{label:'أوراق الاستقالة',acts:{rq:'طلب استقالة',rf:'نموذج الوزارة',er:'إنهاء علاقة العمل بالتوافق',ho:'الاستلام والتسليم',cl:'إخلاء طرف'}}
 };
 if(!ENABLE_INSURANCE) delete PERM.insurance;
@@ -1014,6 +1359,7 @@ const ICONS={
   hiring:'<svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M10 12h5M10 15.5h5M10 8.5h2"/></svg>',
   insurance:'<svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg>',
   resign:'<svg viewBox="0 0 24 24"><path d="M14 4h5v16h-5"/><path d="M4 12h10M9 7l-5 5 5 5"/></svg>',
+  files:'<svg viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 014.5 5H9l2 2.5h8.5A1.5 1.5 0 0121 9v8.5a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 17.5z"/><circle cx="14.5" cy="13" r="2.2"/><path d="M16.2 14.7l1.8 1.8"/></svg>',
   users:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17.5" cy="9" r="2.4"/><path d="M17 14.2c2.4.2 4 2 4 4.8"/></svg>'
 };
 const MODS={
@@ -1021,6 +1367,7 @@ const MODS={
   insurance:{title:'مستندات التأمينات الاجتماعية',color:'linear-gradient(135deg,#2f80ed,#1c4fa0)',
     subs:[['report','الجدول الأساسي','report'],['s1','استمارة 1','s1'],['s6','استمارة 6','s6'],['import','استيراد الموظفين','import'],['settings','الإعدادات','edit']]},
   resign:{title:'أوراق الاستقالة',color:'linear-gradient(135deg,#f2994a,#c96a12)',subs:null},
+  files:{title:'مصادر موارد بشرية',color:'linear-gradient(135deg,#9b51e0,#5b2a99)',subs:null},
   users:{title:'إدارة المستخدمين',color:'linear-gradient(135deg,#27ae60,#17703c)',subs:null,admin:true}
 };
 const can = (m,a)=>!!ME && (ME.isAdmin || (((ME.access||{})[m])||[]).includes(a));
@@ -1392,7 +1739,7 @@ function openModule(m,sub){
   $('home').hidden=true; $('mod').hidden=false; CUR.mod=m; $('modTitle').textContent=MODS[m].title;
   const subs=MODS[m].subs?MODS[m].subs.filter(s=>can(m,s[2])):[];
   $('subnav').innerHTML=subs.map(s=>`<a data-sub="${s[0]}" href="#/${m}/${s[0]}">${s[1]}</a>`).join('');
-  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='users') mountUsers();
+  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='files') mountFiles(); else if(m==='users') mountUsers();
   window.scrollTo(0,0);
 }
 function route(){
