@@ -260,7 +260,7 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
 .hgrp{width:100%;text-align:center;color:#fff;opacity:.85;font-weight:700;font-size:14px;margin:6px 0 -14px;letter-spacing:.3px}
 #home{flex-direction:column;flex-wrap:nowrap;align-items:center;justify-content:center;align-content:center;gap:24px;padding:28px 20px}
 #home .hgroup{display:flex;flex-direction:column;align-items:center;gap:12px}
-#home .hrow{display:flex;flex-wrap:wrap;justify-content:center;gap:16px 20px;max-width:640px}
+#home .hrow{display:flex;flex-wrap:wrap;justify-content:center;gap:18px 20px;max-width:610px}
 #home .hgrp{width:auto;margin:0;font-size:13px}
 #home .app{width:104px;font-size:12.5px;line-height:1.4}
 #home .app .ic{width:58px;height:58px;border-radius:15px;margin:0 auto 7px;box-shadow:0 4px 12px rgba(0,0,0,.3)}
@@ -2580,13 +2580,12 @@ function admCall(fn,...a){
 }
 
 /* ---------------- الموجّه / الشاشة الرئيسية ---------------- */
-const GROUPS=[['الموارد البشرية',['hiring','insurance','resign']],['الشؤون الإدارية',['housing','cars','buffet','stationery','tasks','forms']],['النظام',['users']]];
+const HOME_ORDER=['hiring','insurance','resign','housing','cars','tasks','forms','users','buffet','stationery'];
 function showHome(){
   CUR={mod:null,sub:null}; $('mod').hidden=true; $('adm').hidden=true; $('home').hidden=false; $('subnav').innerHTML=''; $('modTitle').textContent='أوباك — الموارد البشرية والشؤون الإدارية';
-  const apps=Object.keys(MODS).filter(canMod);
+  const apps=HOME_ORDER.filter(k=>MODS[k]&&canMod(k));
   const tile=m=>`<a class="app" href="#/${m}" tabindex="0"><div class="ic" style="background:${MODS[m].color}">${ICONS[m]}</div>${MODS[m].title}</a>`;
-  let h=''; GROUPS.forEach(([t,ks])=>{ const a=ks.filter(k=>apps.includes(k)); if(a.length) h+=`<div class="hgroup"><div class="hgrp">${t}</div><div class="hrow">${a.map(tile).join('')}</div></div>`; });
-  $('home').innerHTML=h||'<div id="homeEmpty">مفيش مديولات متاحة لحسابك. كلّم مسؤول النظام.</div>';
+  $('home').innerHTML=apps.length?`<div class="hgroup"><div class="hrow">${apps.map(tile).join('')}</div></div>`:'<div id="homeEmpty">مفيش مديولات متاحة لحسابك. كلّم مسؤول النظام.</div>';
 }
 function openModule(m,sub){
   if(!MODS[m]||!canMod(m)){ location.hash='#/'; return; }
