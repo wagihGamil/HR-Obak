@@ -243,6 +243,13 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
 #mod{overflow-x:hidden}
 
 
+
+.pick input[type=radio],.pick input[type=checkbox],.pick input[type=number]{min-width:0;width:auto}
+.pick .sep{width:1px;height:22px;background:#c3c6cf;margin:0 4px}
+#ins_att{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.selbox{max-height:52vh;overflow:auto;border:1.5px solid var(--line);border-radius:8px;margin-top:8px}
+.selbox label{display:flex;gap:8px;align-items:center;padding:5px 10px;border-bottom:1px solid #eee;font-size:13.5px;cursor:pointer}
+.selbox label:hover{background:#f4f5f8}
 /* ===== مجموعات الشاشة الرئيسية ===== */
 .hgrp{width:100%;text-align:center;color:#fff;opacity:.85;font-weight:700;font-size:14px;margin:6px 0 -14px;letter-spacing:.3px}
 #home{flex-direction:column;flex-wrap:nowrap;align-items:center;justify-content:center;align-content:center;gap:24px;padding:28px 20px}
@@ -371,14 +378,32 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
       <!-- تأمينات: استمارات -->
       <div id="pn_ins" hidden>
         <div class="pick">
-          <b>الموظف:</b>
-          <button class="btn" type="button" id="e_next" title="الموظف التالي">›</button>
-          <input id="emp_pick" list="emp_dl" placeholder="اكتب الكود أو الاسم أو الرقم القومي واختار…" autocomplete="off">
-          <button class="btn" type="button" id="e_prev" title="الموظف السابق">‹</button>
-          <datalist id="emp_dl"></datalist>
-          <label>عدد النسخ <input type="number" id="c_ins" min="1" max="9" value="1" style="width:56px;font:inherit;padding:4px 6px;border:1.5px solid #c3c6cf;border-radius:6px"></label>
+          <b>الطباعة:</b>
+          <label><input type="radio" name="ins_mode" value="one" checked> موظف واحد</label>
+          <label><input type="radio" name="ins_mode" value="sel"> موظفين محددين</label>
+          <label><input type="radio" name="ins_mode" value="all"> كل الموظفين</label>
+          <span class="sep"></span>
+          <span id="ins_one" style="display:contents">
+            <button class="btn" type="button" id="e_next" title="الموظف التالي">›</button>
+            <input id="emp_pick" list="emp_dl" placeholder="اكتب الكود أو الاسم أو الرقم القومي واختار…" autocomplete="off">
+            <button class="btn" type="button" id="e_prev" title="الموظف السابق">‹</button>
+            <datalist id="emp_dl"></datalist>
+          </span>
+          <button class="btn" type="button" id="ins_selbtn" hidden>اختيار الموظفين (0)</button>
+          <span id="ins_allinfo" class="muted" hidden></span>
+        </div>
+        <div class="pick" style="margin-top:8px">
+          <label>عدد النسخ لكل موظف <input type="number" id="c_ins" min="1" max="9" value="1" style="width:56px;font:inherit;padding:4px 6px;border:1.5px solid #c3c6cf;border-radius:6px"></label>
           <span class="sp"></span><span class="cnt" id="cnt_i"></span>
           <button class="pbtn" type="button">طباعة الاستمارة</button>
+        </div>
+        <div class="pick" id="ins_att">
+          <label title="بيدوّر في الفولدر على ملف باسم كود الموظف (PDF أو صورة) ويطبعه بعد الاستمارة"><input type="checkbox" id="att_on"> طباعة مرفقات الموظف (شهادة الميلاد، المؤهل، البطاقة…)</label>
+          <button class="btn" type="button" id="att_pick">اختيار فولدر المرفقات</button>
+          <button class="btn" type="button" id="att_saved" hidden></button>
+          <input type="file" id="att_dir" webkitdirectory multiple hidden>
+          <label>نسخ المرفقات <input type="number" id="c_att" min="1" max="9" value="1" style="width:56px;font:inherit;padding:4px 6px;border:1.5px solid #c3c6cf;border-radius:6px"></label>
+          <span id="att_status" class="muted"></span>
         </div>
         <div class="note" id="ins_note"></div>
       </div>
@@ -2077,18 +2102,144 @@ async function mountInsurance(sub){
     if(CUR.sub!==sub) return;
     $('emp_dl').innerHTML=INS.rows.map(r=>`<option value="${esc(rowLabel(r))}">`).join('');
     const cur=INS.sel&&findRow(INS.sel); $('emp_pick').value=cur?rowLabel(cur):'';
-    renderInsForm();
+    attInit(); renderInsForm();
   }
 }
-function renderInsForm(){
-  const key=CUR.sub; const row=INS.sel?findRow(INS.sel):null; const rec=row?buildRec(row,INS.defs):null;
-  const n=Math.max(1,Math.min(9,+$('c_ins').value||1)); const out=[];
-  for(let i=0;i<n;i++) out.push(...xfPages(key,rec));
-  renderSheets(out,'cnt_i',false);
+/* ---- طباعة التأمينات: موظف / محددين / الكل + المرفقات ---- */
+INS.mode='one'; INS.multi=new Set(); INS.att={on:false,files:null,dirName:'',cache:new Map(),handle:null}; INS.busy=false;
+let insTok=0;
+const insTargets=()=>{ if(INS.mode==='all') return INS.rows; if(INS.mode==='sel') return INS.rows.filter(r=>INS.multi.has(r.code)); const r=INS.sel&&findRow(INS.sel); return r?[r]:[]; };
+const attNorm = s => arDigits(String(s==null?'':s)).trim().toLowerCase();
+function attFind(code){
+  const m=INS.att.files; if(!m) return null; const c=attNorm(code); if(!c) return null;
+  if(m.has(c)) return m.get(c);
+  for(const [k,v] of m){ if(k.startsWith(c) && /^[\s_\-().]/.test(k.slice(c.length))) return v; }
+  return null;
+}
+let PDFP=null;
+function loadPDFJS(){
+  if(window.pdfjsLib) return Promise.resolve();
+  return PDFP||(PDFP=new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload=()=>{ window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; res(); };
+    s.onerror=()=>{ PDFP=null; rej({message:'تعذّر تحميل مكتبة قراءة PDF — تأكد من الإنترنت'}); }; document.head.appendChild(s); }));
+}
+const canvasBlob=(cv)=>new Promise(r=>cv.toBlob(r,'image/jpeg',0.85));
+async function attPages(code){
+  if(INS.att.cache.has(code)) return INS.att.cache.get(code);
+  const ent=attFind(code); let urls=null;
+  if(ent){
+    const f=await ent.get(); const ext=(f.name.split('.').pop()||'').toLowerCase();
+    if(ext==='pdf'){
+      await loadPDFJS();
+      const pdf=await window.pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise; urls=[];
+      for(let p=1;p<=pdf.numPages;p++){
+        const pg=await pdf.getPage(p); const v1=pg.getViewport({scale:1}); const sc=Math.min(3,1500/Math.max(v1.width,v1.height)*1.0);
+        const vp=pg.getViewport({scale:sc}); const cv=document.createElement('canvas'); cv.width=Math.round(vp.width); cv.height=Math.round(vp.height);
+        const cx=cv.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,cv.width,cv.height);
+        await pg.render({canvasContext:cx,viewport:vp}).promise; urls.push(URL.createObjectURL(await canvasBlob(cv))); cv.width=cv.height=0;
+      }
+      try{ await pdf.destroy(); }catch(e){}
+    } else urls=[URL.createObjectURL(f)];
+  }
+  INS.att.cache.set(code,urls); return urls;
+}
+function attClear(){ INS.att.cache.forEach(u=>(u||[]).forEach(x=>{ try{ URL.revokeObjectURL(x); }catch(e){} })); INS.att.cache=new Map(); }
+function attStatus(){
+  const a=INS.att; $('att_status').textContent = a.files ? `الفولدر: ${a.dirName||'—'} — ${a.files.size} ملف` : 'لسه ماختارتش فولدر';
+}
+const ATT_EXT=/\.(pdf|jpe?g|png)$/i;
+async function attScan(dirHandle,files,depth){
+  for await (const [name,h] of dirHandle.entries()){
+    if(h.kind==='file'){ if(ATT_EXT.test(name)){ const k=attNorm(name.replace(/\.[^.]+$/,'')); if(!files.has(k)) files.set(k,{get:()=>h.getFile()}); } }
+    else if(depth<3) await attScan(h,files,depth+1);
+  }
+}
+async function attUseHandle(h,save){
+  const files=new Map(); await attScan(h,files,0);
+  attClear(); INS.att.files=files; INS.att.dirName=h.name; INS.att.handle=h; attStatus();
+  if(save){ try{ await idbSet('attDir',h); }catch(e){} }
+  $('att_saved').hidden=true; if(!$('att_on').checked){ $('att_on').checked=true; INS.att.on=true; }
+  renderInsForm();
+}
+function attUseFileList(list){
+  const files=new Map(); [...list].forEach(f=>{ if(ATT_EXT.test(f.name)){ const k=attNorm(f.name.replace(/\.[^.]+$/,'')); if(!files.has(k)) files.set(k,{get:async()=>f}); } });
+  attClear(); INS.att.files=files; INS.att.handle=null;
+  const p=(list[0]&&list[0].webkitRelativePath||'').split('/')[0]; INS.att.dirName=p||'';
+  attStatus(); if(!$('att_on').checked){ $('att_on').checked=true; INS.att.on=true; } renderInsForm();
+}
+/* IndexedDB صغير لحفظ الفولدر المختار */
+function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open('obak_hr',1); r.onupgradeneeded=()=>r.result.createObjectStore('kv'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function idbSet(k,v){ const d=await idbOpen(); return new Promise((res,rej)=>{ const t=d.transaction('kv','readwrite'); t.objectStore('kv').put(v,k); t.oncomplete=()=>res(); t.onerror=()=>rej(t.error); }); }
+async function idbGet(k){ const d=await idbOpen(); return new Promise((res,rej)=>{ const t=d.transaction('kv'); const q=t.objectStore('kv').get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); }
+async function attInit(){
+  insModeUI(); attStatus();
+  if(INS.att.files||!window.showDirectoryPicker) return;
+  try{ const h=await idbGet('attDir'); if(h){ INS.att.saved=h; const b=$('att_saved'); b.textContent='استخدم الفولدر المحفوظ: '+h.name; b.hidden=false; } }catch(e){}
+}
+async function attPick(){
+  if(window.showDirectoryPicker){
+    try{ const h=await window.showDirectoryPicker({mode:'read'}); await attUseHandle(h,true); }catch(e){ if(e&&e.name!=='AbortError') toast('تعذّر فتح الفولدر: '+(e.message||e),true); }
+  } else $('att_dir').click();
+}
+async function attUseSaved(){
+  const h=INS.att.saved; if(!h) return;
+  try{ let p=await h.queryPermission({mode:'read'}); if(p!=='granted') p=await h.requestPermission({mode:'read'});
+    if(p!=='granted'){ toast('لازم تسمح بالوصول للفولدر',true); return; } await attUseHandle(h,false); }
+  catch(e){ toast('تعذّر فتح الفولدر المحفوظ — اختاره من جديد',true); }
+}
+function insModeUI(){
+  $('ins_one').hidden=INS.mode!=='one'; $('ins_selbtn').hidden=INS.mode!=='sel'; $('ins_allinfo').hidden=INS.mode!=='all';
+  $('ins_selbtn').textContent=`اختيار الموظفين (${INS.multi.size})`;
+  $('ins_allinfo').textContent=`كل الموظفين (${INS.rows.length})`;
+  document.querySelectorAll('input[name=ins_mode]').forEach(x=>x.checked=x.value===INS.mode);
+}
+function insSelModal(){
+  const m=document.createElement('div'); m.className='modal'; m.id='selmodal';
+  m.innerHTML=`<div class="box"><h3>اختيار الموظفين للطباعة</h3>
+    <div class="tb"><input type="search" id="sm_q" placeholder="بحث بالكود أو الاسم…" style="flex:1;min-width:200px">
+      <button class="btn sm" type="button" id="sm_all">تحديد كل الظاهر</button><button class="btn sm" type="button" id="sm_none">إلغاء التحديد</button><span class="muted" id="sm_cnt"></span></div>
+    <div class="selbox" id="sm_list"></div>
+    <div style="display:flex;gap:8px;margin-top:12px"><button class="btn pri" type="button" id="sm_ok">تم</button></div></div>`;
+  document.body.appendChild(m);
+  const draw=()=>{ const q=attNorm($('sm_q').value); const rows=INS.rows.filter(r=>!q||attNorm(rowLabel(r)+' '+S(r.nid)).includes(q));
+    $('sm_list').innerHTML=rows.slice(0,800).map(r=>`<label><input type="checkbox" data-c="${esc(r.code)}" ${INS.multi.has(r.code)?'checked':''}> ${esc(rowLabel(r))}</label>`).join('')+(rows.length>800?'<div class="muted" style="padding:8px">اكتب في البحث لتضييق القائمة…</div>':'')||'<div class="muted" style="padding:8px">لا نتائج</div>';
+    $('sm_cnt').textContent=`المحدد: ${INS.multi.size}`; m._rows=rows; };
+  draw();
+  m.addEventListener('input',e=>{ if(e.target.id==='sm_q') draw(); });
+  m.addEventListener('change',e=>{ const c=e.target.dataset&&e.target.dataset.c; if(c!==undefined){ e.target.checked?INS.multi.add(c):INS.multi.delete(c); $('sm_cnt').textContent=`المحدد: ${INS.multi.size}`; } });
+  $('sm_all').onclick=()=>{ (m._rows||[]).forEach(r=>INS.multi.add(r.code)); draw(); };
+  $('sm_none').onclick=()=>{ INS.multi.clear(); draw(); };
+  $('sm_ok').onclick=()=>{ m.remove(); insModeUI(); renderInsForm(); };
+}
+async function renderInsForm(){
+  const tok=++insTok; const key=CUR.sub; const n=Math.max(1,Math.min(9,+$('c_ins').value||1));
+  const natt=Math.max(1,Math.min(9,+$('c_att').value||1));
+  const targets=insTargets(); const list=targets.length?targets:[null];
+  const base=list.map(row=>{ const rec=row?buildRec(row,INS.defs):null; const pages=[]; for(let i=0;i<n;i++) pages.push(...xfPages(key,rec)); return {row,pages}; });
+  INS.att.on=$('att_on').checked; const useAtt=INS.att.on && !!INS.att.files && targets.length>0;
   let note=`البيانات بتتسحب من «الجدول الأساسي» (${INS.rows.length} موظف). `;
   if(!INS.rows.length) note='مفيش موظفين لسه — ارفع ملف الموظفين من «استيراد الموظفين». ';
-  if(row){ const job=S(rec['المهنة']).trim(); if(job&&!PROFMAP.has(job)) note+=`<b class="bad">تنبيه: المهنة «${esc(job)}» مش موجودة في جدول أكواد المهن فكود المهنة هيطلع فاضي.</b>`;
-    if(!rec['الرقم التأميني']) note+=` <b class="bad">الرقم التأميني فاضي.</b>`; }
+  if(INS.mode==='one'){ const row=targets[0]; if(row){ const rec=buildRec(row,INS.defs); const job=S(rec['المهنة']).trim(); if(job&&!PROFMAP.has(job)) note+=`<b class="bad">تنبيه: المهنة «${esc(job)}» مش موجودة في جدول أكواد المهن فكود المهنة هيطلع فاضي.</b>`;
+    if(!rec['الرقم التأميني']) note+=` <b class="bad">الرقم التأميني فاضي.</b>`; } }
+  else note+=`هيتطبع ${targets.length} موظف × ${n} نسخة. `;
+  if(INS.att.on && !INS.att.files) note+='<b class="bad">اختار فولدر المرفقات الأول.</b> ';
+  if(!useAtt){ INS.busy=false; renderSheets(base.flatMap(b=>b.pages),'cnt_i',false); $('ins_note').innerHTML=note; return; }
+  // مع المرفقات: تجهيز غير متزامن
+  INS.busy=true; $('sheets').innerHTML='<div class="card muted" style="width:210mm;max-width:96%;margin:14px auto">جارٍ تجهيز المرفقات…</div>';
+  const full=[], missing=[], failed=[]; let i=0;
+  for(const b of base){
+    full.push(...b.pages);
+    if(b.row){
+      $('att_status').textContent=`جارٍ تجهيز المرفقات ${++i} / ${base.length}…`;
+      let urls=null; try{ urls=await attPages(b.row.code); }catch(e){ failed.push(b.row.code); }
+      if(tok!==insTok) return;
+      if(urls&&urls.length){ for(let c=0;c<natt;c++) urls.forEach(u=>full.push(fitPage(u))); } else if(!failed.includes(b.row.code)) missing.push(b.row.code);
+    }
+  }
+  if(tok!==insTok) return;
+  INS.busy=false; attStatus(); renderSheets(full,'cnt_i',false);
+  if(missing.length) note+=`<b class="bad">مفيش ملف مرفقات لـ ${missing.length} موظف: ${esc(missing.slice(0,25).join('، '))}${missing.length>25?' …':''}</b> `;
+  if(failed.length) note+=`<b class="bad">تعذّر قراءة مرفقات: ${esc(failed.slice(0,15).join('، '))}</b>`;
   $('ins_note').innerHTML=note;
 }
 function pickEmp(){
@@ -2406,7 +2557,7 @@ document.addEventListener('click',e=>{
   if(t.closest('#appsBtn')) location.hash='#/';
   const pb=t.closest('.pbtn'); if(pb){
     if(CUR.mod==='hiring'){ const bad=[]; if(!V.name) bad.push('الاسم'); if(V.nid.length!==14) bad.push('الرقم القومي (14 رقم)'); if(bad.length && !confirm('ناقص: '+bad.join('، ')+'\nتكمل الطباعة كده؟')) return; }
-    if(CUR.mod==='insurance' && !INS.sel && !confirm('لسه ماختارتش موظف — هتتطبع الاستمارة فاضية. تكمل؟')) return;
+    if(CUR.mod==='insurance'){ if(INS.busy){ toast('استنى لحد ما يخلص تجهيز المرفقات',true); return; } if(!insTargets().length && !confirm('لسه ماختارتش موظف — هتتطبع الاستمارة فاضية. تكمل؟')) return; }
     resetScale(); setTimeout(()=>window.print(),50);
   }
   const cb=t.closest('.cb'); if(cb){ const r=+cb.dataset.r,c=+cb.dataset.c; if(CK[r]===c) delete CK[r]; else CK[r]=c;
@@ -2417,6 +2568,9 @@ document.addEventListener('click',e=>{
   if(t.closest('#st_save')) saveSettingsUI();
   if(t.closest('#imp_go')) runImport();
   if(t.closest('#e_next')) stepEmp(1); if(t.closest('#e_prev')) stepEmp(-1);
+  if(t.closest('#ins_selbtn')) insSelModal();
+  if(t.closest('#att_pick')) attPick();
+  if(t.closest('#att_saved')) attUseSaved();
   if(t.closest('#u_new')) userModal(null);
   if(t.closest('#mg_go')) runMigrate();
   const ue=t.closest('[data-uedit]'); if(ue) userModal(USERS.find(x=>x.uid===ue.dataset.uedit));
@@ -2436,7 +2590,9 @@ document.addEventListener('change',e=>{
   const t=e.target;
   if(['c_ak','c_kn','c_ct','c_po','k_dx'].includes(t.id)) buildHiring();
   if(['r_rq','r_rf','r_er','r_ho','r_cl','k_dx_r'].includes(t.id)) buildResign();
-  if(t.id==='c_ins') renderInsForm();
+  if(t.id==='c_ins'||t.id==='c_att'||t.id==='att_on') renderInsForm();
+  if(t.name==='ins_mode'){ INS.mode=t.value; insModeUI(); renderInsForm(); }
+  if(t.id==='att_dir'&&t.files.length){ attUseFileList(t.files); t.value=''; }
   if(t.id==='emp_pick') pickEmp();
   if(t.id==='imp_file' && t.files[0]) onImportFile(t.files[0]);
   if(t.matches&&t.matches('td select[data-x]')) saveCell(t);
