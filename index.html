@@ -250,6 +250,12 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
 .selbox{max-height:52vh;overflow:auto;border:1.5px solid var(--line);border-radius:8px;margin-top:8px}
 .selbox label{display:flex;gap:8px;align-items:center;padding:5px 10px;border-bottom:1px solid #eee;font-size:13.5px;cursor:pointer}
 .selbox label:hover{background:#f4f5f8}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px;margin-top:6px}
+.fcard{border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;background:#fff;display:flex;flex-direction:column;gap:8px;border-top:4px solid var(--red)}
+.fcard .ft{font-weight:700;font-size:15px;color:var(--navy)}
+.fcard .fd{font-size:13px;color:var(--mut);line-height:1.6}
+.fcard .fb{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
+.fcard a.btn{text-decoration:none;display:inline-block}
 /* ===== مجموعات الشاشة الرئيسية ===== */
 .hgrp{width:100%;text-align:center;color:#fff;opacity:.85;font-weight:700;font-size:14px;margin:6px 0 -14px;letter-spacing:.3px}
 #home{flex-direction:column;flex-wrap:nowrap;align-items:center;justify-content:center;align-content:center;gap:24px;padding:28px 20px}
@@ -1678,7 +1684,10 @@ const LocalBackend = {
   async saveEmployees(rows,onProgress){ LS.set('demo_emps',rows); onProgress&&onProgress(1); },
   async updateEmployee(row){ const r=LS.get('demo_emps',[]); const i=r.findIndex(x=>x.code===row.code); if(i>=0){ r[i]=row; LS.set('demo_emps',r);} },
   async loadSettings(){ return LS.get('demo_settings',{}); },
-  async saveSettings(s){ LS.set('demo_settings',s); }
+  async saveSettings(s){ LS.set('demo_settings',s); },
+  async listForms(){ const all=LS.get('demo_forms',[]); const acc=((ME.access||{}).forms)||[]; return (ME.isAdmin||acc.includes('*'))?all:all.filter(f=>acc.includes(f.id)); },
+  async saveForm(id,data){ const all=LS.get('demo_forms',[]); if(id){ const i=all.findIndex(f=>f.id===id); if(i>=0) all[i]={...all[i],...data}; } else all.push({id:'f'+Date.now(),...data}); LS.set('demo_forms',all); },
+  async deleteForm(id){ LS.set('demo_forms',LS.get('demo_forms',[]).filter(f=>f.id!==id)); }
 };
 
 /* ---------------- Firebase ---------------- */
@@ -1756,7 +1765,14 @@ const FirebaseBackend = {
     });
   },
   async loadSettings(){ const {Fs}=this.S; const s=await Fs.getDoc(Fs.doc(this.db,'settings','insurance')); return s.exists()?s.data():{}; },
-  async saveSettings(v){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(this.db,'settings','insurance'),v); }
+  async saveSettings(v){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(this.db,'settings','insurance'),v); },
+  async listForms(){
+    const {Fs}=this.S; const acc=((ME.access||{}).forms)||[];
+    if(ME.isAdmin||acc.includes('*')){ const s=await Fs.getDocs(Fs.collection(this.db,'workForms')); return s.docs.map(d=>({id:d.id,...d.data()})); }
+    const out=[]; await Promise.all(acc.map(async id=>{ try{ const d=await Fs.getDoc(Fs.doc(this.db,'workForms',id)); if(d.exists()) out.push({id:d.id,...d.data()}); }catch(e){} })); return out;
+  },
+  async saveForm(id,data){ const {Fs}=this.S; if(id) await Fs.setDoc(Fs.doc(this.db,'workForms',id),data,{merge:true}); else await Fs.addDoc(Fs.collection(this.db,'workForms'),{...data,createdAt:Date.now()}); },
+  async deleteForm(id){ const {Fs}=this.S; await Fs.deleteDoc(Fs.doc(this.db,'workForms',id)); }
 };
 
 /* =====================================================================
@@ -1942,7 +1958,8 @@ const PERM = {
   cars:{label:'خطوط سير نقل الموظفين',acts:{view:'دخول المديول (عرض)'}},
   buffet:{label:'البوفيه',acts:{view:'دخول المديول (عرض + تسجيل المنصرف)'}},
   stationery:{label:'الأدوات المكتبية',acts:{view:'دخول المديول (عرض + تسجيل المنصرف)'}},
-  tasks:{label:'المهام',acts:{view:'دخول المديول (المهام المسندة له)'}}
+  tasks:{label:'المهام',acts:{view:'دخول المديول (المهام المسندة له)'}},
+  forms:{label:'نماذج العمل',acts:{'*':'كل النماذج (حتى اللي تتضاف بعدين)'}}
 };
 if(!ENABLE_INSURANCE) delete PERM.insurance;
 const ICONS={
@@ -1954,7 +1971,8 @@ const ICONS={
   cars:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M3 11h18M7 17v2M17 17v2"/><circle cx="7.5" cy="14" r=".8"/><circle cx="16.5" cy="14" r=".8"/></svg>',
   buffet:'<svg viewBox="0 0 24 24"><path d="M5 9h12v6a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4z"/><path d="M17 11h1.5a2.5 2.5 0 0 1 0 5H17"/><path d="M8 3v3M11 3v3M14 3v3"/></svg>',
   stationery:'<svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/></svg>',
-  tasks:'<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M8 4v-1M16 4v-1M8 11l2 2 4-4M8 17h8"/></svg>'
+  tasks:'<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M8 4v-1M16 4v-1M8 11l2 2 4-4M8 17h8"/></svg>',
+  forms:'<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/><circle cx="7" cy="8" r=".6"/><circle cx="7" cy="12" r=".6"/><circle cx="7" cy="16" r=".6"/></svg>'
 };
 const MODS={
   hiring:{title:'أوراق تعيين الموظف',color:'linear-gradient(135deg,#e5383b,#a80f15)',subs:null},
@@ -1966,6 +1984,7 @@ const MODS={
   buffet:{title:'البوفيه',color:'linear-gradient(135deg,#e5383b,#a80f15)',subs:null,adm:true},
   stationery:{title:'الأدوات المكتبية',color:'linear-gradient(135deg,#17a2b8,#0e6a7a)',subs:null,adm:true},
   tasks:{title:'المهام',color:'linear-gradient(135deg,#d35cc0,#8a2f7c)',subs:null,adm:true},
+  forms:{title:'نماذج العمل',color:'linear-gradient(135deg,#f2b705,#b88300)',subs:null},
   users:{title:'إدارة المستخدمين',color:'linear-gradient(135deg,#27ae60,#17703c)',subs:null,admin:true}
 };
 const can = (m,a)=>!!ME && (ME.isAdmin || (((ME.access||{})[m])||[]).includes(a));
@@ -2389,7 +2408,7 @@ async function exportReport(){
 let USERS=[];
 async function mountUsers(){
   setLayout({view:true}); $('view').innerHTML='<div class="card muted">جارٍ التحميل…</div>';
-  try{ USERS=await BE.listUsers(); }catch(e){ $('view').innerHTML=`<div class="card bad">${esc(authMsg(e))}</div>`; return; }
+  try{ USERS=await BE.listUsers(); await syncFormsPerm(); }catch(e){ $('view').innerHTML=`<div class="card bad">${esc(authMsg(e))}</div>`; return; }
   renderUsers();
 }
 function userAccessTags(u){
@@ -2487,6 +2506,69 @@ function userModal(u){
   };
 }
 
+/* ---------------- مديول: نماذج العمل ---------------- */
+let WFORMS=[];
+const fSort=(a,b)=>((+a.ord||0)-(+b.ord||0))||String(a.title).localeCompare(String(b.title),'ar');
+async function syncFormsPerm(){
+  let list=[]; try{ list=await BE.listForms(); }catch(e){}
+  const acts={'*':'كل النماذج (حتى اللي تتضاف بعدين)'}; list.slice().sort(fSort).forEach(f=>{ acts[f.id]=f.title; });
+  PERM.forms.acts=acts;
+}
+function fEmbed(u){ try{ const x=new URL(u); if(x.hostname==='docs.google.com'&&x.pathname.startsWith('/forms/')){ x.searchParams.set('embedded','true'); return x.href; } }catch(e){} return ''; }
+async function mountForms(){
+  setLayout({view:true}); $('view').innerHTML='<div class="card muted">جارٍ التحميل…</div>';
+  try{ WFORMS=await BE.listForms(); }catch(e){ $('view').innerHTML=`<div class="card bad">${esc(authMsg(e))}</div>`; return; }
+  renderForms();
+}
+function renderForms(q){
+  q=(q||'').trim().toLowerCase(); const adm=!!ME.isAdmin;
+  const list=WFORMS.slice().sort(fSort).filter(f=>!q||(f.title+' '+(f.desc||'')).toLowerCase().includes(q));
+  $('view').innerHTML=`<div class="card"><div class="tb"><h2 style="margin:0">نماذج العمل</h2><input type="search" id="f_q" placeholder="بحث في النماذج…" value="${esc(q)}">
+    <span class="sp" style="flex:1"></span>${adm?'<button class="btn pri" id="f_new" type="button">+ نموذج جديد</button>':''}</div>
+    ${list.length?`<div class="fgrid">${list.map(f=>`<div class="fcard"><div class="ft">${esc(f.title)}</div>${f.desc?`<div class="fd">${esc(f.desc)}</div>`:''}
+      <div class="fb"><a class="btn pri sm" href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">فتح النموذج</a>
+      ${fEmbed(f.url)?`<button class="btn sm" type="button" data-fview="${esc(f.id)}">عرض داخل الصفحة</button>`:''}
+      ${adm?`<button class="btn sm" type="button" data-fedit="${esc(f.id)}">تعديل</button><button class="btn sm" type="button" data-fdel="${esc(f.id)}">حذف</button>`:''}</div></div>`).join('')}</div>`
+    :`<div class="muted" style="padding:20px;text-align:center">${adm?'لسه مفيش نماذج — اضغط «+ نموذج جديد» وحط لينك نموذج جوجل.':(WFORMS.length?'مفيش نتائج.':'مفيش نماذج متاحة لحسابك.')}</div>`}
+    ${adm?'<div class="note">من «إدارة المستخدمين» تقدر تحدد لكل مستخدم أي نماذج يشوفها (أو «كل النماذج»). الصلاحية بتتفرض من قاعدة البيانات نفسها.</div>':''}</div>`;
+}
+function formModal(f){
+  const isNew=!f; f=f||{title:'',url:'',desc:'',ord:(WFORMS.reduce((m,x)=>Math.max(m,+x.ord||0),0)+1)};
+  const m=document.createElement('div'); m.className='modal'; m.id='fmodal';
+  m.innerHTML=`<div class="box" style="width:min(560px,100%)"><h3>${isNew?'نموذج جديد':'تعديل النموذج'}</h3>
+   <div class="form2" style="grid-template-columns:1fr">
+    <div><label>اسم النموذج</label><input id="fm_title" value="${esc(f.title)}"></div>
+    <div><label>لينك النموذج (Google Forms)</label><input id="fm_url" type="url" dir="ltr" style="text-align:right" placeholder="https://forms.gle/…  أو  https://docs.google.com/forms/…" value="${esc(f.url)}"></div>
+    <div><label>وصف (اختياري)</label><input id="fm_desc" value="${esc(f.desc||'')}"></div>
+    <div><label>الترتيب (رقم أصغر يظهر الأول)</label><input id="fm_ord" type="number" value="${esc(f.ord)}"></div>
+   </div><div class="lerr" id="fm_err"></div>
+   <div style="display:flex;gap:8px;margin-top:14px"><button class="btn pri" id="fm_save" type="button">حفظ</button><button class="btn" id="fm_cancel" type="button">إلغاء</button></div></div>`;
+  document.body.appendChild(m);
+  m.querySelector('#fm_cancel').onclick=()=>m.remove();
+  m.querySelector('#fm_save').onclick=async()=>{
+    const err=$('fm_err'); err.textContent='';
+    const data={title:$('fm_title').value.trim(),url:$('fm_url').value.trim(),desc:$('fm_desc').value.trim(),ord:+$('fm_ord').value||0};
+    if(!data.title){ err.textContent='اكتب اسم النموذج'; return; }
+    let ok=false; try{ ok=new URL(data.url).protocol==='https:'; }catch(e){}
+    if(!ok){ err.textContent='اللينك لازم يبدأ بـ https://'; return; }
+    $('fm_save').disabled=true;
+    try{ await BE.saveForm(isNew?null:f.id,data); m.remove(); toast('تم الحفظ ✓'); await mountForms(); }
+    catch(e){ err.textContent=authMsg(e); $('fm_save').disabled=false; }
+  };
+}
+function formsClick(t){
+  if(CUR.mod!=='forms') return false;
+  if(t.closest('#f_new')){ formModal(null); return true; }
+  const e=t.closest('[data-fedit]'); if(e){ formModal(WFORMS.find(x=>x.id===e.dataset.fedit)); return true; }
+  const d=t.closest('[data-fdel]'); if(d){ const f=WFORMS.find(x=>x.id===d.dataset.fdel); if(f&&confirm(`حذف النموذج «${f.title}»؟`)) BE.deleteForm(f.id).then(()=>{ toast('تم الحذف'); return mountForms(); }).catch(er=>toast(authMsg(er),true)); return true; }
+  const v=t.closest('[data-fview]'); if(v){ const f=WFORMS.find(x=>x.id===v.dataset.fview); if(f){
+    $('view').innerHTML=`<div class="card"><div class="tb"><button class="btn" id="f_back" type="button">‹ رجوع للنماذج</button><b>${esc(f.title)}</b><span class="sp" style="flex:1"></span><a class="btn sm" href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">فتح في تبويب جديد</a></div>
+      <iframe src="${esc(fEmbed(f.url))}" style="width:100%;height:calc(100vh - 170px);min-height:480px;border:0;border-radius:8px;background:#fff"></iframe></div>`; } return true; }
+  if(t.closest('#f_back')){ renderForms(); return true; }
+  return false;
+}
+document.addEventListener('input',e=>{ if(e.target.id==='f_q'&&CUR.mod==='forms'){ const p=e.target.selectionStart; renderForms(e.target.value); const q=$('f_q'); q.focus(); q.setSelectionRange(p,p); } });
+
 /* ---------------- جسر مديولات الشؤون الإدارية (سكربت منفصل) ---------------- */
 let ADMQ=Promise.resolve();
 function admWait(){ return new Promise((res,rej)=>{ let n=0; const t=setInterval(()=>{ if(window.ADM){ clearInterval(t); res(window.ADM); } else if(++n>200){ clearInterval(t); rej({message:'تعذّر تحميل مديولات الشؤون الإدارية — تأكد من الإنترنت'}); } },50); }); }
@@ -2498,7 +2580,7 @@ function admCall(fn,...a){
 }
 
 /* ---------------- الموجّه / الشاشة الرئيسية ---------------- */
-const GROUPS=[['الموارد البشرية',['hiring','insurance','resign']],['الشؤون الإدارية',['housing','cars','buffet','stationery','tasks']],['النظام',['users']]];
+const GROUPS=[['الموارد البشرية',['hiring','insurance','resign']],['الشؤون الإدارية',['housing','cars','buffet','stationery','tasks','forms']],['النظام',['users']]];
 function showHome(){
   CUR={mod:null,sub:null}; $('mod').hidden=true; $('adm').hidden=true; $('home').hidden=false; $('subnav').innerHTML=''; $('modTitle').textContent='أوباك — الموارد البشرية والشؤون الإدارية';
   const apps=Object.keys(MODS).filter(canMod);
@@ -2516,7 +2598,7 @@ function openModule(m,sub){
   $('adm').hidden=true; $('mod').hidden=false;
   const subs=MODS[m].subs?MODS[m].subs.filter(s=>can(m,s[2])):[];
   $('subnav').innerHTML=subs.map(s=>`<a data-sub="${s[0]}" href="#/${m}/${s[0]}">${s[1]}</a>`).join('');
-  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='users') mountUsers();
+  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='users') mountUsers(); else if(m==='forms') mountForms();
   window.scrollTo(0,0);
 }
 function route(){
@@ -2573,6 +2655,7 @@ document.addEventListener('click',e=>{
   if(t.closest('#att_saved')) attUseSaved();
   if(t.closest('#u_new')) userModal(null);
   if(t.closest('#mg_go')) runMigrate();
+  if(formsClick(t)) return;
   const ue=t.closest('[data-uedit]'); if(ue) userModal(USERS.find(x=>x.uid===ue.dataset.uedit));
   const ur=t.closest('[data-ureset]'); if(ur){ BE.resetPassword(ur.dataset.ureset).then(()=>toast('اتبعت إيميل إعادة تعيين كلمة المرور ✓')).catch(er=>toast(authMsg(er),true)); }
 });
