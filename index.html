@@ -315,6 +315,8 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
 #dcx .dc-dup{margin-bottom:12px;border:1px solid var(--bd);border-radius:10px;padding:12px;background:#fff}
 #dcx .dc-dup h3{margin:0 0 8px;font-size:15px;color:var(--navy)}
 #dcx .dc-dup table{min-width:0}
+#dcx .dc-calc{font-size:13px;color:var(--grn)}
+#dcx .dc-calc b{color:var(--navy)}
 
 /* ===== مجموعات الشاشة الرئيسية ===== */
 .hgrp{width:100%;text-align:center;color:#fff;opacity:.85;font-weight:700;font-size:14px;margin:6px 0 -14px;letter-spacing:.3px}
@@ -2818,6 +2820,8 @@ function run(){
    cat,partial,hits,fuzzy,info,key:n+'|'+fmt(r['Date'])+'|'+type};
  }).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar')||a.date-b.date);
  setup();renderDups();
+ const n=new Date(),p=x=>String(x).padStart(2,'0');
+ $('calc').innerHTML=`✓ تم الاحتساب الساعة ${p(n.getHours())}:${p(n.getMinutes())}:${p(n.getSeconds())} — الخصومات: <b>${dd.length}</b> · الإجازات والأذونات: <b>${lv.length}</b> · سجلات الحضور: <b>${ATT?ATT.length:0}</b> · أيام فيها بصمة مكررة: <b>${DUPS.reduce((a,e)=>a+e.days.length,0)}</b>`;
 }
 function setup(){
  $('res').classList.remove('dc-hide');
@@ -2884,13 +2888,14 @@ function renderDups(){
 
 function bind(){
 ['d1','d2','d3'].forEach(id=>{const d=$(id);
- d.querySelector('input').onchange=e=>load([...e.target.files]);
+ d.querySelector('input').onchange=e=>{ const fs=[...e.target.files]; e.target.value=''; load(fs); };
  d.ondragover=e=>{e.preventDefault();d.classList.add('dc-over')};d.ondragleave=()=>d.classList.remove('dc-over');
  d.ondrop=e=>{e.preventDefault();d.classList.remove('dc-over');load([...e.dataTransfer.files])};
 });
 
 
 ['q','fType','fMgr','fCat'].forEach(id=>$(id).oninput=()=>{if(id==='fCat')catFilter='';render()});
+$('recalc').onclick=()=>{ const m=$('msg'); m.textContent=''; if(!(DED&&LEV)){ m.textContent='ارفع ملف الخصومات وملف الإجازات أولاً.'; return; } run(); };
 ['sMax','sReq','sKw'].forEach(id=>$(id).onchange=()=>{if(DED&&LEV)run()});
 $('grp').onclick=e=>{grouped=!grouped;e.target.textContent=grouped?'عرض عادي':'عرض مجمّع بالموظف';render()};
 $('tb1').onclick=()=>{$('pDed').classList.remove('dc-hide');$('pDup').classList.add('dc-hide');$('tb1').classList.add('dc-on');$('tb2').classList.remove('dc-on')};
@@ -2931,6 +2936,7 @@ function mountDeduct(){ setLayout({view:true}); $('view').innerHTML=`<div class=
  <label>كلمات تحدد المدير في المسمى <input type="text" id="dc_sKw" value="مدير، رئيس"></label>
  <span>(ويُعتبر مديرًا أيضًا كل من يظهر في عمود Manager)</span>
 </div>
+<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px"><button class="btn pri" id="dc_recalc" type="button">↻ إعادة احتساب</button><span class="dc-calc" id="dc_calc">لم يتم الاحتساب بعد — ارفع الملفات.</span></div>
 <div class="dc-msg" id="dc_msg"></div>
 <div id="dc_res" class="dc-hide">
  <div class="dc-tabs"><button id="dc_tb1" class="dc-on" type="button">الخصومات</button><button id="dc_tb2" type="button">تكرار البصمة</button></div>
