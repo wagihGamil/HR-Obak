@@ -265,6 +265,57 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
 .fcard .fd{font-size:13px;color:var(--mut);line-height:1.6}
 .fcard .fb{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
 .fcard a.btn{text-decoration:none;display:inline-block}
+#dcx{--tx:var(--ink);--bd:var(--line);--pri:var(--navy);--dred:#c62828;--redbg:#fdecec;--grn:#1b7a3d;--grnbg:#e6f5ea;--amb:#a15c00;--ambbg:#fff3df;--gry:#55606d;--grybg:#eceff3}
+#dcx h2{font-size:18px;margin:0 0 4px;color:var(--navy)}
+#dcx .dc-sub{color:var(--mut);margin:0 0 14px;font-size:13.5px;line-height:1.7}
+#dcx .dc-drops{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:800px){#dcx .dc-drops{grid-template-columns:1fr}}
+#dcx .dc-drop{border:2px dashed #b5bacb;border-radius:10px;padding:20px 12px;text-align:center;cursor:pointer;background:#fafbfe;transition:.15s;display:block}
+#dcx .dc-drop:hover,#dcx .dc-drop.dc-over{border-color:var(--red)}
+#dcx .dc-drop.dc-ok{border-style:solid;border-color:var(--grn);background:var(--grnbg)}
+#dcx .dc-drop b{display:block;margin-bottom:4px;color:var(--navy)}
+#dcx .dc-drop span{color:var(--mut);font-size:12.5px}
+#dcx .dc-drop input{display:none}
+#dcx .dc-msg{margin-top:10px;color:var(--dred);min-height:20px;font-size:13.5px}
+#dcx .dc-set{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;margin:14px 0 4px;padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:#fafbfe;font-size:13px;color:var(--mut)}
+#dcx .dc-set b{color:var(--navy)}
+#dcx .dc-set input{width:100px;padding:6px 8px;border:1.5px solid #c3c6cf;border-radius:6px;background:#fff;color:var(--ink);font:inherit}
+#dcx .dc-set input[type=text]{width:150px}
+#dcx .dc-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+#dcx .dc-stat{border-radius:10px;padding:12px 14px;cursor:pointer;border:2px solid transparent}
+#dcx .dc-stat.dc-on{border-color:currentColor}
+#dcx .dc-stat .dc-n{font-size:28px;font-weight:700}
+#dcx .dc-stat .dc-l{font-weight:600;font-size:13.5px}
+#dcx .dc-stat .dc-a{font-size:12.5px;opacity:.85;margin-top:2px}
+#dcx .dc-s-real{background:var(--grybg);color:var(--gry)}
+#dcx .dc-s-rej{background:var(--redbg);color:var(--dred)}
+#dcx .dc-s-pen{background:var(--ambbg);color:var(--amb)}
+#dcx .dc-s-app{background:var(--grnbg);color:var(--grn)}
+#dcx .dc-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+#dcx .dc-bar input,#dcx .dc-bar select{padding:7px 10px;border:1.5px solid #c3c6cf;border-radius:6px;background:#fff;color:var(--ink);font:inherit;font-size:14px}
+#dcx .dc-bar input[type=search]{min-width:220px}
+#dcx .dc-tabs{display:flex;gap:4px;margin:16px 0 10px;border-bottom:2px solid var(--line)}
+#dcx .dc-tabs button{font:inherit;font-size:14px;font-weight:600;padding:8px 18px;border:0;border-bottom:3px solid transparent;margin-bottom:-2px;background:transparent;color:var(--mut);cursor:pointer}
+#dcx .dc-tabs button.dc-on{color:var(--red);border-bottom-color:var(--red)}
+#dcx .dc-tw{overflow-x:auto;border:1px solid var(--bd);border-radius:10px;background:#fff}
+#dcx table{border-collapse:collapse;width:100%;min-width:900px}
+#dcx th,#dcx td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--bd);vertical-align:top;font-size:13.5px}
+#dcx th{background:var(--navy);color:#fff;font-size:12.5px;position:sticky;top:0;white-space:nowrap}
+#dcx tr.dc-emp td{background:var(--grybg);font-weight:600;cursor:pointer}
+#dcx .dc-tag{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
+#dcx .dc-t-real{background:var(--grybg);color:var(--gry)}
+#dcx .dc-t-rej{background:var(--redbg);color:var(--dred)}
+#dcx .dc-t-pen{background:var(--ambbg);color:var(--amb)}
+#dcx .dc-t-app,#dcx .dc-t-flex{background:var(--grnbg);color:var(--grn)}
+#dcx .dc-req{font-size:12.5px;color:var(--mut);margin-top:3px}
+#dcx .dc-note{font-size:12.5px;color:var(--amb)}
+#dcx .dc-cnt{color:var(--mut);margin:6px 2px 10px;font-size:13px}
+#dcx .dc-hide{display:none}
+#dcx td input.dc-fix{width:100%;min-width:150px;padding:6px 8px;border:1.5px solid #c3c6cf;border-radius:6px;background:#fff;color:var(--ink);font:inherit;font-size:13px}
+#dcx .dc-dup{margin-bottom:12px;border:1px solid var(--bd);border-radius:10px;padding:12px;background:#fff}
+#dcx .dc-dup h3{margin:0 0 8px;font-size:15px;color:var(--navy)}
+#dcx .dc-dup table{min-width:0}
+
 /* ===== مجموعات الشاشة الرئيسية ===== */
 .hgrp{width:100%;text-align:center;color:#fff;opacity:.85;font-weight:700;font-size:14px;margin:6px 0 -14px;letter-spacing:.3px}
 #home{flex-direction:column;flex-wrap:nowrap;align-items:center;justify-content:center;align-content:center;gap:24px;padding:28px 20px}
@@ -1975,7 +2026,8 @@ const PERM = {
   stationery:{label:'الأدوات المكتبية',acts:{view:'دخول المديول (عرض + تسجيل المنصرف)'}},
   tasks:{label:'المهام',acts:{view:'دخول المديول (المهام المسندة له)'}},
   forms:{label:'نماذج العمل',acts:{'*':'كل النماذج (حتى اللي تتضاف بعدين)'}},
-  links:{label:'لينكات هامة',acts:{view:'عرض اللينكات',edit:'إضافة وتعديل وحذف اللينكات'}}
+  links:{label:'لينكات هامة',acts:{view:'عرض اللينكات',edit:'إضافة وتعديل وحذف اللينكات'}},
+  deduct:{label:'فحص الاستقطاعات',acts:{view:'دخول المديول (رفع ملفات ومطابقة الخصومات)'}}
 };
 if(!ENABLE_INSURANCE) delete PERM.insurance;
 const ICONS={
@@ -1989,7 +2041,8 @@ const ICONS={
   stationery:'<svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/></svg>',
   tasks:'<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M8 4v-1M16 4v-1M8 11l2 2 4-4M8 17h8"/></svg>',
   forms:'<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/><circle cx="7" cy="8" r=".6"/><circle cx="7" cy="12" r=".6"/><circle cx="7" cy="16" r=".6"/></svg>',
-  links:'<svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>'
+  links:'<svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
+  deduct:'<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h4"/><path d="M14 16l1.6 1.6L19 14"/></svg>'
 };
 const MODS={
   hiring:{title:'أوراق تعيين الموظف',color:'linear-gradient(135deg,#e5383b,#a80f15)',subs:null},
@@ -2003,6 +2056,7 @@ const MODS={
   tasks:{title:'المهام',color:'linear-gradient(135deg,#d35cc0,#8a2f7c)',subs:null,adm:true},
   forms:{title:'نماذج العمل',color:'linear-gradient(135deg,#f2b705,#b88300)',subs:null},
   links:{title:'لينكات هامة',color:'linear-gradient(135deg,#1aa39a,#0b6b65)',subs:null},
+  deduct:{title:'فحص الاستقطاعات',color:'linear-gradient(135deg,#6b7a90,#38465c)',subs:null},
   users:{title:'إدارة المستخدمين',color:'linear-gradient(135deg,#27ae60,#17703c)',subs:null,admin:true}
 };
 const can = (m,a)=>!!ME && (ME.isAdmin || (((ME.access||{})[m])||[]).includes(a));
@@ -2658,6 +2712,248 @@ function linksClick(t){
 }
 document.addEventListener('input',e=>{ if(e.target.id==='l_q'&&CUR.mod==='links'){ const p=e.target.selectionStart; LQ=e.target.value; renderLinks(); const q=$('l_q'); q.focus(); q.setSelectionRange(p,p); } });
 
+/* ---------------- مديول: فحص الاستقطاعات ---------------- */
+(function(){
+const CATS={
+ real:{l:'حقيقي — لم يُرفع على النظام',c:'real',rank:0},
+ mlate:{l:'تأخير حقيقي (مدير خارج السياسة المرنة)',c:'rej',rank:0.5},
+ rej:{l:'حقيقي — الطلب مرفوض',c:'rej',rank:1},
+ flex:{l:'ساعة مرنة (مدير)',c:'flex',rank:1.5},
+ pen:{l:'تم التقديم — بانتظار الموافقة',c:'pen',rank:2},
+ part:{l:'جزئي — الطلب لا يغطي كامل الخصم (راجع)',c:'pen',rank:2.5},
+ app:{l:'غير حقيقي — الطلب معتمد',c:'app',rank:3}
+};
+const TYPE_AR={'Absence':'غياب','Late':'تأخير','Early Dismissal':'انصراف مبكر','Missed clock-in/out':'نسيان بصمة','Other':'أخرى'};
+const norm=s=>String(s??'').replace(/[ً-ْـ]/g,'').replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ').trim();
+const dkey=d=>d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
+const fmt=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const hm=d=>d?String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0'):'—';
+const hm2=d=>d?hm(d).slice(0,5):'—';
+const num=v=>{const n=parseFloat(v);return isNaN(n)?0:n};
+const isD=v=>v instanceof Date&&!isNaN(v);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $=id=>document.getElementById('dc_'+id);
+const catLabel=r=>r.cat==='real'?`${TYPE_AR[r.type]||r.type} حقيقي — لم يُرفع على النظام`:r.cat==='mlate'?'تأخير حقيقي':CATS[r.cat].l;
+let DED=null,LEV=null,ATT=null,ROWS=[],DUPS=[],grouped=false,catFilter='',FIX={};
+try{FIX=JSON.parse(localStorage.getItem('dc_fixes')||'{}')}catch(e){}
+function saveFix(){try{localStorage.setItem('dc_fixes',JSON.stringify(FIX))}catch(e){}}
+
+function statusOf(s){s=norm(s);if(s.includes('رفض'))return 'rej';if(s==='تمت الموافقه')return 'app';return 'pen'}
+const DCOLS=['Date','تاريخ البداية','تاريخ الانتهاء','تسجيل الحضور','تسجيل الخروج'];
+function serial(v){const ms=Math.round((v-25569)*86400)*1000,u=new Date(ms);
+ return new Date(u.getUTCFullYear(),u.getUTCMonth(),u.getUTCDate(),u.getUTCHours(),u.getUTCMinutes(),u.getUTCSeconds())}
+async function readFile(f){
+ await loadXLSX();
+ const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:false});
+ const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null,raw:true});
+ for(const r of rows)for(const c of DCOLS)if(typeof r[c]==='number')r[c]=serial(r[c]);
+ return rows;
+}
+function detect(rows){const k=rows[0]?Object.keys(rows[0]):[];
+ if(k.includes('Deduction Type'))return 'ded';
+ if(k.includes('تسجيل الحضور'))return 'att';
+ if(k.includes('الحالة')&&k.includes('تاريخ البداية'))return 'lev';return null}
+function mark(id,name){const d=$(id);d.classList.add('dc-ok');d.querySelector('span').textContent='✓ '+name}
+async function load(files){
+ const m=$('msg');m.textContent='';
+ for(const f of files){
+  try{const r=await readFile(f),t=detect(r);
+   if(t==='ded'){DED=r;mark('d1',f.name)}else if(t==='lev'){LEV=r;mark('d2',f.name)}else if(t==='att'){ATT=r;mark('d3',f.name)}
+   else m.textContent='الملف "'+f.name+'" غير معروف.';
+  }catch(e){m.textContent='تعذّر قراءة '+f.name+': '+e.message}
+ }
+ if(DED&&LEV){ if(!ATT)m.textContent='ملف الحضور لم يُرفع بعد — لن تعمل سياسة الساعة المرنة ولا كشف تكرار البصمة.'; run()}
+}
+function run(){
+ const maxLate=num($('sMax').value),reqH=num($('sReq').value);
+ const kws=$('sKw').value.split(/[,،]/).map(s=>norm(s)).filter(Boolean);
+ // leaves
+ const lv=LEV.filter(r=>isD(r['تاريخ البداية'])&&r['الموظف']);
+ const byName=new Map(),byPrefix=new Map(),push=(m,k,o)=>(m.get(k)||m.set(k,[]).get(k)).push(o);
+ for(const r of lv){const n=norm(r['الموظف']);
+  const o={type:r['نوع الإجازة']||'',desc:r['الوصف']||'',s:r['تاريخ البداية'],e:r['تاريخ الانتهاء'],hrs:num(r['المدة بالساعات']),days:num(r['المدة بالأيام']),
+   status:r['الحالة']||'',st:statusOf(r['الحالة']),a1:r['الموافقة الأولى']||'',a2:r['الموافقة الثانية']||''};
+  push(byName,n,o);push(byPrefix,n.split(' ').slice(0,4).join(' '),o)}
+ // attendance
+ const att=new Map();DUPS=[];
+ if(ATT){
+  const rows=ATT.filter(r=>isD(r['تسجيل الحضور'])&&r['الموظف']);
+  for(const r of rows){const k=norm(r['الموظف'])+'|'+dkey(r['تسجيل الحضور']);
+   push(att,k,{in:r['تسجيل الحضور'],out:isD(r['تسجيل الخروج'])?r['تسجيل الخروج']:null,hrs:num(r['ساعات العمل المقضية']),auto:r['Is Auto Closed Attendance']===true,
+    name:r['الموظف'],code:r['Code'],dept:r['Department']||'',job:r['Job Position']||''})}
+  const by=new Map();
+  for(const [k,a] of att){if(a.length<2)continue;a.sort((x,y)=>x.in-y.in);
+   const nm=a[0].name;push(by,nm,{date:a[0].in,recs:a,code:a[0].code,dept:a[0].dept})}
+  DUPS=[...by.entries()].sort((a,b)=>a[0].localeCompare(b[0],'ar')).map(([name,days])=>({name,days:days.sort((x,y)=>x.date-y.date)}));
+ }
+ // managers
+ const mgrNames=new Set(DED.map(r=>norm(r['Manager'])).filter(Boolean));
+ const isMgr=(name,job)=>mgrNames.has(norm(name))||kws.some(k=>norm(job).includes(k));
+ const dd=DED.filter(r=>isD(r['Date'])&&r['Employee']);
+ ROWS=dd.map(r=>{
+  const n=norm(r['Employee']);let cand=byName.get(n),fuzzy=false;
+  if(!cand){cand=byPrefix.get(n.split(' ').slice(0,4).join(' '));fuzzy=!!cand}
+  const k=dkey(r['Date']);
+  const hits=(cand||[]).filter(o=>dkey(o.s)<=k&&k<=dkey(o.e));
+  const type=r['Deduction Type']||'Other',hours=num(r['Hours']);
+  const recs=att.get(n+'|'+k)||[];
+  const mgr=isMgr(r['Employee'],r['Job Position']||'');
+  let cat='real',partial=false,info='';
+  if(hits.length){
+   const best=hits.reduce((a,b)=>CATS[b.st].rank>CATS[a.st].rank?b:a);cat=best.st;
+   const cov=type==='Absence'?best.days>=0.9:best.hrs>=hours*0.9;
+   partial=!cov;if(partial&&cat!=='rej')cat='part';
+  }else if(type==='Late'&&mgr){
+   if(!recs.length){cat='mlate';info='مدير — لا توجد بصمة في هذا اليوم للتحقق من السياسة المرنة'}
+   else{
+    const worked=recs.reduce((a,x)=>a+x.hrs,0),unclosed=recs.some(x=>!x.out||x.auto);
+    const okLate=hours<=maxLate+1/60,okComp=!unclosed&&worked>=reqH;
+    const base=`حضور ${hm2(recs[0].in)} · تأخير ${hours.toFixed(2)} س · ساعات العمل ${worked.toFixed(2)} س (المطلوب ${reqH})`;
+    if(okLate&&okComp){cat='flex';info=base+' ✓ ضمن السياسة وتم التعويض'}
+    else{cat='mlate';info=base+' ✗ '+(!okLate?`التأخير تجاوز ${maxLate} ساعة`:unclosed?'لا يوجد خروج صحيح لإثبات التعويض':'لم يُعوَّض التأخير آخر اليوم')}
+   }
+  }
+  if(type==='Absence'&&recs.length)info+=(info?' | ':'')+'⚠ يوجد بصمة حضور في هذا اليوم: '+recs.map(x=>hm2(x.in)+'→'+hm2(x.out)).join(' ، ');
+  return {name:r['Employee'],date:r['Date'],type,hours,amount:num(r['Amount']),mgr:r['Manager']||'—',dept:r['Department']||'',
+   cat,partial,hits,fuzzy,info,key:n+'|'+fmt(r['Date'])+'|'+type};
+ }).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar')||a.date-b.date);
+ setup();renderDups();
+}
+function setup(){
+ $('res').classList.remove('dc-hide');
+ const fill=(id,vals,lab)=>{const s=$(id);const keep=s.options[0].outerHTML;
+  s.innerHTML=keep+[...vals].map(v=>`<option value="${esc(v)}">${esc(lab?lab(v):v)}</option>`).join('')};
+ fill('fType',new Set(ROWS.map(r=>r.type)),v=>TYPE_AR[v]||v);
+ fill('fMgr',new Set(ROWS.map(r=>r.mgr)));
+ fill('fCat',Object.keys(CATS).filter(k=>ROWS.some(r=>r.cat===k)),v=>CATS[v].l);
+ catFilter='';render();
+}
+function filtered(){
+ const q=norm($('q').value),t=$('fType').value,m=$('fMgr').value,c=$('fCat').value||catFilter;
+ return ROWS.filter(r=>(!q||norm(r.name).includes(q))&&(!t||r.type===t)&&(!m||r.mgr===m)&&(!c||r.cat===c));
+}
+function stats(){
+ const st=$('stats');
+ st.innerHTML=Object.entries(CATS).sort((a,b)=>b[1].rank-a[1].rank).filter(([k])=>ROWS.some(r=>r.cat===k)).map(([k,v])=>{
+  const rs=ROWS.filter(r=>r.cat===k),amt=rs.reduce((a,r)=>a+r.amount,0);
+  return `<div class="dc-stat dc-s-${v.c==='flex'?'app':v.c} ${catFilter===k?'dc-on':''}" data-k="${k}"><div class="dc-n">${rs.length}</div><div class="dc-l">${v.l}</div><div class="dc-a">المبلغ: ${amt.toLocaleString('ar-EG',{maximumFractionDigits:0})}</div></div>`}).join('');
+ st.querySelectorAll('.dc-stat').forEach(e=>e.onclick=()=>{catFilter=catFilter===e.dataset.k?'':e.dataset.k;$('fCat').value='';render()});
+}
+function reqHtml(r){
+ let h='';
+ if(r.hits.length)h+=r.hits.map(o=>{
+  const stage=o.status.trim()+(o.a1?` — الأولى: ${o.a1}`:'')+(o.a2?` — الثانية: ${o.a2}`:'');
+  return `<div><span class="dc-tag dc-t-${CATS[o.st].c}">${esc(o.status.trim()||'—')}</span> ${esc(o.type)}
+  <div class="dc-req">${fmt(o.s)} ${hm2(o.s)} → ${fmt(o.e)} ${hm2(o.e)} (${o.hrs} ساعة) ${o.desc?'· '+esc(o.desc):''}</div>
+  <div class="dc-req">${esc(stage)}</div></div>`}).join('');
+ else h+='<span class="dc-req">لا يوجد طلب على النظام في هذا اليوم</span>';
+ if(r.partial)h+='<div class="dc-note">⚠ الطلب لا يغطي كامل مدة الخصم — راجع الجزء المتبقي</div>';
+ if(r.fuzzy)h+='<div class="dc-note">⚠ تطابق تقريبي في الاسم</div>';
+ if(r.info)h+=`<div class="${r.cat==='flex'?'dc-req':'dc-note'}">${esc(r.info)}</div>`;
+ return h;
+}
+function rowHtml(r){const c=CATS[r.cat];
+ return `<tr><td>${esc(r.name)}</td><td>${fmt(r.date)}</td><td>${esc(TYPE_AR[r.type]||r.type)}</td>
+ <td>${r.hours?r.hours.toFixed(2):'—'}</td><td>${r.amount.toFixed(0)}</td><td>${esc(r.mgr)}</td>
+ <td><span class="dc-tag dc-t-${c.c}">${esc(catLabel(r))}</span></td><td>${reqHtml(r)}</td>
+ <td><input class="dc-fix" data-k="${esc(r.key)}" value="${esc(FIX[r.key]||'')}" placeholder="ملحوظة…"></td></tr>`}
+function render(){
+ stats();const rs=filtered();
+ $('cnt').textContent=`عدد النتائج: ${rs.length} من ${ROWS.length}`;
+ const tb=$('tb');
+ if(!grouped)tb.innerHTML=rs.map(rowHtml).join('');
+ else{const g=new Map();rs.forEach(r=>(g.get(r.name)||g.set(r.name,[]).get(r.name)).push(r));
+  let h='';for(const [n,a] of g){
+   const parts=Object.keys(CATS).map(k=>{const x=a.filter(r=>r.cat===k).length;return x?`<span class="dc-tag dc-t-${CATS[k].c}">${CATS[k].l}: ${x}</span>`:''}).join(' ');
+   h+=`<tr class="dc-emp"><td colspan="9">${esc(n)} — ${a.length} خصم &nbsp; ${parts}</td></tr>`+a.map(rowHtml).join('')}
+  tb.innerHTML=h}
+ tb.querySelectorAll('input.dc-fix').forEach(i=>i.oninput=()=>{if(i.value)FIX[i.dataset.k]=i.value;else delete FIX[i.dataset.k];saveFix()});
+}
+function renderDups(){
+ const n=DUPS.reduce((a,e)=>a+e.days.length,0);
+ $('dupCnt').textContent=ATT?(n?`${DUPS.length} موظف · ${n} يوم فيه بصمة مكررة (أكثر من تسجيل حضور في اليوم الواحد)`:'لا توجد أيام فيها بصمات مكررة.'):'ارفع ملف الحضور لكشف تكرار البصمات.';
+ $('dupBody').innerHTML=DUPS.map(e=>`<div class="dc-card dc-dup"><h3>${esc(e.name)} <span class="dc-req">— ${e.days.length} يوم</span></h3>
+ <div class="dc-tw"><table><thead><tr><th>اليوم</th><th>#</th><th>الحضور</th><th>الانصراف</th><th>المدة (س)</th><th>الفاصل عن السابق</th><th>ملاحظة</th></tr></thead><tbody>`+
+ e.days.map(d=>d.recs.map((x,i)=>{const prev=d.recs[i-1];
+  const gap=prev&&prev.out?Math.round((x.in-prev.out)/60000):null;
+  const ov=prev&&(!prev.out||x.in<prev.out);
+  const note=[i===0?`${d.recs.length} تسجيلات في اليوم`:'',ov?'تداخل مع التسجيل السابق (بصمة مكررة)':(gap!==null&&gap<=10?'فاصل قصير جدًا — تكرار بصمة':''),x.auto?'إغلاق تلقائي':'',!x.out?'بدون انصراف':''].filter(Boolean).join(' · ');
+  return `<tr><td>${i===0?fmt(d.date):''}</td><td>${i+1}</td><td>${hm(x.in)}</td><td>${hm(x.out)}</td><td>${x.hrs.toFixed(2)}</td><td>${gap===null?'—':gap+' دقيقة'}</td><td>${esc(note)}</td></tr>`}).join('')).join('')+
+ `</tbody></table></div></div>`).join('');
+}
+
+function bind(){
+['d1','d2','d3'].forEach(id=>{const d=$(id);
+ d.querySelector('input').onchange=e=>load([...e.target.files]);
+ d.ondragover=e=>{e.preventDefault();d.classList.add('dc-over')};d.ondragleave=()=>d.classList.remove('dc-over');
+ d.ondrop=e=>{e.preventDefault();d.classList.remove('dc-over');load([...e.dataTransfer.files])};
+});
+
+
+['q','fType','fMgr','fCat'].forEach(id=>$(id).oninput=()=>{if(id==='fCat')catFilter='';render()});
+['sMax','sReq','sKw'].forEach(id=>$(id).onchange=()=>{if(DED&&LEV)run()});
+$('grp').onclick=e=>{grouped=!grouped;e.target.textContent=grouped?'عرض عادي':'عرض مجمّع بالموظف';render()};
+$('tb1').onclick=()=>{$('pDed').classList.remove('dc-hide');$('pDup').classList.add('dc-hide');$('tb1').classList.add('dc-on');$('tb2').classList.remove('dc-on')};
+$('tb2').onclick=()=>{$('pDup').classList.remove('dc-hide');$('pDed').classList.add('dc-hide');$('tb2').classList.add('dc-on');$('tb1').classList.remove('dc-on')};
+$('exp').onclick=async()=>{
+ await loadXLSX();
+ const rs=filtered().map(r=>({'الموظف':r.name,'التاريخ':fmt(r.date),'نوع الخصم':TYPE_AR[r.type]||r.type,'الساعات':r.hours,'المبلغ':r.amount,
+  'المدير':r.mgr,'القسم':r.dept,'النتيجة':catLabel(r),'التفاصيل':[r.info,r.partial?'الطلب لا يغطي كامل الخصم':''].filter(Boolean).join(' | '),
+  'الطلبات المقابلة':r.hits.map(o=>`${o.type} | ${o.status.trim()} | ${fmt(o.s)} ${hm2(o.s)}→${fmt(o.e)} ${hm2(o.e)} | ${o.desc}`).join(' ؛ '),
+  'التصحيح':FIX[r.key]||''}));
+ const wb=XLSX.utils.book_new(),ws=XLSX.utils.json_to_sheet(rs);
+ ws['!cols']=[{wch:30},{wch:12},{wch:14},{wch:8},{wch:10},{wch:26},{wch:30},{wch:36},{wch:60},{wch:70},{wch:30}];
+ XLSX.utils.book_append_sheet(wb,ws,'المطابقة');
+ const du=[];DUPS.forEach(e=>e.days.forEach(d=>d.recs.forEach((x,i)=>du.push({'الموظف':e.name,'اليوم':fmt(d.date),'#':i+1,'الحضور':hm(x.in),'الانصراف':hm(x.out),'المدة (س)':+x.hrs.toFixed(2)}))));
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(du),'تكرار البصمة');
+ const sm=Object.entries(CATS).map(([k,v])=>({'التصنيف':v.l,'العدد':ROWS.filter(r=>r.cat===k).length,'المبلغ':ROWS.filter(r=>r.cat===k).reduce((a,r)=>a+r.amount,0)}));
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(sm),'ملخص');
+ wb.Workbook={Views:[{RTL:true}]};
+ XLSX.writeFile(wb,'مطابقة_الخصومات.xlsx');
+};
+
+}
+window.dcBind=function(){ bind(); if(DED&&LEV){ for(const [id,f] of [['d1',DED],['d2',LEV],['d3',ATT]]) if(f) mark(id,'تم رفع الملف'); run(); } };
+})();
+
+function mountDeduct(){ setLayout({view:true}); $('view').innerHTML=`<div class="card" id="dcx">
+<h2>فحص الاستقطاعات</h2>
+<p class="dc-sub">ارفع الملفات الثلاثة (بأي ترتيب). يطابق البرنامج كل خصم مع الطلبات المرفوعة على النظام وببصمات الحضور، ويكشف تكرار البصمات. كل المعالجة داخل جهازك ولا يتم رفع أي ملف لأي مكان.</p>
+<div class="dc-drops">
+ <label class="dc-drop" id="dc_d1"><input type="file" accept=".xlsx,.xls" multiple><b>1) الخصومات</b><span>Attendance Deduction — اضغط أو اسحب الملف</span></label>
+ <label class="dc-drop" id="dc_d2"><input type="file" accept=".xlsx,.xls" multiple><b>2) الإجازات والأذونات والمهمات</b><span>hr.leave — اضغط أو اسحب الملف</span></label>
+ <label class="dc-drop" id="dc_d3"><input type="file" accept=".xlsx,.xls" multiple><b>3) الحضور (البصمات)</b><span>hr.attendance — اضغط أو اسحب الملف</span></label>
+</div>
+<div class="dc-set">
+ <b>السياسة المرنة للمديرين:</b>
+ <label>أقصى تأخير (ساعة) <input type="number" step="0.25" id="dc_sMax" value="1"></label>
+ <label>ساعات العمل المطلوبة لتعويض التأخير <input type="number" step="0.25" id="dc_sReq" value="8"></label>
+ <label>كلمات تحدد المدير في المسمى <input type="text" id="dc_sKw" value="مدير، رئيس"></label>
+ <span>(ويُعتبر مديرًا أيضًا كل من يظهر في عمود Manager)</span>
+</div>
+<div class="dc-msg" id="dc_msg"></div>
+<div id="dc_res" class="dc-hide">
+ <div class="dc-tabs"><button id="dc_tb1" class="dc-on" type="button">الخصومات</button><button id="dc_tb2" type="button">تكرار البصمة</button></div>
+ <div id="dc_pDed">
+ <div class="dc-stats" id="dc_stats"></div>
+ <div class="dc-bar">
+  <input type="search" id="dc_q" placeholder="بحث باسم الموظف…">
+  <select id="dc_fType"><option value="">كل أنواع الخصم</option></select>
+  <select id="dc_fMgr"><option value="">كل المديرين</option></select>
+  <select id="dc_fCat"><option value="">كل التصنيفات</option></select>
+  <button class="btn" id="dc_grp" type="button">عرض مجمّع بالموظف</button>
+  <button class="btn pri" id="dc_exp" type="button">تصدير إلى Excel</button>
+ </div>
+ <div class="dc-cnt" id="dc_cnt"></div>
+ <div class="dc-tw"><table><thead><tr>
+  <th>الموظف</th><th>التاريخ</th><th>نوع الخصم</th><th>ساعات</th><th>المبلغ</th><th>المدير</th><th>التصنيف</th><th>الطلب / الحضور المقابل</th><th>التصحيح</th>
+ </tr></thead><tbody id="dc_tb"></tbody></table></div>
+ </div>
+ <div id="dc_pDup" class="dc-hide"><div class="dc-cnt" id="dc_dupCnt"></div><div id="dc_dupBody"></div></div>
+</div>
+</div>
+`; window.dcBind(); }
+
 /* ---------------- جسر مديولات الشؤون الإدارية (سكربت منفصل) ---------------- */
 let ADMQ=Promise.resolve();
 function admWait(){ return new Promise((res,rej)=>{ let n=0; const t=setInterval(()=>{ if(window.ADM){ clearInterval(t); res(window.ADM); } else if(++n>200){ clearInterval(t); rej({message:'تعذّر تحميل مديولات الشؤون الإدارية — تأكد من الإنترنت'}); } },50); }); }
@@ -2669,7 +2965,7 @@ function admCall(fn,...a){
 }
 
 /* ---------------- الموجّه / الشاشة الرئيسية ---------------- */
-const HOME_ORDER=['hiring','insurance','resign','housing','cars','tasks','forms','links','users','buffet','stationery'];
+const HOME_ORDER=['hiring','insurance','resign','housing','cars','tasks','forms','links','deduct','users','buffet','stationery'];
 function showHome(){
   CUR={mod:null,sub:null}; $('mod').hidden=true; $('adm').hidden=true; $('home').hidden=false; $('subnav').innerHTML=''; $('modTitle').textContent='أوباك — الموارد البشرية والشؤون الإدارية';
   const apps=HOME_ORDER.filter(k=>MODS[k]&&canMod(k));
@@ -2686,7 +2982,7 @@ function openModule(m,sub){
   $('adm').hidden=true; $('mod').hidden=false;
   const subs=MODS[m].subs?MODS[m].subs.filter(s=>can(m,s[2])):[];
   $('subnav').innerHTML=subs.map(s=>`<a data-sub="${s[0]}" href="#/${m}/${s[0]}">${s[1]}</a>`).join('');
-  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='users') mountUsers(); else if(m==='forms') mountForms(); else if(m==='links') mountLinks();
+  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='users') mountUsers(); else if(m==='forms') mountForms(); else if(m==='links') mountLinks(); else if(m==='deduct') mountDeduct();
   window.scrollTo(0,0);
 }
 function route(){
