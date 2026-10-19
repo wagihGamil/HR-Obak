@@ -1752,7 +1752,9 @@ const LocalBackend = {
   async deleteForm(id){ LS.set('demo_forms',LS.get('demo_forms',[]).filter(f=>f.id!==id)); },
   async listLinks(){ return LS.get('demo_links',[]); },
   async saveLink(id,data){ const all=LS.get('demo_links',[]); if(id){ const i=all.findIndex(f=>f.id===id); if(i>=0) all[i]={...all[i],...data}; } else all.push({id:'l'+Date.now(),...data}); LS.set('demo_links',all); },
-  async deleteLink(id){ LS.set('demo_links',LS.get('demo_links',[]).filter(f=>f.id!==id)); }
+  async deleteLink(id){ LS.set('demo_links',LS.get('demo_links',[]).filter(f=>f.id!==id)); },
+  async ocAll(){ return JSON.parse(JSON.stringify(LS.get('demo_oc',{}))); },
+  async ocSet(id,data){ const o=LS.get('demo_oc',{}); o[id]=JSON.parse(JSON.stringify(data)); LS.set('demo_oc',o); }
 };
 
 /* ---------------- Firebase ---------------- */
@@ -1840,7 +1842,9 @@ const FirebaseBackend = {
   async deleteForm(id){ const {Fs}=this.S; await Fs.deleteDoc(Fs.doc(this.db,'workForms',id)); },
   async listLinks(){ const {Fs}=this.S; const s=await Fs.getDocs(Fs.collection(this.db,'workLinks')); return s.docs.map(d=>({id:d.id,...d.data()})); },
   async saveLink(id,data){ const {Fs}=this.S; if(id) await Fs.setDoc(Fs.doc(this.db,'workLinks',id),data,{merge:true}); else await Fs.addDoc(Fs.collection(this.db,'workLinks'),{...data,createdAt:Date.now()}); },
-  async deleteLink(id){ const {Fs}=this.S; await Fs.deleteDoc(Fs.doc(this.db,'workLinks',id)); }
+  async deleteLink(id){ const {Fs}=this.S; await Fs.deleteDoc(Fs.doc(this.db,'workLinks',id)); },
+  async ocAll(){ const {Fs}=this.S; const s=await Fs.getDocs(Fs.collection(this.db,'orgChart')); const o={}; s.docs.forEach(d=>{ o[d.id]=d.data(); }); return o; },
+  async ocSet(id,data){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(this.db,'orgChart',id),data); }
 };
 
 /* =====================================================================
@@ -2029,7 +2033,8 @@ const PERM = {
   tasks:{label:'المهام',acts:{view:'دخول المديول (المهام المسندة له)'}},
   forms:{label:'نماذج العمل',acts:{'*':'كل النماذج (حتى اللي تتضاف بعدين)'}},
   links:{label:'لينكات هامة',acts:{view:'عرض اللينكات',edit:'إضافة وتعديل وحذف اللينكات'}},
-  deduct:{label:'فحص الاستقطاعات',acts:{view:'دخول المديول (رفع ملفات ومطابقة الخصومات)'}}
+  deduct:{label:'فحص الاستقطاعات',acts:{view:'دخول المديول (رفع ملفات ومطابقة الخصومات)'}},
+  orgchart:{label:'الهيكل التنظيمي',acts:{view:'عرض الهيكل وخطة التعيينات وطباعتها',edit:'رفع الشيتات وتعديل الهيكل والمراحل'}}
 };
 if(!ENABLE_INSURANCE) delete PERM.insurance;
 const ICONS={
@@ -2044,7 +2049,8 @@ const ICONS={
   tasks:'<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M8 4v-1M16 4v-1M8 11l2 2 4-4M8 17h8"/></svg>',
   forms:'<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/><circle cx="7" cy="8" r=".6"/><circle cx="7" cy="12" r=".6"/><circle cx="7" cy="16" r=".6"/></svg>',
   links:'<svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
-  deduct:'<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h4"/><path d="M14 16l1.6 1.6L19 14"/></svg>'
+  deduct:'<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h4"/><path d="M14 16l1.6 1.6L19 14"/></svg>',
+  orgchart:'<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="4" rx="1"/><rect x="3" y="17" width="6" height="4" rx="1"/><rect x="15" y="17" width="6" height="4" rx="1"/><path d="M12 7v5M6 17v-5h12v5"/></svg>'
 };
 const MODS={
   hiring:{title:'أوراق تعيين الموظف',color:'linear-gradient(135deg,#e5383b,#a80f15)',subs:null},
@@ -2059,6 +2065,7 @@ const MODS={
   forms:{title:'نماذج العمل',color:'linear-gradient(135deg,#f2b705,#b88300)',subs:null},
   links:{title:'لينكات هامة',color:'linear-gradient(135deg,#1aa39a,#0b6b65)',subs:null},
   deduct:{title:'فحص الاستقطاعات',color:'linear-gradient(135deg,#6b7a90,#38465c)',subs:null},
+  orgchart:{title:'الهيكل التنظيمي',color:'linear-gradient(135deg,#2f9e6f,#1f5fa8)',subs:null},
   users:{title:'إدارة المستخدمين',color:'linear-gradient(135deg,#27ae60,#17703c)',subs:null,admin:true}
 };
 const can = (m,a)=>!!ME && (ME.isAdmin || (((ME.access||{})[m])||[]).includes(a));
@@ -2960,6 +2967,394 @@ function mountDeduct(){ setLayout({view:true}); $('view').innerHTML=`<div class=
 </div>
 `; window.dcBind(); }
 
+/* ---------------- مديول: الهيكل التنظيمي ---------------- */
+const OC={tab:'chart',view:'ab',names:false,fit:true,data:{planned:null,emps:null,plan:{phases:[]},set:{map:{}}},C:null};
+const ocN=s=>String(s??'').replace(/[ً-ْـ]/g,'').replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/[()،,\-_\/:]/g,' ').replace(/\s+/g,' ').trim();
+const OC_SY={مخازن:'مخزن',مكانيكا:'ميكانيكا',ميكانيكي:'ميكانيكا'};
+const OC_AL={'مراقبه الجوده':'الجوده','تاكيد الجوده':'توكيد الجوده','الكهرباء':'الصيانه','التبريد':'الصيانه','الميكانيكا':'الصيانه','الخدمات':'الصيانه'};
+function ocTok(s){ return new Set(ocN(s).split(' ').filter(Boolean).map(w=>{ if(w.length>3&&w[0]==='و') w=w.slice(1); if(w.length>3&&w.startsWith('ال')) w=w.slice(2); return OC_SY[w]||w; })); }
+function ocSim(a,b){ if(!a.size||!b.size) return 0; let i=0; a.forEach(x=>{ if(b.has(x)) i++; }); if(i===a.size&&i===b.size) return 1; const s=a.size<=b.size?a.size:b.size; if(i===s&&s>=2) return .85; return i/(a.size+b.size-i); }
+function ocBest(t,cands,th){ let best=0,bc=[]; cands.forEach(c=>{ const s=ocSim(t,c.t); if(s>best+1e-9){ best=s; bc=[c]; } else if(Math.abs(s-best)<1e-9&&s>0) bc.push(c); }); return (best>=th&&bc.length===1)?bc[0].r:null; }
+const ocLead=j=>/^(رئيس|مشرف|مدير)/.test(ocN(j));
+const ocDate=s=>{ if(!s) return '—'; const m=String(s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[3]}/${m[2]}/${m[1]}`:String(s); };
+const ocNum=n=>(+n||0).toLocaleString('en-US');
+
+function ocTop(path){ const sg=String(path||'').split('/').map(x=>x.trim()).filter(Boolean); if(!sg.length) return 'غير محدد'; if(ocN(sg[0])==='العليا') return sg[1]||'الإدارة العليا'; return sg[0]; }
+function ocCalc(){
+  const D=OC.data, P=(D.planned&&D.planned.rows)||[], E=(D.emps&&D.emps.rows)||[], map=(D.set&&D.set.map)||{};
+  const pDept=[]; P.forEach(r=>{ if(!pDept.includes(r.dept)) pDept.push(r.dept); });
+  const dn=new Map(pDept.map(d=>[ocN(d),d])), byId=new Map(P.map(r=>[r.id,r])), toks=P.map(r=>({r,t:ocTok(r.job)}));
+  const planDept=path=>{ const sg=String(path||'').split('/').map(x=>x.trim()).filter(Boolean); for(let i=sg.length-1;i>=0;i--){ const n=ocN(sg[i]); if(dn.has(n)) return dn.get(n); const a=OC_AL[n]; if(a&&dn.has(a)) return dn.get(a); } return null; };
+  const byP=new Map(), ex=new Map(), unm=new Map(); let matched=0;
+  E.forEach(e=>{
+    const key=ocN(e.d)+'|'+ocN(e.j); let pid=null, out=false, manual=false;
+    if(map[key]!==undefined){ manual=true; if(map[key]==='out') out=true; else if(byId.has(map[key])) pid=map[key]; }
+    if(!manual){ const pd=planDept(e.d); const cand=pd?toks.filter(x=>x.r.dept===pd):[]; let r=pd?ocBest(ocTok(e.j),cand,.6):null; if(!r) r=ocBest(ocTok(e.j),toks,.9); if(r) pid=r.id; }
+    if(pid){ matched++; (byP.get(pid)||byP.set(pid,[]).get(pid)).push(e); return; }
+    const d=out?ocTop(e.d):(planDept(e.d)||ocTop(e.d));
+    const m=ex.get(d)||ex.set(d,new Map()).get(d); (m.get(e.j)||m.set(e.j,[]).get(e.j)).push(e);
+    const u=unm.get(key)||unm.set(key,{key,d:e.d,j:e.j,n:0,manual,out}).get(key); u.n++;
+  });
+  // ربط يدوي لوظائف مربوطة (للتراجع)
+  const manualMapped=new Map(); E.forEach(e=>{ const key=ocN(e.d)+'|'+ocN(e.j); if(map[key]!==undefined&&map[key]!=='out'&&byId.has(map[key])){ const u=manualMapped.get(key)||manualMapped.set(key,{key,d:e.d,j:e.j,n:0,manual:true,out:false,pid:map[key]}).get(key); u.n++; } });
+  const extraD=[...ex.keys()].filter(d=>!pDept.includes(d)).sort((a,b)=>{ const c=x=>[...ex.get(x).values()].reduce((s,l)=>s+l.length,0); return c(b)-c(a); });
+  return {P,E,pDept,byId,byP,ex,unm:[...unm.values()],manualMapped:[...manualMapped.values()],extraD,matched,
+    cur:id=>(byP.get(id)||[]).length, rem:r=>Math.max(0,(+r.count||0)-(byP.get(r.id)||[]).length)};
+}
+
+/* ----- رسم الهيكل ----- */
+const OC_CSS=`
+.oc{direction:rtl;color:#1b1b1f;background:#f7f6f2;border-radius:10px;padding:18px 20px 14px;width:max-content;min-width:100%;box-sizing:border-box;font-family:inherit}
+.oc.g{--ac:#1d7a4b;--hd:#17452f;--tint:#e8f4ed;--ln:#9db9a9}
+.oc.b{--ac:#1f5fa8;--hd:#15335c;--tint:#e8f0fa;--ln:#9fb4d1}
+.oc *{box-sizing:border-box}
+.oc-top{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.oc-ttl{flex:1}.oc-co{color:var(--ac);font-weight:700;font-size:14px}
+.oc-ttl h2{margin:2px 0;font-size:28px;color:#17202b;font-weight:800}
+.oc-sb{color:#6b6f7a;font-size:13px}
+.oc-box{width:116px;border-radius:12px;padding:9px 8px;text-align:center;background:var(--ac);color:#fff}
+.oc-box b{display:block;font-size:32px;line-height:1.15}.oc-box span{font-size:12px}
+.oc-box.w{background:#fff;color:#17202b;border:2px solid #d9dbe1}
+.oc-line{height:3px;background:var(--ac);margin:6px 0 16px;border-radius:2px}
+.oc-cols{display:flex;gap:18px;align-items:flex-start}
+.oc-col{display:flex;flex-direction:column;align-items:stretch}
+.oc-h{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--hd);color:#fff;border-radius:10px;padding:9px 14px;font-weight:700;font-size:16px;min-width:190px}
+.oc-bd{background:#f0c24b;color:#3b2b00;border-radius:99px;padding:1px 11px;font-size:14px;font-weight:800}
+.oc-body{display:flex;flex-direction:column;align-items:center}
+.oc-root{display:flex;flex-direction:column;align-items:center;position:relative;padding-top:14px}
+.oc-root::before,.oc-kid::before,.oc-kids::before{content:"";position:absolute;top:0;left:calc(50% - 1px);width:2px;height:14px;background:var(--ln)}
+.oc-nw{display:flex;flex-direction:column;align-items:center}
+.oc-kids{display:flex;gap:0;justify-content:center;padding-top:14px;position:relative}
+.oc-kid{position:relative;padding:14px 7px 0;display:flex;flex-direction:column;align-items:center}
+.oc-kid::after{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:var(--ln)}
+.oc-kid:first-child::after{left:0;right:calc(50% - 1px)}
+.oc-kid:last-child::after{right:0;left:calc(50% - 1px)}
+.oc-kid:only-child::after{display:none}
+.oc-n{background:#fff;border:1.5px solid #d4d7de;border-radius:8px;padding:6px 11px;min-width:172px;max-width:240px;position:relative;z-index:1}
+.oc-n.lead{border:2px solid var(--ac);font-weight:700}
+.oc-r{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.oc-t{font-size:14px;line-height:1.35}.oc-c{font-weight:800;color:var(--ac);font-size:15px}
+.oc-s{font-size:11px;color:#6b6f7a;margin-top:2px;font-weight:400}
+.oc-n.zero{background:#fafafa;border-style:dashed}.oc-n.zero .oc-c{color:#b0b4bd}
+.oc-n.ex{border-style:dashed;background:var(--tint)}
+.oc-nm{font-size:11px;color:#46526a;margin-top:4px;border-top:1px dashed #d9dbe1;padding-top:3px;line-height:1.55;font-weight:400}
+.oc-ft{margin-top:14px;padding-top:8px;border-top:1px solid #d9dbe1;font-size:12px;color:#6b6f7a;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.oc-lg{display:inline-block;width:22px;height:13px;border:2px solid var(--ac);border-radius:4px;vertical-align:middle;margin-left:6px}
+.oc-lg.d{border-style:dashed;background:var(--tint)}
+.oc-empty{padding:26px;text-align:center;color:#6b6f7a;font-size:14px}
+.oc.int .oc-n{cursor:pointer}.oc.int .oc-n:hover{box-shadow:0 2px 8px rgba(0,0,0,.18)}
+`;
+function ocCard(o){
+  return `<div class="oc-n${o.lead?' lead':''}${o.cls?' '+o.cls:''}"${o.id?` data-ocn="${esc(o.id)}"`:''}><div class="oc-r"><span class="oc-t">${esc(o.t)}</span><span class="oc-c">${o.c}</span></div>${o.sub?`<div class="oc-s">${esc(o.sub)}</div>`:''}${o.names?`<div class="oc-nm">${o.names}</div>`:''}</div>`;
+}
+function ocNode(r,kids,mk){ const ks=kids.get(r.id)||[]; return `<div class="oc-nw">${mk(r)}${ks.length?`<div class="oc-kids">${ks.map(k=>`<div class="oc-kid">${ocNode(k,kids,mk)}</div>`).join('')}</div>`:''}</div>`; }
+function ocTree(rows,mk,extra){
+  const ids=new Set(rows.map(r=>r.id)), kids=new Map(), roots=[], byId=new Map(rows.map(r=>[r.id,r]));
+  rows.forEach(r=>{ let ok=!!(r.parent&&ids.has(r.parent)&&r.parent!==r.id);
+    if(ok){ const seen=new Set([r.id]); let c=r.parent; while(c){ if(seen.has(c)){ ok=false; break; } seen.add(c); const cr=byId.get(c); c=(cr&&cr.parent&&ids.has(cr.parent))?cr.parent:null; } }
+    if(ok) (kids.get(r.parent)||kids.set(r.parent,[]).get(r.parent)).push(r); else roots.push(r); });
+  roots.sort((a,b)=>(b.lead?1:0)-(a.lead?1:0));
+  return roots.map(r=>`<div class="oc-root">${ocNode(r,kids,mk)}</div>`).join('')+(extra||'');
+}
+const OC_FT=(k)=>`<div class="oc-ft"><span><i class="oc-lg"></i>وظيفة قيادية</span>${k==='a'?'<span><i class="oc-lg d"></i>وظيفة خارج الخطة / شاغرة</span>':''}<span style="margin-right:auto">إدارة الموارد البشرية</span></div>`;
+function ocChart(kind,opt){
+  opt=opt||{}; const C=OC.C; if(!C) return '';
+  const names=!!opt.names, isA=kind==='a';
+  const hasP=C.P.length>0, hasE=C.E.length>0;
+  if(!isA&&!hasP) return `<div class="oc g"><div class="oc-empty">لسه ما اترفعش شيت الهيكل المخطط.</div></div>`;
+  if(isA&&!hasE) return `<div class="oc b"><div class="oc-empty">لسه ما اترفعش شيت الموظفين الحاليين.</div></div>`;
+  const nm=l=>names?l.map(e=>esc(e.n)).join('، '):'';
+  const cols=[]; let totalJobs=0;
+  const order=isA?[...C.pDept,...C.extraD]:C.pDept;
+  order.forEach(d=>{
+    const rows=C.P.filter(r=>r.dept===d); let body='', n=0;
+    if(!isA){ n=rows.reduce((s,r)=>s+(+r.count||0),0); totalJobs+=n; body=ocTree(rows,r=>ocCard({t:r.job,c:ocNum(r.count),lead:r.lead,id:'p:'+r.id}),''); }
+    else{
+      const exm=C.ex.get(d)||new Map(); let exh='';
+      [...exm.entries()].sort((a,b)=>b[1].length-a[1].length).forEach(([j,l])=>{ n+=l.length; exh+=`<div class="oc-root">${ocCard({t:j,c:ocNum(l.length),cls:'ex',lead:ocLead(j)&&!rows.length,sub:'خارج الخطة',names:nm(l),id:'x:'+d+'|'+j})}</div>`; });
+      if(rows.length){
+        rows.forEach(r=>{ n+=C.cur(r.id); });
+        body=ocTree(rows,r=>{ const l=C.byP.get(r.id)||[]; return ocCard({t:r.job,c:ocNum(l.length),lead:r.lead,cls:l.length?'':'zero',sub:`مخطط ${ocNum(r.count)} · متبقي ${ocNum(C.rem(r))}`,names:nm(l),id:'a:'+r.id}); },exh);
+      } else body=exh;
+      totalJobs+=n;
+    }
+    if(isA&&!n) return;
+    cols.push(`<div class="oc-col"><div class="oc-h"><span>${esc(d)}</span><span class="oc-bd">${ocNum(n)}</span></div><div class="oc-body">${body}</div></div>`);
+  });
+  const th=isA?'b':'g';
+  const top=opt.compact?`<div class="oc-top"><div class="oc-ttl"><h2 style="font-size:20px">${isA?'الهيكل الحالي للموظفين':'الهيكل التنظيمي المخطط'}</h2></div><div class="oc-sb" style="font-weight:700;color:var(--ac)">${ocNum(totalJobs)} ${isA?'موظف':'وظيفة'} · ${cols.length} أقسام</div></div>`
+   :`<div class="oc-top"><div class="oc-ttl"><div class="oc-co">شركة أوباك للصناعات الغذائية</div><h2>${isA?'الهيكل الحالي للموظفين':'الهيكل التنظيمي المخطط'}</h2><div class="oc-sb">${isA?'الموظفون الحاليون حسب الأقسام والوظائف (مقارنة بالمخطط)':'خطة التعيينات حسب الأقسام والوظائف'}${isA&&OC.data.emps&&OC.data.emps.at?' · آخر رفع '+ocDate(OC.data.emps.at):''}</div></div><div class="oc-box"><b>${ocNum(totalJobs)}</b><span>${isA?'إجمالي الموظفين':'إجمالي الوظائف'}</span></div><div class="oc-box w"><b>${cols.length}</b><span>أقسام</span></div></div><div class="oc-line"></div>`;
+  return `<div class="oc ${th}${opt.int?' int':''}">${top}<div class="oc-cols">${cols.join('')}</div>${opt.compact?'':OC_FT(kind)}</div>`;
+}
+
+/* ----- الاستيراد من Excel ----- */
+async function ocReadSheet(file){
+  await loadXLSX(); const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
+  const ws=wb.Sheets[wb.SheetNames[0]]; const m=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true,blankrows:false}); return m;
+}
+function ocFindCols(hdr,specs){ const idx={}; const h=hdr.map(x=>ocN(x)); for(const [k,words] of Object.entries(specs)){ idx[k]=h.findIndex(x=>words.some(w=>x.includes(w))); } return idx; }
+const ocIso=v=>{ if(v instanceof Date&&!isNaN(v)){ const x=new Date(v.getTime()+12*3600e3); return x.toISOString().slice(0,10); } const s=String(v||'').trim(); const m=s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/); return m?`${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`:''; };
+async function ocUploadPlanned(file){
+  const m=await ocReadSheet(file); let hi=m.findIndex(r=>r.some(c=>ocN(c).includes('وظيف')||ocN(c).includes('منصب')));
+  if(hi<0) throw new Error('مش لاقي عمود «الوظيفة» في الشيت');
+  const ix=ocFindCols(m[hi],{d:['الاداره','القسم','اداره'],j:['الوظيف','المنصب'],c:['العدد','عدد']});
+  if(ix.d<0||ix.j<0||ix.c<0) throw new Error('الشيت لازم فيه أعمدة: الإدارة (أو القسم) · الوظيفة · العدد');
+  const old=new Map(((OC.data.planned&&OC.data.planned.rows)||[]).map(r=>[ocN(r.dept)+'|'+ocN(r.job),r]));
+  const seen=new Map(), rows=[];
+  m.slice(hi+1).forEach(r=>{ const d=String(r[ix.d]||'').trim(), j=String(r[ix.j]||'').trim(), c=parseFloat(r[ix.c]);
+    if(!d||!j||isNaN(c)||ocN(d)==='الاجمالي'||ocN(d)==='اجمالي') return;
+    let id=ocN(d)+'|'+ocN(j); const k=(seen.get(id)||0)+1; seen.set(id,k); const key=id; if(k>1) id+='#'+k;
+    const o=old.get(key); rows.push({id,dept:d,job:j,count:c,parent:(o&&k===1&&o.parent)||'',lead:o&&k===1?!!o.lead:ocLead(j)}); });
+  if(!rows.length) throw new Error('مفيش صفوف صالحة في الشيت');
+  OC.data.planned={rows,at:new Date().toISOString().slice(0,10),file:file.name};
+  await BE.ocSet('planned',OC.data.planned);
+}
+async function ocUploadEmps(file){
+  const m=await ocReadSheet(file); let hi=m.findIndex(r=>r.some(c=>ocN(c).includes('الموظف')||ocN(c).includes('اسم')));
+  if(hi<0) hi=0;
+  const ix=ocFindCols(m[hi],{n:['اسم','الموظف'],d:['القسم','الاداره','اداره'],j:['المنصب','الوظيف'],t:['تاريخ']});
+  if(ix.n<0||ix.d<0||ix.j<0) throw new Error('الشيت لازم فيه أعمدة: اسم الموظف · القسم · المنصب الوظيفي');
+  const rows=[]; m.slice(hi+1).forEach(r=>{ const n=String(r[ix.n]||'').trim(); if(!n) return; rows.push({n,d:String(r[ix.d]||'').trim(),j:String(r[ix.j]||'').trim(),t:ix.t>=0?ocIso(r[ix.t]):''}); });
+  if(!rows.length) throw new Error('مفيش موظفين في الشيت');
+  OC.data.emps={rows,at:new Date().toISOString().slice(0,10),file:file.name};
+  await BE.ocSet('emps',OC.data.emps);
+}
+
+/* ----- الشاشة الرئيسية للمديول ----- */
+async function mountOrg(){
+  setLayout({view:true}); $('view').innerHTML='<div class="card muted">جارٍ التحميل…</div>';
+  if(!$('ocstyle')){ const s=document.createElement('style'); s.id='ocstyle'; s.textContent=OC_CSS+OC_UI_CSS; document.head.appendChild(s); }
+  try{ const all=await BE.ocAll(); OC.data.planned=all.planned||null; OC.data.emps=all.emps||null; OC.data.plan=all.plan||{phases:[]}; if(!OC.data.plan.phases) OC.data.plan.phases=[]; OC.data.set=all.set||{map:{}}; if(!OC.data.set.map) OC.data.set.map={}; }
+  catch(e){ $('view').innerHTML=`<div class="card bad">${esc(authMsg(e))}</div>`; return; }
+  renderOrg();
+}
+const OC_UI_CSS=`
+.ocup{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:4px 0 14px}@media(max-width:780px){.ocup{grid-template-columns:1fr}}
+.ocu{display:block;border:2px dashed #b5bacb;border-radius:10px;padding:12px 14px;background:#fafbfe;cursor:pointer}
+.ocu.g{border-color:#8fc4a8;background:#f2faf5}.ocu.b{border-color:#93b6e0;background:#f2f7fd}
+.ocu input{display:none}.ocu b{display:block;color:var(--navy);margin-bottom:2px}.ocu.ro{cursor:default}
+.ocu .st{font-size:12.5px;color:var(--mut);line-height:1.7}.ocu .st.ok{color:#1b7a3d}.ocu .st.bad{color:#c62828}
+.octabs{display:flex;gap:4px;border-bottom:2px solid var(--line);margin:2px 0 14px}
+.octabs button{font:inherit;font-size:14px;font-weight:700;padding:8px 20px;border:0;border-bottom:3px solid transparent;margin-bottom:-2px;background:transparent;color:var(--mut);cursor:pointer}
+.octabs button.on{color:var(--red);border-bottom-color:var(--red)}
+.ocbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.ocseg{display:inline-flex;border:1.5px solid #c3c6cf;border-radius:8px;overflow:hidden}
+.ocseg button{font:inherit;font-size:13.5px;font-weight:600;padding:6px 14px;border:0;background:#fff;color:var(--ink);cursor:pointer;border-inline-start:1px solid #c3c6cf}
+.ocseg button:first-child{border-inline-start:0}.ocseg button.on{background:var(--navy);color:#fff}
+.ocscroll{overflow:auto;border:1px solid var(--line);border-radius:10px;background:#f7f6f2;margin-bottom:14px}
+.ocwarn{background:#fff3df;color:#8a5200;border:1px solid #f1d29b;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.octbl{width:100%;border-collapse:collapse;font-size:13.5px}.octbl th{background:var(--navy);color:#fff;padding:7px 10px;text-align:right;white-space:nowrap}
+.octbl td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:right}.octbl tr.tot td{font-weight:800;background:#eef1f6}
+.octbl .rm{font-weight:800;color:#c62828}.octbl .ok{color:#1b7a3d;font-weight:700}
+.ocph{border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:12px;border-right:5px solid #1d7a4b;background:#fff}
+.ocph h3{margin:0 0 4px;font-size:16px;color:var(--navy);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.ocph .pill{font-size:11.5px;font-weight:700;padding:2px 10px;border-radius:99px;background:#eceff3;color:#55606d}
+.ocph .pill.run{background:#e6f5ea;color:#1b7a3d}.ocph .pill.soon{background:#fff3df;color:#a15c00}
+.ocph .dts{font-size:13px;color:var(--mut);margin-bottom:8px}
+.ocsum{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.ocsum div{border-radius:10px;padding:10px 14px;background:#eef1f6;color:var(--navy)}.ocsum b{display:block;font-size:24px}.ocsum span{font-size:12.5px}
+.ocsum .g{background:#e8f4ed;color:#1d7a4b}.ocsum .b{background:#e8f0fa;color:#1f5fa8}.ocsum .r{background:#fdecec;color:#c62828}
+.ocmt{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:8px;margin-top:8px}
+.ocmt .octbl th{position:sticky;top:0}
+.ocmt input[type=number]{width:80px;padding:4px 6px;border:1.5px solid #c3c6cf;border-radius:6px;font:inherit}
+.ocmt select{max-width:280px;padding:4px 6px;border:1.5px solid #c3c6cf;border-radius:6px;font:inherit}
+`;
+function ocStats(){
+  const C=OC.C, planned=C.P.reduce((s,r)=>s+(+r.count||0),0), cur=C.E.length, matched=C.matched;
+  return {planned,cur,matched,unm:cur-matched};
+}
+function renderOrg(){
+  OC.C=ocCalc(); const C=OC.C, ed=can('orgchart','edit'), S=ocStats(), D=OC.data;
+  const upl=(k,cls,title,hint,id,ok)=>`<label class="ocu ${cls}${ed?'':' ro'}"><b>${title}</b>${ed?`<input type="file" id="${id}" accept=".xlsx,.xls">`:''}<div class="st ${ok?'ok':''}">${ok||hint}</div></label>`;
+  const pOk=D.planned?`✓ ${C.P.length} وظيفة · إجمالي ${ocNum(S.planned)} · ${C.pDept.length} أقسام — رُفع ${ocDate(D.planned.at)} (${esc(D.planned.file||'')})`:'';
+  const eOk=D.emps?`✓ ${ocNum(S.cur)} موظف — مربوط بالخطة ${ocNum(S.matched)} · غير مربوط ${ocNum(S.unm)} — رُفع ${ocDate(D.emps.at)} (${esc(D.emps.file||'')})`:'';
+  $('view').innerHTML=`<div class="card"><div class="tb"><h2 style="margin:0">الهيكل التنظيمي</h2><span style="flex:1"></span><button class="btn" id="oc_print" type="button">🖨 طباعة</button></div>
+   <div class="octabs"><button type="button" data-octab="chart" class="${OC.tab==='chart'?'on':''}">الهيكل التنظيمي</button><button type="button" data-octab="plan" class="${OC.tab==='plan'?'on':''}">خطة التعيينات</button></div>
+   ${OC.tab==='chart'?ocChartTab(ed,pOk,eOk,upl,S):ocPlanTab(ed)}</div>`;
+  if(OC.tab==='chart') ocFitScreen();
+}
+function ocChartTab(ed,pOk,eOk,upl,S){
+  const C=OC.C, v=OC.view;
+  let h=`<div class="ocup">${upl('p','g','① شيت الهيكل المخطط (أعداد الموظفين المخطط لهم)','الأعمدة: الإدارة · الوظيفة · العدد'+(ed?' — اضغط لاختيار الملف':''),'oc_fp',pOk)}${upl('e','b','② شيت الموظفين الحاليين','الأعمدة: اسم الموظف · القسم · المنصب الوظيفي'+(ed?' — اضغط لاختيار الملف':''),'oc_fe',eOk)}</div>`;
+  if(C.E.length&&C.P.length&&(S.unm>0||C.manualMapped.length)) h+=`<div class="ocwarn"><span>${ocNum(S.unm)} موظف مش مربوطين بوظيفة في الخطة (بيظهروا في الهيكل الحالي كوظائف «خارج الخطة» ومش بيتخصموا من المتبقي).</span>${ed?'<button class="btn sm" id="oc_map" type="button">ربط الوظائف يدويًا</button>':''}</div>`;
+  h+=`<div class="ocbar"><div class="ocseg"><button type="button" data-ocv="p" class="${v==='p'?'on':''}">المخطط</button><button type="button" data-ocv="a" class="${v==='a'?'on':''}">الحالي</button><button type="button" data-ocv="ab" class="${v==='ab'?'on':''}">الاتنين فوق بعض</button></div>
+   <label style="display:inline-flex;gap:6px;align-items:center;font-size:13.5px"><input type="checkbox" id="oc_names" ${OC.names?'checked':''}> إظهار أسماء الموظفين في الكروت</label>
+   <button class="btn sm" id="oc_zoom" type="button">${OC.fit?'حجم حقيقي':'ملاءمة العرض'}</button><span class="muted" style="font-size:12.5px">${ed?'اضغط على أي وظيفة في الهيكل المخطط لتعديل العدد أو تبعيتها، وفي الحالي لعرض أسماء الموظفين.':'اضغط على أي وظيفة لعرض تفاصيلها.'}</span></div>`;
+  const parts=[]; if(v==='p'||v==='ab') parts.push(ocChart('p',{int:true})); if(v==='a'||v==='ab') parts.push(ocChart('a',{int:true,names:OC.names}));
+  h+=`<div class="ocscroll" id="oc_scroll">${parts.map(p=>`<div class="ocwrap" style="margin:8px">${p}</div>`).join('')}</div>`;
+  return h;
+}
+function ocFitScreen(){
+  const sc=$('oc_scroll'); if(!sc) return; const ws=[...sc.querySelectorAll('.ocwrap')];
+  ws.forEach(w=>{ w.style.zoom=''; w.style.width=''; });
+  if(!OC.fit) return; const W=sc.clientWidth-16; ws.forEach(w=>{ const c=w.firstElementChild; const nw=c?c.scrollWidth:0; if(nw>W&&W>200) w.style.zoom=Math.max(.62,W/nw).toFixed(3); });
+}
+window.addEventListener('resize',()=>{ if(CUR.mod==='orgchart'&&OC.tab==='chart') ocFitScreen(); });
+
+/* ----- تبويب خطة التعيينات ----- */
+const ocAlloc=(pid,except)=>OC.data.plan.phases.reduce((s,p)=>p.id===except?s:s+(p.items.find(i=>i.pid===pid)||{n:0}).n,0);
+function ocPhaseState(p){ const t=new Date().toISOString().slice(0,10); return p.end&&t>p.end?['منتهية','']:p.start&&t<p.start?['قادمة','soon']:['جارية','run']; }
+function ocPlanTab(ed){
+  const C=OC.C; if(!C.P.length) return `<div class="muted" style="padding:20px;text-align:center">ارفع شيت الهيكل المخطط الأول (من تبويب «الهيكل التنظيمي») عشان تظهر الوظائف المتبقية.</div>`;
+  const rows=C.P.map(r=>({r,cur:C.cur(r.id),rem:C.rem(r),al:ocAlloc(r.id)}));
+  const tp=rows.reduce((s,x)=>s+(+x.r.count||0),0), tc=rows.reduce((s,x)=>s+x.cur,0), tr=rows.reduce((s,x)=>s+x.rem,0), ta=rows.reduce((s,x)=>s+Math.min(x.al,x.rem),0);
+  const phases=OC.data.plan.phases.slice().sort((a,b)=>String(a.start).localeCompare(String(b.start)));
+  const dsel=OC.pd||'';
+  let h=`<div class="ocsum"><div class="g"><b>${ocNum(tp)}</b><span>إجمالي المخطط</span></div><div class="b"><b>${ocNum(tc)}</b><span>الحاليون المربوطون</span></div><div class="r"><b>${ocNum(tr)}</b><span>المتبقي للتعيين</span></div><div><b>${ocNum(ta)}</b><span>موزّع على مراحل</span></div><div><b>${ocNum(Math.max(0,tr-ta))}</b><span>غير موزّع</span></div></div>`;
+  h+=`<div class="ocbar"><h3 style="margin:0;font-size:16px;color:var(--navy)">المتبقي من كل وظيفة</h3><span style="flex:1"></span><select id="oc_pd"><option value="">كل الأقسام</option>${C.pDept.map(d=>`<option ${d===dsel?'selected':''}>${esc(d)}</option>`).join('')}</select>
+    <label style="font-size:13.5px"><input type="checkbox" id="oc_full" ${OC.full?'checked':''}> إظهار الوظائف المكتملة</label></div>`;
+  const vis=rows.filter(x=>(!dsel||x.r.dept===dsel)&&(OC.full||x.rem>0));
+  h+=`<div class="tw" style="overflow:auto;border:1px solid var(--line);border-radius:10px"><table class="octbl"><thead><tr><th>القسم</th><th>الوظيفة</th><th>المخطط</th><th>الحالي</th><th>المتبقي</th><th>موزّع على مراحل</th><th>غير موزّع</th></tr></thead><tbody>`+
+    (vis.length?vis.map(x=>`<tr><td>${esc(x.r.dept)}</td><td>${esc(x.r.job)}</td><td>${ocNum(x.r.count)}</td><td>${ocNum(x.cur)}</td><td class="${x.rem?'rm':'ok'}">${x.rem?ocNum(x.rem):'مكتملة'}</td><td>${ocNum(Math.min(x.al,x.rem))}</td><td>${ocNum(Math.max(0,x.rem-x.al))}</td></tr>`).join('')
+      +`<tr class="tot"><td colspan="2">الإجمالي</td><td>${ocNum(vis.reduce((s,x)=>s+(+x.r.count||0),0))}</td><td>${ocNum(vis.reduce((s,x)=>s+x.cur,0))}</td><td>${ocNum(vis.reduce((s,x)=>s+x.rem,0))}</td><td>${ocNum(vis.reduce((s,x)=>s+Math.min(x.al,x.rem),0))}</td><td>${ocNum(vis.reduce((s,x)=>s+Math.max(0,x.rem-x.al),0))}</td></tr>`
+      :`<tr><td colspan="7" class="muted" style="text-align:center;padding:16px">مفيش وظائف متبقية 🎉</td></tr>`)+`</tbody></table></div>`;
+  if(!C.E.length) h+=`<div class="note">ملحوظة: لسه ما اترفعش شيت الموظفين الحاليين، فالمتبقي = المخطط بالكامل.</div>`;
+  h+=`<div class="ocbar" style="margin-top:20px"><h3 style="margin:0;font-size:16px;color:var(--navy)">مراحل التعيين</h3><span style="flex:1"></span>${ed?'<button class="btn pri" id="oc_newph" type="button">+ مرحلة جديدة</button>':''}</div>`;
+  h+=phases.length?phases.map(p=>{ const [st,cl]=ocPhaseState(p); const tot=p.items.reduce((s,i)=>s+i.n,0);
+    return `<div class="ocph"><h3>${esc(p.name)} <span class="pill ${cl}">${st}</span><span class="pill">${ocNum(tot)} وظيفة</span><span style="flex:1"></span>${ed?`<button class="btn sm" data-ocph="${esc(p.id)}" type="button">تعديل</button><button class="btn sm" data-ocphdel="${esc(p.id)}" type="button">حذف</button>`:''}</h3>
+      <div class="dts">من ${ocDate(p.start)} إلى ${ocDate(p.end)}${p.note?' — '+esc(p.note):''}</div>
+      <table class="octbl"><thead><tr><th>القسم</th><th>الوظيفة</th><th>العدد</th></tr></thead><tbody>${p.items.map(i=>{ const r=C.byId.get(i.pid); return r?`<tr><td>${esc(r.dept)}</td><td>${esc(r.job)}</td><td>${ocNum(i.n)}</td></tr>`:''; }).join('')||'<tr><td colspan="3" class="muted">مفيش وظائف</td></tr>'}</tbody></table></div>`; }).join('')
+    :`<div class="muted" style="padding:14px;text-align:center">${ed?'لسه مفيش مراحل — اضغط «+ مرحلة جديدة» وحدد اسمها وتاريخ البداية والنهاية والوظائف اللي هتتعين فيها.':'لسه مفيش مراحل.'}</div>`;
+  return h;
+}
+function ocPhaseModal(id){
+  const C=OC.C, ph=id?OC.data.plan.phases.find(p=>p.id===id):null;
+  const cur=ph||{name:'',start:'',end:'',note:'',items:[]};
+  const avail=r=>Math.max(0,C.rem(r)-ocAlloc(r.id,id));
+  const list=C.P.filter(r=>avail(r)>0||cur.items.some(i=>i.pid===r.id));
+  const m=document.createElement('div'); m.className='modal'; m.id='ocmodal';
+  m.innerHTML=`<div class="box" style="width:min(860px,100%)"><h3>${ph?'تعديل المرحلة':'مرحلة جديدة'}</h3>
+   <div class="form2" style="grid-template-columns:2fr 1fr 1fr"><div><label>اسم المرحلة</label><input id="ph_n" value="${esc(cur.name)}"></div><div><label>تاريخ البداية</label><input type="date" id="ph_s" value="${esc(cur.start)}"></div><div><label>تاريخ النهاية</label><input type="date" id="ph_e" value="${esc(cur.end)}"></div></div>
+   <div style="margin-top:8px"><label>ملحوظة (اختياري)</label><input id="ph_t" value="${esc(cur.note||'')}" style="width:100%"></div>
+   <div class="ocbar" style="margin-top:12px"><b style="color:var(--navy)">الوظائف المتبقية — اختار اللي هتتعين في المرحلة دي وحدد العدد</b><span style="flex:1"></span><select id="ph_d"><option value="">كل الأقسام</option>${C.pDept.map(d=>`<option>${esc(d)}</option>`).join('')}</select><button class="btn sm" id="ph_all" type="button">تحديد الكل</button><button class="btn sm" id="ph_none" type="button">إلغاء الكل</button></div>
+   <div class="ocmt"><table class="octbl"><thead><tr><th></th><th>القسم</th><th>الوظيفة</th><th>المتاح</th><th>العدد في المرحلة</th></tr></thead><tbody>
+   ${list.map(r=>{ const it=cur.items.find(i=>i.pid===r.id); const av=avail(r); return `<tr data-pd="${esc(r.dept)}"><td><input type="checkbox" class="ph_c" data-pid="${esc(r.id)}" ${it?'checked':''}></td><td>${esc(r.dept)}</td><td>${esc(r.job)}</td><td>${ocNum(av)}</td><td><input type="number" min="1" max="${av}" class="ph_n" data-pid="${esc(r.id)}" value="${it?Math.min(it.n,av):av}"></td></tr>`; }).join('')||'<tr><td colspan="5" class="muted" style="text-align:center;padding:14px">مفيش وظائف متاحة للتوزيع</td></tr>'}
+   </tbody></table></div><div class="lerr" id="ph_err"></div>
+   <div style="display:flex;gap:8px;margin-top:14px"><button class="btn pri" id="ph_save" type="button">حفظ</button><button class="btn" id="ph_cancel" type="button">إلغاء</button></div></div>`;
+  document.body.appendChild(m);
+  const q=s=>m.querySelector(s), qa=s=>[...m.querySelectorAll(s)];
+  q('#ph_cancel').onclick=()=>m.remove();
+  q('#ph_d').onchange=e=>qa('tbody tr[data-pd]').forEach(tr=>tr.hidden=!!e.target.value&&tr.dataset.pd!==e.target.value);
+  q('#ph_all').onclick=()=>qa('tbody tr[data-pd]').forEach(tr=>{ if(!tr.hidden) tr.querySelector('.ph_c').checked=true; });
+  q('#ph_none').onclick=()=>qa('.ph_c').forEach(c=>c.checked=false);
+  q('#ph_save').onclick=async()=>{
+    const err=q('#ph_err'); err.textContent=''; const name=q('#ph_n').value.trim(), s=q('#ph_s').value, e=q('#ph_e').value;
+    if(!name){ err.textContent='اكتب اسم المرحلة'; return; } if(!s||!e){ err.textContent='حدد تاريخ البداية والنهاية'; return; } if(e<s){ err.textContent='تاريخ النهاية قبل البداية'; return; }
+    const items=[]; for(const c of qa('.ph_c')){ if(!c.checked) continue; const pid=c.dataset.pid, r=C.byId.get(pid), n=Math.floor(+q('.ph_n[data-pid="'+CSS.escape(pid)+'"]').value||0), av=avail(r);
+      if(n<1){ err.textContent='العدد لازم يكون 1 على الأقل: '+r.job; return; } if(n>av){ err.textContent=`«${r.job}»: العدد (${n}) أكبر من المتاح (${av})`; return; } items.push({pid,n}); }
+    if(!items.length){ err.textContent='اختار وظيفة واحدة على الأقل'; return; }
+    const obj={id:ph?ph.id:'ph'+Date.now(),name,start:s,end:e,note:q('#ph_t').value.trim(),items};
+    const ps=OC.data.plan.phases; if(ph) ps[ps.findIndex(p=>p.id===ph.id)]=obj; else ps.push(obj);
+    q('#ph_save').disabled=true;
+    try{ await BE.ocSet('plan',OC.data.plan); m.remove(); toast('تم حفظ المرحلة ✓'); renderOrg(); }catch(er){ err.textContent=authMsg(er); q('#ph_save').disabled=false; }
+  };
+}
+
+/* ----- نوافذ: تفاصيل وظيفة / تعديل وظيفة مخططة / الربط اليدوي / الطباعة ----- */
+function ocModal(html,w){ const m=document.createElement('div'); m.className='modal'; m.id='ocmodal'; m.innerHTML=`<div class="box" style="width:min(${w||620}px,100%)">${html}</div>`; document.body.appendChild(m); m.addEventListener('click',e=>{ if(e.target===m||e.target.closest('[data-ocx]')) m.remove(); }); return m; }
+function ocJobModal(id){
+  const C=OC.C, [k,rest]=[id.slice(0,1),id.slice(2)]; const ed=can('orgchart','edit');
+  if(k==='p'){ const r=C.byId.get(rest); if(!r) return;
+    const sib=C.P.filter(x=>x.dept===r.dept&&x.id!==r.id);
+    const m=ocModal(`<h3>${esc(r.job)} <span class="muted" style="font-size:13px">— ${esc(r.dept)}</span></h3>
+      <div class="form2" style="grid-template-columns:1fr 1fr"><div><label>العدد المخطط</label><input type="number" min="0" id="oj_c" value="${esc(r.count)}" ${ed?'':'disabled'}></div>
+      <div><label>تتبع وظيفة (داخل نفس القسم)</label><select id="oj_p" ${ed?'':'disabled'}><option value="">— مستوى أعلى —</option>${sib.map(x=>`<option value="${esc(x.id)}" ${x.id===r.parent?'selected':''}>${esc(x.job)}</option>`).join('')}</select></div></div>
+      <label style="display:flex;gap:6px;align-items:center;margin-top:10px"><input type="checkbox" id="oj_l" ${r.lead?'checked':''} ${ed?'':'disabled'}> وظيفة قيادية (إطار مميز وتظهر الأول في القسم)</label>
+      <div class="muted" style="font-size:12.5px;margin-top:8px">الحاليون على الوظيفة دي: ${ocNum(C.cur(r.id))} — المتبقي: ${ocNum(C.rem(r))}</div>
+      <div class="lerr" id="oj_err"></div><div style="display:flex;gap:8px;margin-top:14px">${ed?'<button class="btn pri" id="oj_save" type="button">حفظ</button>':''}<button class="btn" data-ocx type="button">${ed?'إلغاء':'إغلاق'}</button></div>`);
+    const sv=m.querySelector('#oj_save'); if(sv) sv.onclick=async()=>{ r.count=Math.max(0,+m.querySelector('#oj_c').value||0); r.parent=m.querySelector('#oj_p').value; r.lead=m.querySelector('#oj_l').checked;
+      try{ await BE.ocSet('planned',OC.data.planned); m.remove(); toast('تم الحفظ ✓'); renderOrg(); }catch(er){ m.querySelector('#oj_err').textContent=authMsg(er); } };
+    return; }
+  let list=[], title='', sub='';
+  if(k==='a'){ const r=C.byId.get(rest); if(!r) return; list=C.byP.get(r.id)||[]; title=r.job; sub=`${r.dept} — مخطط ${ocNum(r.count)} · حالي ${ocNum(list.length)} · متبقي ${ocNum(C.rem(r))}`; }
+  else { const [d,j]=[rest.slice(0,rest.indexOf('|')),rest.slice(rest.indexOf('|')+1)]; list=((C.ex.get(d)||new Map()).get(j))||[]; title=j; sub=d+' — خارج الخطة'; }
+  ocModal(`<h3>${esc(title)}</h3><div class="muted" style="font-size:13px;margin-bottom:8px">${esc(sub)}</div>${list.length?`<div class="ocmt"><table class="octbl"><thead><tr><th>#</th><th>الاسم</th><th>القسم</th><th>تاريخ أول عقد</th></tr></thead><tbody>${list.map((e,i)=>`<tr><td>${i+1}</td><td>${esc(e.n)}</td><td>${esc(e.d)}</td><td>${ocDate(e.t)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">مفيش موظفين على الوظيفة دي حاليًا (شاغرة).</div>'}<div style="margin-top:14px"><button class="btn" data-ocx type="button">إغلاق</button></div>`,720);
+}
+function ocMapModal(){
+  const C=OC.C, map=OC.data.set.map;
+  const items=[...C.unm,...C.manualMapped].sort((a,b)=>a.d.localeCompare(b.d,'ar')||a.j.localeCompare(b.j,'ar'));
+  const opts=sel=>`<option value="">— تلقائي (غير مربوط) —</option><option value="out" ${sel==='out'?'selected':''}>خارج الخطة (مش هتتحسب)</option>`+C.pDept.map(d=>`<optgroup label="${esc(d)}">${C.P.filter(r=>r.dept===d).map(r=>`<option value="${esc(r.id)}" ${sel===r.id?'selected':''}>${esc(r.job)}</option>`).join('')}</optgroup>`).join('');
+  const m=ocModal(`<h3>ربط وظائف الموظفين بالخطة</h3><div class="muted" style="font-size:13px">اختار لكل وظيفة حالية الوظيفة المقابلة لها في الهيكل المخطط. الربط بيتحفظ وبيتطبق تلقائيًا في كل رفع جديد.</div>
+   <div class="ocmt" style="max-height:56vh"><table class="octbl"><thead><tr><th>القسم (من الشيت)</th><th>المنصب (من الشيت)</th><th>العدد</th><th>الوظيفة في الخطة</th></tr></thead><tbody>${items.map(u=>`<tr><td>${esc(u.d)}</td><td>${esc(u.j)}</td><td>${ocNum(u.n)}</td><td><select class="mp" data-k="${esc(u.key)}">${opts(map[u.key]!==undefined?map[u.key]:'')}</select></td></tr>`).join('')}</tbody></table></div>
+   <div class="lerr" id="mp_err"></div><div style="display:flex;gap:8px;margin-top:14px"><button class="btn pri" id="mp_save" type="button">حفظ وإعادة الحساب</button><button class="btn" data-ocx type="button">إلغاء</button></div>`,980);
+  m.querySelector('#mp_save').onclick=async()=>{ const nm={...map}; m.querySelectorAll('select.mp').forEach(s=>{ if(s.value) nm[s.dataset.k]=s.value; else delete nm[s.dataset.k]; });
+    OC.data.set.map=nm; try{ await BE.ocSet('set',OC.data.set); m.remove(); toast('تم الحفظ ✓'); renderOrg(); }catch(er){ m.querySelector('#mp_err').textContent=authMsg(er); } };
+}
+
+/* ----- الطباعة (A4 عرضي داخل إطار مخفي) ----- */
+function ocPrintModal(){
+  const C=OC.C; const m=ocModal(`<h3>طباعة</h3><div style="display:grid;gap:8px;margin-top:6px">
+   <label><input type="checkbox" id="pr_p" ${C.P.length?'checked':'disabled'}> الهيكل التنظيمي المخطط (أخضر)</label>
+   <label><input type="checkbox" id="pr_a" ${C.E.length?'checked':'disabled'}> الهيكل الحالي للموظفين (أزرق)</label>
+   <label><input type="checkbox" id="pr_r" ${C.P.length?'checked':'disabled'}> تقرير خطة التعيينات (المتبقي + المراحل)</label>
+   <label style="margin-inline-start:22px"><input type="checkbox" id="pr_s"> الهيكلين فوق بعض في صفحة واحدة</label>
+   <label style="margin-inline-start:22px"><input type="checkbox" id="pr_n"> إظهار أسماء الموظفين في الهيكل الحالي</label></div>
+   <div class="lerr" id="pr_err"></div><div style="display:flex;gap:8px;margin-top:14px"><button class="btn pri" id="pr_go" type="button">طباعة</button><button class="btn" data-ocx type="button">إلغاء</button></div>`,460);
+  m.querySelector('#pr_go').onclick=()=>{ const o={p:m.querySelector('#pr_p').checked,a:m.querySelector('#pr_a').checked,r:m.querySelector('#pr_r').checked,s:m.querySelector('#pr_s').checked,n:m.querySelector('#pr_n').checked};
+    if(!o.p&&!o.a&&!o.r){ m.querySelector('#pr_err').textContent='اختار حاجة للطباعة'; return; } m.remove(); ocPrint(o); };
+}
+function ocReportHtml(){
+  const C=OC.C, S=ocStats(), rows=C.P.map(r=>({r,cur:C.cur(r.id),rem:C.rem(r),al:ocAlloc(r.id)})).filter(x=>x.rem>0);
+  const phases=OC.data.plan.phases.slice().sort((a,b)=>String(a.start).localeCompare(String(b.start)));
+  const tr=rows.reduce((s,x)=>s+x.rem,0);
+  return `<div class="rep"><div class="rh"><div><div class="rc">شركة أوباك للصناعات الغذائية</div><h1>تقرير خطة التعيينات</h1><div class="rs">تاريخ التقرير: ${ocDate(new Date().toISOString().slice(0,10))}</div></div>
+   <div class="rb"><div><b>${ocNum(S.planned)}</b>المخطط</div><div><b>${ocNum(S.matched)}</b>الحاليون المربوطون</div><div class="r"><b>${ocNum(tr)}</b>المتبقي</div></div></div>
+   <h2>المتبقي من كل وظيفة</h2><table><thead><tr><th>القسم</th><th>الوظيفة</th><th>المخطط</th><th>الحالي</th><th>المتبقي</th><th>موزّع على مراحل</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.r.dept)}</td><td>${esc(x.r.job)}</td><td>${ocNum(x.r.count)}</td><td>${ocNum(x.cur)}</td><td><b>${ocNum(x.rem)}</b></td><td>${ocNum(Math.min(x.al,x.rem))}</td></tr>`).join('')||'<tr><td colspan="6">لا توجد وظائف متبقية</td></tr>'}<tr class="t"><td colspan="4">الإجمالي</td><td>${ocNum(tr)}</td><td>${ocNum(rows.reduce((s,x)=>s+Math.min(x.al,x.rem),0))}</td></tr></tbody></table>
+   <h2>مراحل التعيين</h2>${phases.map(p=>`<div class="ph"><h3>${esc(p.name)} <small>من ${ocDate(p.start)} إلى ${ocDate(p.end)} — ${ocNum(p.items.reduce((s,i)=>s+i.n,0))} وظيفة</small></h3>${p.note?`<div class="rs">${esc(p.note)}</div>`:''}<table><thead><tr><th>القسم</th><th>الوظيفة</th><th>العدد</th></tr></thead><tbody>${p.items.map(i=>{ const r=C.byId.get(i.pid); return r?`<tr><td>${esc(r.dept)}</td><td>${esc(r.job)}</td><td>${ocNum(i.n)}</td></tr>`:''; }).join('')}</tbody></table></div>`).join('')||'<div class="rs">لم يتم تحديد مراحل بعد.</div>'}</div>`;
+}
+const OC_PRINT_CSS=`@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}html,body{margin:0;padding:0}body{direction:rtl;font-family:"Segoe UI",Tahoma,Arial,sans-serif;color:#1b1b1f;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.ocpg{height:194mm;display:flex;flex-direction:column;gap:6px;overflow:hidden;break-after:page;page-break-after:always}
+.ocpg:last-child{break-after:auto;page-break-after:auto}
+.ocbox{flex:1;min-height:0;display:flex;justify-content:center;overflow:hidden}.ocbox>.oc{width:max-content;min-width:0;flex:none;align-self:flex-start;background:#fff}.oc.wr .oc-cols{flex-wrap:wrap;row-gap:22px}
+.rep{break-before:auto}.rep h2{break-after:avoid;page-break-after:avoid}.ocpg.st .ocbox:first-child{flex:4}.ocpg.st .ocbox:last-child{flex:6}.rh{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1d7a4b;padding-bottom:8px;margin-bottom:10px}
+.rc{color:#1d7a4b;font-weight:700;font-size:13px}.rep h1{margin:2px 0;font-size:24px}.rep h2{font-size:16px;margin:14px 0 6px;color:#1f3864}.rs{font-size:12px;color:#6b6f7a;margin-bottom:6px}
+.rb{display:flex;gap:10px}.rb div{border-radius:8px;padding:6px 14px;background:#eef1f6;text-align:center;font-size:11.5px}.rb b{display:block;font-size:20px}.rb .r{background:#fdecec;color:#c62828}
+.rep table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px}.rep th{background:#1f3864;color:#fff;padding:5px 8px;text-align:right}.rep td{padding:5px 8px;border-bottom:1px solid #d9dbe1;text-align:right}.rep tr{break-inside:avoid}.rep tr.t td{font-weight:800;background:#eef1f6}
+.ph{break-inside:avoid;margin-bottom:10px;border-right:4px solid #1d7a4b;padding-right:10px}.ph h3{margin:0 0 4px;font-size:14px;color:#1f3864}.ph h3 small{font-weight:400;color:#6b6f7a;font-size:12px}`;
+function ocFitBoxes(d){
+  const out=[]; d.querySelectorAll('.ocbox').forEach(b=>{ const c=b.firstElementChild; if(!c) return;
+    c.style.zoom=''; c.style.width=''; c.classList.remove('wr'); const bw=b.clientWidth, bh=b.clientHeight, nat=c.scrollWidth+4; let best={s:0,w:nat,wr:false};
+    for(let k=1;k<=4;k++){ const w=k===1?nat:Math.max(Math.ceil(nat/k)+130,420); c.classList.toggle('wr',k>1); c.style.width=w+'px'; const h=c.scrollHeight, ww=Math.max(c.scrollWidth,w); const s=Math.min(1,bw/ww,bh/h); if(s>best.s*(k===1?1:1.2)+0.001) best={s,w,wr:k>1}; }
+    c.classList.toggle('wr',best.wr); c.style.width=best.w+'px'; c.style.zoom=String(best.s); out.push(+best.s.toFixed(2)); });
+  return out;
+}
+function ocPrint(o){
+  const C=OC.C; let body='';
+  if(o.s&&o.p&&o.a) body+=`<div class="ocpg st"><div class="ocbox">${ocChart('p',{compact:true})}</div><div class="ocbox">${ocChart('a',{compact:true,names:o.n})}</div></div>`;
+  else{ if(o.p) body+=`<div class="ocpg"><div class="ocbox">${ocChart('p')}</div></div>`; if(o.a) body+=`<div class="ocpg"><div class="ocbox">${ocChart('a',{names:o.n})}</div></div>`; }
+  if(o.r) body+=ocReportHtml();
+  const fr=document.createElement('iframe'); fr.style.cssText='position:fixed;left:-10000px;top:0;width:1062px;height:733px;border:0;visibility:hidden';
+  fr.srcdoc=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>الهيكل التنظيمي</title><style>${OC_CSS}${OC_PRINT_CSS}</style></head><body>${body}</body></html>`;
+  fr.onload=()=>{ const d=fr.contentDocument;
+    ocFitBoxes(d);
+    setTimeout(()=>{ try{ fr.contentWindow.focus(); fr.contentWindow.print(); }catch(e){ toast('تعذر فتح الطباعة',true); } setTimeout(()=>fr.remove(),60000); },300); };
+  document.body.appendChild(fr);
+}
+
+/* ----- الأحداث ----- */
+function orgClick(t){
+  if(CUR.mod!=='orgchart') return false;
+  const tb=t.closest('[data-octab]'); if(tb){ OC.tab=tb.dataset.octab; renderOrg(); return true; }
+  const v=t.closest('[data-ocv]'); if(v){ OC.view=v.dataset.ocv; renderOrg(); return true; }
+  if(t.closest('#oc_zoom')){ OC.fit=!OC.fit; renderOrg(); return true; }
+  if(t.closest('#oc_print')){ ocPrintModal(); return true; }
+  if(t.closest('#oc_map')){ ocMapModal(); return true; }
+  if(t.closest('#oc_newph')){ ocPhaseModal(null); return true; }
+  const pe=t.closest('[data-ocph]'); if(pe){ ocPhaseModal(pe.dataset.ocph); return true; }
+  const pd=t.closest('[data-ocphdel]'); if(pd){ const p=OC.data.plan.phases.find(x=>x.id===pd.dataset.ocphdel); if(p&&confirm(`حذف المرحلة «${p.name}»؟`)){ OC.data.plan.phases=OC.data.plan.phases.filter(x=>x.id!==p.id); BE.ocSet('plan',OC.data.plan).then(()=>{ toast('تم الحذف'); renderOrg(); }).catch(er=>toast(authMsg(er),true)); } return true; }
+  const n=t.closest('[data-ocn]'); if(n){ ocJobModal(n.dataset.ocn); return true; }
+  return false;
+}
+document.addEventListener('change',async e=>{
+  if(CUR.mod!=='orgchart') return; const t=e.target;
+  if(t.id==='oc_fp'||t.id==='oc_fe'){ const f=t.files&&t.files[0]; t.value=''; if(!f) return;
+    try{ toast('جارٍ قراءة الشيت…'); if(t.id==='oc_fp') await ocUploadPlanned(f); else await ocUploadEmps(f); toast('تم الرفع ✓'); renderOrg(); }
+    catch(er){ toast(er.message||authMsg(er),true); } }
+  else if(t.id==='oc_names'){ OC.names=t.checked; renderOrg(); }
+  else if(t.id==='oc_pd'){ OC.pd=t.value; renderOrg(); }
+  else if(t.id==='oc_full'){ OC.full=t.checked; renderOrg(); }
+});
+
 /* ---------------- جسر مديولات الشؤون الإدارية (سكربت منفصل) ---------------- */
 let ADMQ=Promise.resolve();
 function admWait(){ return new Promise((res,rej)=>{ let n=0; const t=setInterval(()=>{ if(window.ADM){ clearInterval(t); res(window.ADM); } else if(++n>200){ clearInterval(t); rej({message:'تعذّر تحميل مديولات الشؤون الإدارية — تأكد من الإنترنت'}); } },50); }); }
@@ -2971,7 +3366,7 @@ function admCall(fn,...a){
 }
 
 /* ---------------- الموجّه / الشاشة الرئيسية ---------------- */
-const HOME_ORDER=['hiring','insurance','resign','housing','cars','tasks','forms','links','deduct','users','buffet','stationery'];
+const HOME_ORDER=['hiring','insurance','resign','housing','cars','tasks','forms','links','deduct','orgchart','users','buffet','stationery'];
 function showHome(){
   CUR={mod:null,sub:null}; $('mod').hidden=true; $('adm').hidden=true; $('home').hidden=false; $('subnav').innerHTML=''; $('modTitle').textContent='أوباك — الموارد البشرية والشؤون الإدارية';
   const apps=HOME_ORDER.filter(k=>MODS[k]&&canMod(k));
@@ -2988,7 +3383,7 @@ function openModule(m,sub){
   $('adm').hidden=true; $('mod').hidden=false;
   const subs=MODS[m].subs?MODS[m].subs.filter(s=>can(m,s[2])):[];
   $('subnav').innerHTML=subs.map(s=>`<a data-sub="${s[0]}" href="#/${m}/${s[0]}">${s[1]}</a>`).join('');
-  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='users') mountUsers(); else if(m==='forms') mountForms(); else if(m==='links') mountLinks(); else if(m==='deduct') mountDeduct();
+  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='users') mountUsers(); else if(m==='forms') mountForms(); else if(m==='links') mountLinks(); else if(m==='deduct') mountDeduct(); else if(m==='orgchart') mountOrg();
   window.scrollTo(0,0);
 }
 function route(){
@@ -3047,6 +3442,7 @@ document.addEventListener('click',e=>{
   if(t.closest('#mg_go')) runMigrate();
   if(formsClick(t)) return;
   if(linksClick(t)) return;
+  if(orgClick(t)) return;
   const ue=t.closest('[data-uedit]'); if(ue) userModal(USERS.find(x=>x.uid===ue.dataset.uedit));
   const ur=t.closest('[data-ureset]'); if(ur){ BE.resetPassword(ur.dataset.ureset).then(()=>toast('اتبعت إيميل إعادة تعيين كلمة المرور ✓')).catch(er=>toast(authMsg(er),true)); }
 });
