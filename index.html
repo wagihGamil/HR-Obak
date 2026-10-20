@@ -317,6 +317,7 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
 #dcx .dc-dup table{min-width:0}
 #dcx .dc-calc{font-size:13px;color:var(--grn)}
 #dcx .dc-calc b{color:var(--navy)}
+#dcx .dc-set input[type=time]{width:110px}
 
 /* ===== مجموعات الشاشة الرئيسية ===== */
 .hgrp{width:100%;text-align:center;color:#fff;opacity:.85;font-weight:700;font-size:14px;margin:6px 0 -14px;letter-spacing:.3px}
@@ -2773,8 +2774,21 @@ async function load(files){
  }
  if(DED&&LEV){ if(!ATT)m.textContent='ملف الحضور لم يُرفع بعد — لن تعمل سياسة الساعة المرنة ولا كشف تكرار البصمة.'; run()}
 }
+const hmMs=(ds,s)=>{const p=String(s||'').split(':');return ds+((+p[0]||0)*60+(+p[1]||0))*60000};
+function dayPart(o,d){const ds=new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime(),a=Math.max(o.s.getTime(),ds),b=Math.min(o.e.getTime(),ds+864e5);return b>a?[a,b]:null}
+function timeWin(type,hours,d,recs,sStart,sEnd){
+ if(!(hours>0))return null;const ds=new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime(),H=hours*3600000;
+ if(type==='Late'){const ins=recs.map(x=>x.in.getTime());
+  if(ins.length){const t=Math.min(...ins);return{a:t-H,b:t,src:'بصمة الحضور'}}
+  const S=hmMs(ds,sStart);return{a:S,b:S+H,src:'بداية الدوام المحددة'}}
+ if(type==='Early Dismissal'){const outs=recs.filter(x=>x.out).map(x=>x.out.getTime());
+  if(outs.length){const t=Math.max(...outs);return{a:t,b:t+H,src:'بصمة الانصراف'}}
+  const E=hmMs(ds,sEnd);return{a:E-H,b:E,src:'نهاية الدوام المحددة'}}
+ return null}
+const unionLen=(ivs)=>{ivs.sort((x,y)=>x[0]-y[0]);let t=0,c=null;for(const v of ivs){if(!c)c=[v[0],v[1]];else if(v[0]<=c[1])c[1]=Math.max(c[1],v[1]);else{t+=c[1]-c[0];c=[v[0],v[1]]}}if(c)t+=c[1]-c[0];return t};
 function run(){
  const maxLate=num($('sMax').value),reqH=num($('sReq').value);
+ const sStart=$('sStart').value||'08:00',sEnd=$('sEnd').value||'16:00';
  const kws=$('sKw').value.split(/[,،]/).map(s=>norm(s)).filter(Boolean);
  // leaves
  const lv=LEV.filter(r=>isD(r['تاريخ البداية'])&&r['الموظف']);
@@ -2803,14 +2817,24 @@ function run(){
   const n=norm(r['Employee']);let cand=byName.get(n),fuzzy=false;
   if(!cand){cand=byPrefix.get(n.split(' ').slice(0,4).join(' '));fuzzy=!!cand}
   const k=dkey(r['Date']);
-  const hits=(cand||[]).filter(o=>dkey(o.s)<=k&&k<=dkey(o.e));
+  const dayL=(cand||[]).filter(o=>dkey(o.s)<=k&&k<=dkey(o.e));
   const type=r['Deduction Type']||'Other',hours=num(r['Hours']);
   const recs=att.get(n+'|'+k)||[];
+  const win=timeWin(type,hours,r['Date'],recs,sStart,sEnd);
+  let hits=dayL,ovMs=0,nearTxt='';
+  if(win){
+   const ivs=[];hits=[];const near=[];
+   for(const o of dayL){const w=dayPart(o,r['Date']);const a=w?Math.max(w[0],win.a):0,b=w?Math.min(w[1],win.b):0;
+    if(b>a){ivs.push([a,b]);hits.push(o)}else near.push(o)}
+   ovMs=unionLen(ivs);
+   if(near.length&&!hits.length)nearTxt='⚠ يوجد طلب في نفس اليوم لكن وقته لا يتداخل مع وقت الخصم: '+near.map(o=>hm2(o.s)+'→'+hm2(o.e)+' ('+o.status.trim()+')').join(' ، ');
+  }
   const mgr=isMgr(r['Employee'],r['Job Position']||'');
   let cat='real',partial=false,info='';
   if(hits.length){
    const best=hits.reduce((a,b)=>CATS[b.st].rank>CATS[a.st].rank?b:a);cat=best.st;
-   const cov=type==='Absence'?best.days>=0.9:best.hrs>=hours*0.9;
+   const winLen=win?win.b-win.a:0;
+   const cov=win?(ovMs>=winLen*0.9||winLen-ovMs<=10*60000):(type==='Absence'?best.days>=0.9:best.hrs>=hours*0.9);
    partial=!cov;if(partial&&cat!=='rej')cat='part';
   }else if(type==='Late'&&mgr){
    if(!recs.length){cat='mlate';info='مدير — لا توجد بصمة في هذا اليوم للتحقق من السياسة المرنة'}
@@ -2822,9 +2846,10 @@ function run(){
     else{cat='mlate';info=base+' ✗ '+(!okLate?`التأخير تجاوز ${maxLate} ساعة`:unclosed?'لا يوجد خروج صحيح لإثبات التعويض':'لم يُعوَّض التأخير آخر اليوم')}
    }
   }
+  if(nearTxt)info+=(info?' | ':'')+nearTxt;
   if(type==='Absence'&&recs.length)info+=(info?' | ':'')+'⚠ يوجد بصمة حضور في هذا اليوم: '+recs.map(x=>hm2(x.in)+'→'+hm2(x.out)).join(' ، ');
   return {name:r['Employee'],date:r['Date'],type,hours,amount:num(r['Amount']),mgr:r['Manager']||'—',dept:r['Department']||'',
-   cat,partial,hits,fuzzy,info,key:n+'|'+fmt(r['Date'])+'|'+type};
+   cat,partial,hits,fuzzy,info,win,key:n+'|'+fmt(r['Date'])+'|'+type};
  }).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar')||a.date-b.date);
  setup();renderDups();
  const n=new Date(),p=x=>String(x).padStart(2,'0');
@@ -2857,7 +2882,8 @@ function reqHtml(r){
   return `<div><span class="dc-tag dc-t-${CATS[o.st].c}">${esc(o.status.trim()||'—')}</span> ${esc(o.type)}
   <div class="dc-req">${fmt(o.s)} ${hm2(o.s)} → ${fmt(o.e)} ${hm2(o.e)} (${o.hrs} ساعة) ${o.desc?'· '+esc(o.desc):''}</div>
   <div class="dc-req">${esc(stage)}</div></div>`}).join('');
- else h+='<span class="dc-req">لا يوجد طلب على النظام في هذا اليوم</span>';
+ else h+=`<span class="dc-req">${r.win?'لا يوجد طلب على النظام يغطي وقت الخصم':'لا يوجد طلب على النظام في هذا اليوم'}</span>`;
+ if(r.win)h+=`<div class="dc-req">وقت الخصم المقدّر: ${hm2(new Date(r.win.a))} → ${hm2(new Date(r.win.b))} (حسب ${r.win.src})</div>`;
  if(r.partial)h+='<div class="dc-note">⚠ الطلب لا يغطي كامل مدة الخصم — راجع الجزء المتبقي</div>';
  if(r.fuzzy)h+='<div class="dc-note">⚠ تطابق تقريبي في الاسم</div>';
  if(r.info)h+=`<div class="${r.cat==='flex'?'dc-req':'dc-note'}">${esc(r.info)}</div>`;
@@ -2903,7 +2929,7 @@ function bind(){
 
 ['q','fType','fMgr','fCat'].forEach(id=>$(id).oninput=()=>{if(id==='fCat')catFilter='';render()});
 $('recalc').onclick=()=>{ const m=$('msg'); m.textContent=''; if(!(DED&&LEV)){ m.textContent='ارفع ملف الخصومات وملف الإجازات أولاً.'; return; } run(); };
-['sMax','sReq','sKw'].forEach(id=>$(id).onchange=()=>{if(DED&&LEV)run()});
+['sMax','sReq','sKw','sStart','sEnd'].forEach(id=>$(id).onchange=()=>{if(DED&&LEV)run()});
 $('grp').onclick=e=>{grouped=!grouped;e.target.textContent=grouped?'عرض عادي':'عرض مجمّع بالموظف';render()};
 $('tb1').onclick=()=>{$('pDed').classList.remove('dc-hide');$('pDup').classList.add('dc-hide');$('tb1').classList.add('dc-on');$('tb2').classList.remove('dc-on')};
 $('tb2').onclick=()=>{$('pDup').classList.remove('dc-hide');$('pDed').classList.add('dc-hide');$('tb2').classList.add('dc-on');$('tb1').classList.remove('dc-on')};
@@ -2911,7 +2937,7 @@ $('exp').onclick=async()=>{
  await loadXLSX();
  const rs=filtered().map(r=>({'الموظف':r.name,'التاريخ':fmt(r.date),'نوع الخصم':TYPE_AR[r.type]||r.type,'الساعات':r.hours,'المبلغ':r.amount,
   'المدير':r.mgr,'القسم':r.dept,'النتيجة':catLabel(r),'التفاصيل':[r.info,r.partial?'الطلب لا يغطي كامل الخصم':''].filter(Boolean).join(' | '),
-  'الطلبات المقابلة':r.hits.map(o=>`${o.type} | ${o.status.trim()} | ${fmt(o.s)} ${hm2(o.s)}→${fmt(o.e)} ${hm2(o.e)} | ${o.desc}`).join(' ؛ '),
+  'وقت الخصم المقدّر':r.win?hm2(new Date(r.win.a))+' → '+hm2(new Date(r.win.b)):'','الطلبات المقابلة':r.hits.map(o=>`${o.type} | ${o.status.trim()} | ${fmt(o.s)} ${hm2(o.s)}→${fmt(o.e)} ${hm2(o.e)} | ${o.desc}`).join(' ؛ '),
   'التصحيح':FIX[r.key]||''}));
  const wb=XLSX.utils.book_new(),ws=XLSX.utils.json_to_sheet(rs);
  ws['!cols']=[{wch:30},{wch:12},{wch:14},{wch:8},{wch:10},{wch:26},{wch:30},{wch:36},{wch:60},{wch:70},{wch:30}];
@@ -2941,6 +2967,9 @@ function mountDeduct(){ setLayout({view:true}); $('view').innerHTML=`<div class=
  <label>أقصى تأخير (ساعة) <input type="number" step="0.25" id="dc_sMax" value="1"></label>
  <label>ساعات العمل المطلوبة لتعويض التأخير <input type="number" step="0.25" id="dc_sReq" value="8"></label>
  <label>كلمات تحدد المدير في المسمى <input type="text" id="dc_sKw" value="مدير، رئيس"></label>
+ <label>بداية الدوام <input type="time" id="dc_sStart" value="08:00"></label>
+ <label>نهاية الدوام <input type="time" id="dc_sEnd" value="16:00"></label>
+ <span>(الدوام يُستخدم فقط لو مفيش بصمة في اليوم — غير كده التوقيت بيتحسب من بصمة الحضور/الانصراف)</span>
  <span>(ويُعتبر مديرًا أيضًا كل من يظهر في عمود Manager)</span>
 </div>
 <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px"><button class="btn pri" id="dc_recalc" type="button">↻ إعادة احتساب</button><span class="dc-calc" id="dc_calc">لم يتم الاحتساب بعد — ارفع الملفات.</span></div>
