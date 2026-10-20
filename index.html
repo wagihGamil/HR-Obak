@@ -319,6 +319,10 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
 #dcx .dc-calc b{color:var(--navy)}
 #dcx .dc-set input[type=time]{width:110px}
 
+#adm #tabs-nav,#adm #bf-nav,#adm #st-nav,#adm #module-cars > nav{display:none !important}
+#nav #subnav{flex:0 1 auto;min-width:0;margin-inline-start:6px;scrollbar-width:none}
+#nav #subnav::-webkit-scrollbar{display:none}
+#subnav a{font-weight:600;padding:8px 14px}
 /* ===== مجموعات الشاشة الرئيسية ===== */
 .hgrp{width:100%;text-align:center;color:#fff;opacity:.85;font-weight:700;font-size:14px;margin:6px 0 -14px;letter-spacing:.3px}
 #home{flex-direction:column;flex-wrap:nowrap;align-items:center;justify-content:center;align-content:center;gap:24px;padding:28px 20px}
@@ -2744,7 +2748,7 @@ const isD=v=>v instanceof Date&&!isNaN(v);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const $=id=>document.getElementById('dc_'+id);
 const catLabel=r=>r.cat==='real'?`${TYPE_AR[r.type]||r.type} حقيقي — لم يُرفع على النظام`:r.cat==='mlate'?'تأخير حقيقي':CATS[r.cat].l;
-let DED=null,LEV=null,ATT=null,ROWS=[],DUPS=[],grouped=false,catFilter='',FIX={};
+let dcTab='ded',DED=null,LEV=null,ATT=null,ROWS=[],DUPS=[],grouped=false,catFilter='',FIX={};
 try{FIX=JSON.parse(localStorage.getItem('dc_fixes')||'{}')}catch(e){}
 function saveFix(){try{localStorage.setItem('dc_fixes',JSON.stringify(FIX))}catch(e){}}
 
@@ -2931,8 +2935,8 @@ function bind(){
 $('recalc').onclick=()=>{ const m=$('msg'); m.textContent=''; if(!(DED&&LEV)){ m.textContent='ارفع ملف الخصومات وملف الإجازات أولاً.'; return; } run(); };
 ['sMax','sReq','sKw','sStart','sEnd'].forEach(id=>$(id).onchange=()=>{if(DED&&LEV)run()});
 $('grp').onclick=e=>{grouped=!grouped;e.target.textContent=grouped?'عرض عادي':'عرض مجمّع بالموظف';render()};
-$('tb1').onclick=()=>{$('pDed').classList.remove('dc-hide');$('pDup').classList.add('dc-hide');$('tb1').classList.add('dc-on');$('tb2').classList.remove('dc-on')};
-$('tb2').onclick=()=>{$('pDup').classList.remove('dc-hide');$('pDed').classList.add('dc-hide');$('tb2').classList.add('dc-on');$('tb1').classList.remove('dc-on')};
+function tabSet(k){ dcTab=k; const ded=k==='ded'; $('pDed').classList.toggle('dc-hide',!ded); $('pDup').classList.toggle('dc-hide',ded); hdrTabs([{k:'ded',t:'الخصومات',on:ded},{k:'dup',t:'تكرار البصمة',on:!ded}],tabSet); }
+tabSet(dcTab);
 $('exp').onclick=async()=>{
  await loadXLSX();
  const rs=filtered().map(r=>({'الموظف':r.name,'التاريخ':fmt(r.date),'نوع الخصم':TYPE_AR[r.type]||r.type,'الساعات':r.hours,'المبلغ':r.amount,
@@ -2975,7 +2979,6 @@ function mountDeduct(){ setLayout({view:true}); $('view').innerHTML=`<div class=
 <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px"><button class="btn pri" id="dc_recalc" type="button">↻ إعادة احتساب</button><span class="dc-calc" id="dc_calc">لم يتم الاحتساب بعد — ارفع الملفات.</span></div>
 <div class="dc-msg" id="dc_msg"></div>
 <div id="dc_res" class="dc-hide">
- <div class="dc-tabs"><button id="dc_tb1" class="dc-on" type="button">الخصومات</button><button id="dc_tb2" type="button">تكرار البصمة</button></div>
  <div id="dc_pDed">
  <div class="dc-stats" id="dc_stats"></div>
  <div class="dc-bar">
@@ -3200,8 +3203,8 @@ function renderOrg(){
   const pOk=D.planned?`✓ ${C.P.length} وظيفة · إجمالي ${ocNum(S.planned)} · ${C.pDept.length} أقسام — رُفع ${ocDate(D.planned.at)} (${esc(D.planned.file||'')})`:'';
   const eOk=D.emps?`✓ ${ocNum(S.cur)} موظف — مربوط بالخطة ${ocNum(S.matched)} · غير مربوط ${ocNum(S.unm)} — رُفع ${ocDate(D.emps.at)} (${esc(D.emps.file||'')})`:'';
   $('view').innerHTML=`<div class="card"><div class="tb"><h2 style="margin:0">الهيكل التنظيمي</h2><span style="flex:1"></span><button class="btn" id="oc_print" type="button">🖨 طباعة</button></div>
-   <div class="octabs"><button type="button" data-octab="chart" class="${OC.tab==='chart'?'on':''}">الهيكل التنظيمي</button><button type="button" data-octab="plan" class="${OC.tab==='plan'?'on':''}">خطة التعيينات</button></div>
    ${OC.tab==='chart'?ocChartTab(ed,pOk,eOk,upl,S):ocPlanTab(ed)}</div>`;
+  hdrTabs([{k:'chart',t:'الهيكل التنظيمي',on:OC.tab==='chart'},{k:'plan',t:'خطة التعيينات',on:OC.tab==='plan'}],k=>{ OC.tab=k; renderOrg(); });
   if(OC.tab==='chart') ocFitScreen();
 }
 function ocChartTab(ed,pOk,eOk,upl,S){
@@ -3386,6 +3389,26 @@ document.addEventListener('change',async e=>{
   else if(t.id==='oc_full'){ OC.full=t.checked; renderOrg(); }
 });
 
+/* ---------------- تابات المديول في الشريط العلوي ---------------- */
+let HK=null, admSyncT=null, ADMBT=[], admObs=null;
+function hdrTabs(items,fn){
+  HK=fn; const el=$('subnav'), sig=items.map(i=>i.k+'|'+i.t+'|'+(i.on?1:0)).join(';');
+  if(el.dataset.sig===sig&&el.children.length===items.length&&el.dataset.hk==='1') return;
+  el.dataset.sig=sig; el.dataset.hk='1';
+  el.innerHTML=items.map(i=>`<a data-hk="${esc(i.k)}" class="${i.on?'on':''}" tabindex="0">${esc(i.t)}</a>`).join('');
+}
+document.addEventListener('click',e=>{ const a=e.target.closest&&e.target.closest('#subnav a[data-hk]'); if(a&&HK){ e.preventDefault(); HK(a.dataset.hk); } });
+document.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const a=e.target.closest&&e.target.closest('#subnav a[data-hk]'); if(a&&HK){ e.preventDefault(); HK(a.dataset.hk); } } });
+const ADM_NAV={housing:'#tabs-nav',cars:'#module-cars > nav',buffet:'#bf-nav',stationery:'#st-nav'};
+function admSyncSubnav(){
+  const m=CUR.mod; if(!m||!MODS[m]||!MODS[m].adm||$('adm').hidden) return; const sel=ADM_NAV[m]; if(!sel) return;
+  const nav=document.querySelector('#adm '+sel); if(!nav) return;
+  const bs=[...nav.querySelectorAll('button')].filter(b=>!b.classList.contains('hidden')&&!b.hidden);
+  if(!bs.length) return; ADMBT=bs;
+  hdrTabs(bs.map((b,i)=>({k:String(i),t:((b.querySelector('span')||b).textContent||'').trim(),on:b.classList.contains('active')})),k=>{ const b=ADMBT[+k]; if(b) b.click(); });
+}
+function admObsInit(){ if(admObs) return; admObs=new MutationObserver(()=>{ clearTimeout(admSyncT); admSyncT=setTimeout(admSyncSubnav,30); }); admObs.observe($('adm'),{subtree:true,childList:true,attributes:true,attributeFilter:['class','hidden']}); }
+
 /* ---------------- جسر مديولات الشؤون الإدارية (سكربت منفصل) ---------------- */
 let ADMQ=Promise.resolve();
 function admWait(){ return new Promise((res,rej)=>{ let n=0; const t=setInterval(()=>{ if(window.ADM){ clearInterval(t); res(window.ADM); } else if(++n>200){ clearInterval(t); rej({message:'تعذّر تحميل مديولات الشؤون الإدارية — تأكد من الإنترنت'}); } },50); }); }
@@ -3409,7 +3432,7 @@ function openModule(m,sub){
   $('home').hidden=true; CUR.mod=m; $('modTitle').textContent=MODS[m].title;
   if(MODS[m].adm){
     if(BE.mode!=='firebase'){ toast('مديولات الشؤون الإدارية محتاجة ربط Firebase (مش متاحة في الوضع التجريبي)',true); location.hash='#/'; return; }
-    $('mod').hidden=true; $('adm').hidden=false; $('subnav').innerHTML=''; admCall('open',m); window.scrollTo(0,0); return;
+    $('mod').hidden=true; $('adm').hidden=false; $('subnav').innerHTML=''; admObsInit(); admCall('open',m).then(()=>setTimeout(admSyncSubnav,60)).catch(()=>{}); window.scrollTo(0,0); return;
   }
   $('adm').hidden=true; $('mod').hidden=false;
   const subs=MODS[m].subs?MODS[m].subs.filter(s=>can(m,s[2])):[];
