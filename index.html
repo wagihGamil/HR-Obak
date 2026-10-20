@@ -3488,7 +3488,7 @@ function idListTab(ed){
   const L=idList(), E=ID.data.emps;
   return `<div class="card"><div class="tb"><h2 style="margin:0">كروت تصريح الدخول (ID)</h2><span style="flex:1"></span><button class="btn pri" id="idc_print" type="button">🖨 طباعة الكروت</button></div>
   <div class="muted" style="font-size:13px;margin-bottom:10px">${E?`✓ ${L.length} موظف — رُفع ${esc(E.at||'')} (${esc(E.file||'')}) · صور: ${L.filter(e=>ID.photos[e.k]).length}`:'ارفع شيت الموظفين (اسم الموظف · المنصب الوظيفي · القسم · رقم الهوية · Zk Emp Code · تاريخ أول عقد).'}</div>
-  <div class="idtb">${ed?`<label class="btn idup">📥 رفع شيت الموظفين<input type="file" id="idc_fx" accept=".xlsx,.xls"></label><label class="btn idup">📷 رفع صور (اسم الملف = الكود أو الرقم القومي)<input type="file" id="idc_fph" accept="image/*" multiple></label><button class="btn" id="idc_add" type="button">+ موظف</button>`:''}
+  <div class="idtb">${ed?`<label class="btn idup">📥 رفع شيت الموظفين<input type="file" id="idc_fx" accept=".xlsx,.xls"></label><label class="btn idup">📁 اختيار فولدر الصور (اسم الصورة = الكود أو الرقم القومي)<input type="file" id="idc_fph" webkitdirectory directory multiple></label><button class="btn" id="idc_add" type="button">+ موظف</button>`:''}
   <input type="search" id="idc_q" placeholder="بحث بالاسم / الكود / القسم…" value="${idE(ID.q)}"><span class="muted" id="idc_cnt" style="font-size:13px"></span></div>
   <div class="idwrap"><table class="idtbl"><thead><tr><th><input type="checkbox" id="idc_sall" title="تحديد الكل"></th><th>#</th><th>صورة</th><th>الاسم</th><th>الكود</th><th>الرقم القومي</th><th>الوظيفة</th><th>القسم</th><th>تاريخ التعيين</th><th></th></tr></thead><tbody id="idc_tb"></tbody></table></div></div>`;
 }
@@ -3598,7 +3598,7 @@ document.addEventListener('input',e=>{ if(CUR.mod!=='idcard') return; const t=e.
 document.addEventListener('change',async e=>{
   if(CUR.mod!=='idcard') return; const t=e.target;
   if(t.id==='idc_fx'){ const f=t.files&&t.files[0]; t.value=''; if(!f) return; try{ toast('جارٍ قراءة الشيت…'); if(await idUploadXlsx(f)){ toast('تم الرفع ✓'); renderID(); } }catch(er){ toast(er.message||authMsg(er),true); } }
-  else if(t.id==='idc_fph'){ const fs=[...t.files]; t.value=''; if(fs.length) await idPhotoBulk(fs); }
+  else if(t.id==='idc_fph'){ const all=[...t.files]; t.value=''; const fs=all.filter(f=>/^image\//.test(f.type)||/\.(jpe?g|png|webp|bmp|gif)$/i.test(f.name)); if(!fs.length){ toast('الفولدر مفيهوش صور',true); return; } toast(`جارٍ معالجة ${fs.length} صورة…`); await idPhotoBulk(fs); }
   else if(t.id==='idc_sall'){ const q=ocN(ID.q||''); idList().filter(x=>!q||ocN([x.n,x.code,x.nid,x.d,x.j].join(' ')).includes(q)).forEach(x=>{ if(t.checked) ID.sel.add(x.k); else ID.sel.delete(x.k); }); idRows(); }
   else if(t.classList&&t.classList.contains('idc_ck')){ if(t.checked) ID.sel.add(t.dataset.k); else ID.sel.delete(t.dataset.k); const c=$('idc_cnt'); if(c) idRows(); }
 });
