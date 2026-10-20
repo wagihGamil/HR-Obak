@@ -3004,6 +3004,8 @@ const OC_AL={'مراقبه الجوده':'الجوده','تاكيد الجوده
 function ocTok(s){ return new Set(ocN(s).split(' ').filter(Boolean).map(w=>{ if(w.length>3&&w[0]==='و') w=w.slice(1); if(w.length>3&&w.startsWith('ال')) w=w.slice(2); return OC_SY[w]||w; })); }
 function ocSim(a,b){ if(!a.size||!b.size) return 0; let i=0; a.forEach(x=>{ if(b.has(x)) i++; }); if(i===a.size&&i===b.size) return 1; const s=a.size<=b.size?a.size:b.size; if(i===s&&s>=2) return .85; return i/(a.size+b.size-i); }
 function ocBest(t,cands,th){ let best=0,bc=[]; cands.forEach(c=>{ const s=ocSim(t,c.t); if(s>best+1e-9){ best=s; bc=[c]; } else if(Math.abs(s-best)<1e-9&&s>0) bc.push(c); }); return (best>=th&&bc.length===1)?bc[0].r:null; }
+const OC_RK={معاون:.5,نائب:.6,مدير:0,رئيس:1,مهندس:2,مشرف:3,مراقب:3.4,اخصائي:3.6,محاسب:3.6,منسق:3.6,مسؤول:3.6,امين:3.8,سكرتارية:3.9,فني:4,مندوب:4.4,سائق:4.5,مشغل:5,مساعد:5.5,عامل:7,فرد:7};
+const ocRank=j=>{ const w=ocN(j).split(' ')[0]; return OC_RK[w]!==undefined?OC_RK[w]:4.9; };
 const ocLead=j=>/^(رئيس|مشرف|مدير)/.test(ocN(j));
 const ocDate=s=>{ if(!s) return '—'; const m=String(s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[3]}/${m[2]}/${m[1]}`:String(s); };
 const ocNum=n=>(+n||0).toLocaleString('en-US');
@@ -3076,14 +3078,14 @@ const OC_CSS=`
 function ocCard(o){
   return `<div class="oc-n${o.lead?' lead':''}${o.cls?' '+o.cls:''}"${o.id?` data-ocn="${esc(o.id)}"`:''}><div class="oc-r"><span class="oc-t">${esc(o.t)}</span><span class="oc-c">${o.c}</span></div>${o.sub?`<div class="oc-s">${esc(o.sub)}</div>`:''}${o.names?`<div class="oc-nm">${o.names}</div>`:''}</div>`;
 }
-function ocNode(r,kids,mk){ const ks=kids.get(r.id)||[]; return `<div class="oc-nw">${mk(r)}${ks.length?`<div class="oc-kids">${ks.map(k=>`<div class="oc-kid">${ocNode(k,kids,mk)}</div>`).join('')}</div>`:''}</div>`; }
+function ocNode(r,kids,mk){ const ks=(kids.get(r.id)||[]).map((x,i)=>[x,i]).sort((a,b)=>ocRank(a[0].job)-ocRank(b[0].job)||a[1]-b[1]).map(x=>x[0]); return `<div class="oc-nw">${mk(r)}${ks.length?`<div class="oc-kids">${ks.map(k=>`<div class="oc-kid">${ocNode(k,kids,mk)}</div>`).join('')}</div>`:''}</div>`; }
 function ocTree(rows,mk,extra){
   const ids=new Set(rows.map(r=>r.id)), kids=new Map(), roots=[], byId=new Map(rows.map(r=>[r.id,r]));
   rows.forEach(r=>{ let ok=!!(r.parent&&ids.has(r.parent)&&r.parent!==r.id);
     if(ok){ const seen=new Set([r.id]); let c=r.parent; while(c){ if(seen.has(c)){ ok=false; break; } seen.add(c); const cr=byId.get(c); c=(cr&&cr.parent&&ids.has(cr.parent))?cr.parent:null; } }
     if(ok) (kids.get(r.parent)||kids.set(r.parent,[]).get(r.parent)).push(r); else roots.push(r); });
-  roots.sort((a,b)=>(b.lead?1:0)-(a.lead?1:0));
-  return roots.map(r=>`<div class="oc-root">${ocNode(r,kids,mk)}</div>`).join('')+(extra||'');
+  const items=roots.map((r,i)=>({rk:ocRank(r.job),i,html:`<div class="oc-root">${ocNode(r,kids,mk)}</div>`})).concat((extra||[]).map((x,i)=>({rk:x.rk,i:1000+i,html:x.html})));
+  return items.sort((a,b)=>a.rk-b.rk||a.i-b.i).map(x=>x.html).join('');
 }
 const OC_FT=(k)=>`<div class="oc-ft"><span><i class="oc-lg"></i>وظيفة قيادية</span>${k==='a'?'<span><i class="oc-lg d"></i>وظيفة خارج الخطة / شاغرة</span>':''}<span style="margin-right:auto">إدارة الموارد البشرية</span></div>`;
 function ocChart(kind,opt){
@@ -3097,14 +3099,14 @@ function ocChart(kind,opt){
   const order=isA?[...C.pDept,...C.extraD]:C.pDept;
   order.forEach(d=>{
     const rows=C.P.filter(r=>r.dept===d); let body='', n=0;
-    if(!isA){ n=rows.reduce((s,r)=>s+(+r.count||0),0); totalJobs+=n; body=ocTree(rows,r=>ocCard({t:r.job,c:ocNum(r.count),lead:r.lead,id:'p:'+r.id}),''); }
+    if(!isA){ n=rows.reduce((s,r)=>s+(+r.count||0),0); totalJobs+=n; body=ocTree(rows,r=>ocCard({t:r.job,c:ocNum(r.count),lead:r.lead,id:'p:'+r.id}),[]); }
     else{
-      const exm=C.ex.get(d)||new Map(); let exh='';
-      [...exm.entries()].sort((a,b)=>b[1].length-a[1].length).forEach(([j,l])=>{ n+=l.length; exh+=`<div class="oc-root">${ocCard({t:j,c:ocNum(l.length),cls:'ex',lead:ocLead(j)&&!rows.length,sub:'خارج الخطة',names:nm(l),id:'x:'+d+'|'+j})}</div>`; });
+      const exm=C.ex.get(d)||new Map(); const exh=[];
+      [...exm.entries()].sort((a,b)=>b[1].length-a[1].length).forEach(([j,l])=>{ n+=l.length; exh.push({rk:ocRank(j),html:`<div class="oc-root">${ocCard({t:j,c:ocNum(l.length),cls:'ex',lead:ocLead(j)&&!rows.length,sub:'خارج الخطة',names:nm(l),id:'x:'+d+'|'+j})}</div>`}); });
       if(rows.length){
         rows.forEach(r=>{ n+=C.cur(r.id); });
         body=ocTree(rows,r=>{ const l=C.byP.get(r.id)||[]; return ocCard({t:r.job,c:ocNum(l.length),lead:r.lead,cls:l.length?'':'zero',sub:`مخطط ${ocNum(r.count)} · متبقي ${ocNum(C.rem(r))}`,names:nm(l),id:'a:'+r.id}); },exh);
-      } else body=exh;
+      } else body=exh.map((x,i)=>({...x,i})).sort((a,b)=>a.rk-b.rk||a.i-b.i).map(x=>x.html).join('');
       totalJobs+=n;
     }
     if(isA&&!n) return;
