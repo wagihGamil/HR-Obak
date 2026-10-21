@@ -429,7 +429,7 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
           <label class="o_ct">نسخ العقد <input type="number" id="c_ct" min="0" max="9" value="4"></label>
           <label class="o_po">نسخ سياسة الدوام <input type="number" id="c_po" min="0" max="9" value="1"></label>
           <label title="يضيف ورقة فاضية بعد أي مستند عدد صفحاته فردي، علشان كل مستند يبدأ على ورقة جديدة"><input type="checkbox" id="k_dx" checked> طباعة وش وظهر</label>
-          <span class="sp"></span><span class="cnt" id="cnt_h"></span>
+          <button class="btn" type="button" data-rc="new" title="يحفظ الحالي في السجل ويفتح استمارة فاضية">+ موظف جديد</button><button class="btn" type="button" data-rc="save">💾 حفظ في السجل</button><button class="btn" type="button" data-rc="open">📋 السجل</button><span class="sp"></span><span class="cnt" id="cnt_h"></span>
           <button class="pbtn" type="button">طباعة كل الأوراق</button>
         </div>
         <div class="note">الخانات الفاضية (التواريخ، المرتب، الإمضاءات…) بتتسيب فاضية للتعبئة بخط اليد. اضغط على المربعات في «إيصال استلام مسوغات التعيين» علشان تعلّم على الأوراق اللي المرشح سلّمها. اختار «وش وظهر» في نافذة الطباعة نفسها لو الطابعة بتدعمها.</div>
@@ -443,7 +443,7 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
           <label class="r_er"><input type="checkbox" id="r_er" checked> إنهاء علاقة العمل بالتوافق</label>
           <label class="r_ho"><input type="checkbox" id="r_ho" checked> الاستلام والتسليم</label>
           <label><input type="checkbox" id="k_dx_r" checked> طباعة وش وظهر</label>
-          <span class="sp"></span><span class="cnt" id="cnt_r"></span>
+          <button class="btn" type="button" data-rc="new" title="يحفظ الحالي في السجل ويفتح استمارة فاضية">+ موظف جديد</button><button class="btn" type="button" data-rc="save">💾 حفظ في السجل</button><button class="btn" type="button" data-rc="open">📋 السجل</button><span class="sp"></span><span class="cnt" id="cnt_r"></span>
           <button class="pbtn" type="button">طباعة كل الأوراق</button>
         </div>
         <div class="note">أوراق الاستقالة بتتطبع فاضية، ماعدا <b>إخلاء الطرف</b>: دوس على أي خانة فيه واكتب مباشرة (الاسم والوظيفة والإدارة بيتكتبوا مرة واحدة وبيتكرروا في الإقرار).</div>
@@ -1762,7 +1762,10 @@ const LocalBackend = {
   async ocSet(id,data){ const o=LS.get('demo_oc',{}); o[id]=JSON.parse(JSON.stringify(data)); LS.set('demo_oc',o); },
   async idAll(){ return JSON.parse(JSON.stringify(LS.get('demo_id',{}))); },
   async idSet(id,data){ const o=LS.get('demo_id',{}); o[id]=JSON.parse(JSON.stringify(data)); LS.set('demo_id',o); },
-  async idDel(id){ const o=LS.get('demo_id',{}); delete o[id]; LS.set('demo_id',o); }
+  async idDel(id){ const o=LS.get('demo_id',{}); delete o[id]; LS.set('demo_id',o); },
+  async rcList(col){ const o=LS.get('demo_rc_'+col,{}); return Object.keys(o).map(k=>({...o[k],id:k})); },
+  async rcSet(col,id,data){ const o=LS.get('demo_rc_'+col,{}); o[id]=JSON.parse(JSON.stringify(data)); LS.set('demo_rc_'+col,o); },
+  async rcDel(col,id){ const o=LS.get('demo_rc_'+col,{}); delete o[id]; LS.set('demo_rc_'+col,o); }
 };
 
 /* ---------------- Firebase ---------------- */
@@ -1855,7 +1858,10 @@ const FirebaseBackend = {
   async ocSet(id,data){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(this.db,'orgChart',id),data); },
   async idAll(){ const {Fs}=this.S; const s=await Fs.getDocs(Fs.collection(this.db,'idCards')); const o={}; s.docs.forEach(d=>{ o[d.id]=d.data(); }); return o; },
   async idSet(id,data){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(this.db,'idCards',id),data); },
-  async idDel(id){ const {Fs}=this.S; await Fs.deleteDoc(Fs.doc(this.db,'idCards',id)); }
+  async idDel(id){ const {Fs}=this.S; await Fs.deleteDoc(Fs.doc(this.db,'idCards',id)); },
+  async rcList(col){ const {Fs}=this.S; const s=await Fs.getDocs(Fs.collection(this.db,col)); return s.docs.map(d=>({...d.data(),id:d.id})); },
+  async rcSet(col,id,data){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(this.db,col,id),data); },
+  async rcDel(col,id){ const {Fs}=this.S; await Fs.deleteDoc(Fs.doc(this.db,col,id)); }
 };
 
 /* =====================================================================
@@ -3688,6 +3694,57 @@ document.addEventListener('change',async e=>{
   else if(t.classList&&t.classList.contains('idc_ck')){ if(t.checked) ID.sel.add(t.dataset.k); else ID.sel.delete(t.dataset.k); const c=$('idc_cnt'); if(c) idRows(); }
 });
 
+/* ================= سجل أوراق التعيين / الاستقالة ================= */
+const RC_COL={hiring:'hiringRecords',resign:'resignRecords'}, RC={cur:null};
+const rcHash=s=>{ let h=5381; s=String(s); for(let i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))|0; return Math.abs(h).toString(36); };
+const rcNm=s=>String(s||'').replace(/\s+/g,' ').trim();
+function rcSnap(mod){
+  if(mod==='hiring'){ return {name:V.name,nid:V.nid,code:V.code,dept:V.dept,job:V.job,start:V.start,v:{...V},ck:{...CK},copies:{ak:$('c_ak').value,kn:$('c_kn').value,ct:$('c_ct').value,po:$('c_po').value}}; }
+  const e=ED; return {name:rcNm(e.name),nid:rcNm(e.nid),code:rcNm(e.code),dept:rcNm(e.dept),job:rcNm(e.job),start:rcNm(e.first),end:rcNm(e.last),ed:{...e}};
+}
+function rcKey(mod,s){ const nid=String(s.nid||'').replace(/\D/g,''); if(nid.length>=10) return 'n'+nid; const n=rcNm(s.name); return n?'m'+rcHash(n.replace(/[ً-ْ]/g,'')):''; }
+async function rcSave(mod,silent){
+  const s=rcSnap(mod), key=rcKey(mod,s); if(!key){ if(!silent) toast('اكتب اسم الموظف الأول',true); return false; }
+  s.updatedAt=new Date().toISOString(); s.by=(ME&&(ME.email||ME.name))||'';
+  try{ await BE.rcSet(RC_COL[mod],key,s); RC.cur=key; if(!silent) toast('تم الحفظ في السجل ✓'); return true; }
+  catch(e){ if(!silent) toast(authMsg(e),true); return false; }
+}
+function rcClear(mod){
+  RC.cur=null;
+  if(mod==='hiring'){ Object.keys(V).forEach(k=>V[k]=''); Object.keys(CK).forEach(k=>delete CK[k]); ['in_name','in_nid','in_addr','in_dept','in_job','in_code','in_start'].forEach(i=>$(i).value=''); onHInput(); buildHiring(); }
+  else{ Object.keys(ED).forEach(k=>delete ED[k]); buildResign(); }
+}
+function rcLoad(mod,rec){
+  rcClear(mod); RC.cur=rec.id;
+  if(mod==='hiring'){ const v=rec.v||{}; Object.keys(V).forEach(k=>V[k]=v[k]||'');
+    $('in_name').value=V.name; $('in_nid').value=V.nid; $('in_addr').value=V.addr; $('in_dept').value=V.dept; $('in_job').value=V.job; $('in_code').value=V.code;
+    $('in_start').value=V.start?V.start.split('/').reverse().join('-'):''; const ck=rec.ck||{}; Object.keys(ck).forEach(k=>CK[k]=ck[k]);
+    const c=rec.copies||{}; [['c_ak','ak'],['c_kn','kn'],['c_ct','ct'],['c_po','po']].forEach(([i,k])=>{ if(c[k]!==undefined&&c[k]!=='') $(i).value=c[k]; });
+    onHInput(); buildHiring(); }
+  else{ Object.assign(ED,rec.ed||{}); buildResign(); }
+}
+async function rcModal(mod){
+  const m=document.createElement('div'); m.className='modal'; m.innerHTML=`<div class="box" style="width:min(1000px,100%)"><h3>سجل ${mod==='hiring'?'أوراق التعيين':'أوراق الاستقالة'}</h3><div class="muted" style="font-size:12.5px;margin-bottom:8px">كل موظف بتطبع له أوراقه (أو تدوس «حفظ في السجل») بيتسجل هنا، وتقدر تفتحه وتطبعه تاني.</div>
+   <input id="rc_q" type="search" placeholder="بحث بالاسم / الرقم القومي / الكود…" style="width:100%;padding:8px 10px;border:1.5px solid #c3c6cf;border-radius:8px;font:inherit;box-sizing:border-box;margin-bottom:8px">
+   <div style="max-height:56vh;overflow:auto;border:1px solid var(--line);border-radius:8px"><table class="octbl" style="width:100%;border-collapse:collapse;font-size:13.5px"><thead><tr><th>#</th><th>الاسم</th><th>الرقم القومي</th><th>الكود</th><th>الوظيفة</th><th>الإدارة</th><th>آخر حفظ</th><th></th></tr></thead><tbody id="rc_tb"><tr><td colspan="8" class="muted">جارٍ التحميل…</td></tr></tbody></table></div>
+   <div style="margin-top:12px"><button class="btn" type="button" id="rc_close">إغلاق</button></div></div>`;
+  document.body.appendChild(m); m.querySelector('#rc_close').onclick=()=>m.remove(); m.addEventListener('click',e=>{ if(e.target===m) m.remove(); });
+  let list=[]; try{ list=(await BE.rcList(RC_COL[mod])).sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))); }
+  catch(e){ m.querySelector('#rc_tb').innerHTML=`<tr><td colspan="8" class="bad">${esc(authMsg(e))}</td></tr>`; return; }
+  const fmt=t=>{ if(!t) return ''; const d=new Date(t); return isNaN(d)?'':d.toLocaleString('ar-EG',{dateStyle:'short',timeStyle:'short'}); };
+  const draw=()=>{ const q=rcNm(m.querySelector('#rc_q').value).toLowerCase(); const L=list.filter(r=>!q||[r.name,r.nid,r.code,r.job,r.dept].join(' ').toLowerCase().includes(q));
+    m.querySelector('#rc_tb').innerHTML=L.map((r,i)=>`<tr><td>${i+1}</td><td><b>${esc(r.name)}</b></td><td>${esc(r.nid)}</td><td>${esc(r.code)}</td><td>${esc(r.job)}</td><td>${esc(r.dept)}</td><td style="white-space:nowrap">${esc(fmt(r.updatedAt))}</td>
+      <td style="white-space:nowrap"><button class="btn" data-o="${esc(r.id)}" type="button">فتح</button> <button class="btn" data-p="${esc(r.id)}" type="button">طباعة</button> <button class="btn" data-d="${esc(r.id)}" type="button">حذف</button></td></tr>`).join('')||'<tr><td colspan="8" class="muted" style="padding:14px;text-align:center">السجل فاضي.</td></tr>'; };
+  draw(); m.querySelector('#rc_q').oninput=draw;
+  m.querySelector('#rc_tb').onclick=async e=>{ const b=e.target.closest('button'); if(!b) return; const id=b.dataset.o||b.dataset.p||b.dataset.d, r=list.find(x=>x.id===id); if(!r) return;
+    if(b.dataset.d){ if(!confirm(`حذف «${r.name}» من السجل؟`)) return; try{ await BE.rcDel(RC_COL[mod],id); list=list.filter(x=>x.id!==id); if(RC.cur===id) RC.cur=null; draw(); toast('تم الحذف'); }catch(er){ toast(authMsg(er),true); } return; }
+    m.remove(); rcLoad(mod,r); toast('تم فتح «'+r.name+'»'); if(b.dataset.p){ setTimeout(()=>{ resetScale(); window.print(); },400); } };
+}
+async function rcNew(mod){ const s=rcSnap(mod); if(rcKey(mod,s)) await rcSave(mod,true); rcClear(mod); toast('موظف جديد — السجل اتحفظ'); }
+function rcClick(t){
+  if(CUR.mod!=='hiring'&&CUR.mod!=='resign') return false; const b=t.closest('[data-rc]'); if(!b) return false; const a=b.dataset.rc;
+  if(a==='save') rcSave(CUR.mod,false); else if(a==='open') rcModal(CUR.mod); else if(a==='new') rcNew(CUR.mod); return true;
+}
 /* ---------------- تابات المديول في الشريط العلوي ---------------- */
 let HK=null, admSyncT=null, ADMBT=[], admObs=null;
 function hdrTabs(items,fn){
@@ -3778,7 +3835,7 @@ document.addEventListener('click',e=>{
   const pb=t.closest('.pbtn'); if(pb){
     if(CUR.mod==='hiring'){ const bad=[]; if(!V.name) bad.push('الاسم'); if(V.nid.length!==14) bad.push('الرقم القومي (14 رقم)'); if(bad.length && !confirm('ناقص: '+bad.join('، ')+'\nتكمل الطباعة كده؟')) return; }
     if(CUR.mod==='insurance'){ if(INS.busy){ toast('استنى لحد ما يخلص تجهيز المرفقات',true); return; } if(!insTargets().length && !confirm('لسه ماختارتش موظف — هتتطبع الاستمارة فاضية. تكمل؟')) return; }
-    resetScale(); setTimeout(()=>window.print(),50);
+    if(CUR.mod==='hiring'||CUR.mod==='resign') rcSave(CUR.mod,true); resetScale(); setTimeout(()=>window.print(),50);
   }
   const cb=t.closest('.cb'); if(cb){ const r=+cb.dataset.r,c=+cb.dataset.c; if(CK[r]===c) delete CK[r]; else CK[r]=c;
     document.querySelectorAll(`.cb[data-r="${r}"]`).forEach(x=>x.firstElementChild.classList.toggle('on',CK[r]===+x.dataset.c)); }
@@ -3797,6 +3854,7 @@ document.addEventListener('click',e=>{
   if(linksClick(t)) return;
   if(orgClick(t)) return;
   if(idClick(t)) return;
+  if(rcClick(t)) return;
   const ue=t.closest('[data-uedit]'); if(ue) userModal(USERS.find(x=>x.uid===ue.dataset.uedit));
   const ur=t.closest('[data-ureset]'); if(ur){ BE.resetPassword(ur.dataset.ureset).then(()=>toast('اتبعت إيميل إعادة تعيين كلمة المرور ✓')).catch(er=>toast(authMsg(er),true)); }
 });
