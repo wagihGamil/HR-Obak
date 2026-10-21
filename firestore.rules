@@ -1,0 +1,276 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===== دوال عامة (نموذج صلاحيات HR: isAdmin + access{مديول:[أفعال]}) =====
+    function signedIn() { return request.auth != null; }
+    function profile()  { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function hasProfile(){ return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function active()   { return hasProfile() && profile().active == true; }
+    function isAdmin()  { return active() && profile().isAdmin == true; }
+    function can(mod, act) {
+      return active() && (profile().isAdmin == true ||
+        (profile().access.keys().hasAny([mod]) && profile().access[mod].hasAny([act])));
+    }
+
+    // ===== مستويات الصلاحية داخل المديول: view / add / edit / delete / admin (مدير المديول) =====
+    // المستخدمين القدام (من غير permV=2) اللي معاهم 'edit' بيفضلوا بكل الصلاحيات (إضافة وحذف) لحد ما تتعدّل صلاحياتهم.
+    function canA(m, a) {
+      return active() && (profile().isAdmin == true ||
+        (profile().access.keys().hasAny([m]) && (profile().access[m].hasAny([a, 'admin']) ||
+          (profile().get('permV', 1) < 2 && (a == 'add' || a == 'delete') && profile().access[m].hasAny(['edit'])) ||
+          (profile().get('permV', 1) < 2 && (m == 'hiring' || m == 'resign') && (a == 'add' || a == 'edit' || a == 'delete')))));
+    }
+    function anyA(m) {
+      return active() && (profile().isAdmin == true || profile().access.keys().hasAny([m]));
+    }
+    function wr(m) { return canA(m, 'add') || canA(m, 'edit') || canA(m, 'delete'); }
+
+    // ===== مديولات الشؤون الإدارية: صلاحية الدخول = can(<مديول>,'view') =====
+    function hasModule(m) { return can(m, 'view'); }
+    // مشرف الشقة: حقل supervisor=true (ومعاه access.housing)
+    function isSupervisor() { return active() && profile().get('supervisor', false) == true && can('housing', 'view'); }
+    // مستخدم عادي عنده مديول الشقق (قراءة تقرير الشقق بدون الإيجار)
+    function isViewer()     { return active() && profile().get('supervisor', false) != true && can('housing', 'view') && profile().isAdmin != true; }
+
+    // ===== المستخدمين =====
+    match /users/{uid} {
+      allow read:  if signedIn() && (request.auth.uid == uid || isAdmin() || wr('housing') || wr('tasks'));
+      allow write: if isAdmin();
+    }
+
+    // ===== الموارد البشرية =====
+    match /empChunks/{id} {
+      allow read:  if can('insurance','report') || can('insurance','s1') || can('insurance','s6');
+      allow write: if can('insurance','import') || can('insurance','edit');
+    }
+    match /settings/{id} {
+      allow read:  if active();
+      allow write: if isAdmin() || can('insurance','edit');
+    }
+
+    // ===== الشقق =====
+    match /apartments/{id} {
+      allow read:  if isAdmin() || isViewer() ||
+                      (isSupervisor() && resource.data.supervisorUid == request.auth.uid);
+      allow create: if canA('housing','add');
+      allow update: if canA('housing','edit');
+      allow delete: if canA('housing','delete');
+    }
+    // الإيجار: قراءته للمدير ولمدير مديول الشقق، والكتابة لأي حد بيقدر يسجّل/يعدّل شقة
+    match /apartmentsFinance/{id} {
+      allow read:  if canA('housing','admin');
+      allow write: if wr('housing');
+    }
+    match /employees/{id} {
+      allow read:  if isAdmin() || isViewer() ||
+                      (isSupervisor() && resource.data.supervisorUid == request.auth.uid);
+      allow create: if canA('housing','add');
+      allow update: if canA('housing','edit');
+      allow delete: if canA('housing','delete');
+    }
+    // المستندات والعقود (المدير، والمشرف يرى ما أتاحه المدير لشقته)
+    match /documents/{id} {
+      allow read:  if wr('housing') ||
+                      (isSupervisor() && resource.data.supervisorUid == request.auth.uid
+                                      && resource.data.visibleToSupervisor == true);
+      allow create: if canA('housing','add');
+      allow update: if canA('housing','edit');
+      allow delete: if canA('housing','delete');
+      match /chunks/{c} {
+        allow read:  if wr('housing') ||
+                        (isSupervisor()
+                         && get(/databases/$(database)/documents/documents/$(id)).data.supervisorUid == request.auth.uid
+                         && get(/databases/$(database)/documents/documents/$(id)).data.visibleToSupervisor == true);
+        allow create: if canA('housing','add');
+        allow update: if canA('housing','edit');
+        allow delete: if canA('housing','delete');
+      }
+    }
+    match /requests/{id} {
+      allow read:   if wr('housing') ||
+                       (isSupervisor() && resource.data.supervisorUid == request.auth.uid);
+      allow create: if canA('housing','add') ||
+                       (isSupervisor()
+                        && request.resource.data.supervisorUid == request.auth.uid
+                        && request.resource.data.createdBy == request.auth.uid
+                        && request.resource.data.status == 'قيد الانتظار'
+                        && get(/databases/$(database)/documents/apartments/$(request.resource.data.aptId)).data.supervisorUid == request.auth.uid);
+      allow update: if canA('housing','edit');
+      allow delete: if canA('housing','delete');
+    }
+
+    // ===== خطوط سير نقل الموظفين =====
+    match /carsData/{id} {
+      allow read:  if isAdmin() || hasModule('cars');
+      allow create: if canA('cars','add');
+      allow update: if canA('cars','edit');
+      allow delete: if canA('cars','delete');
+    }
+    match /carsFiles/{id} {
+      allow read:  if isAdmin() || hasModule('cars');
+      allow create: if canA('cars','add');
+      allow update: if canA('cars','edit');
+      allow delete: if canA('cars','delete');
+      match /chunks/{c} {
+        allow read:  if isAdmin() || hasModule('cars');
+        allow create: if canA('cars','add');
+        allow update: if canA('cars','edit');
+        allow delete: if canA('cars','delete');
+      }
+    }
+
+    // ===== البوفيه =====
+    function hasBuffet() { return isAdmin() || hasModule('buffet'); }
+    match /buffetItems/{id} {
+      allow read:  if hasBuffet();
+      allow create: if canA('buffet','add');
+      allow update: if canA('buffet','edit');
+      allow delete: if canA('buffet','delete');
+    }
+    match /buffetReceipts/{id} {
+      allow read:  if hasBuffet();
+      allow create: if canA('buffet','add');
+      allow update: if canA('buffet','edit');
+      allow delete: if canA('buffet','delete');
+      match /chunks/{c} {
+        allow read:  if hasBuffet();
+        allow create: if canA('buffet','add');
+        allow update: if canA('buffet','edit');
+        allow delete: if canA('buffet','delete');
+      }
+    }
+    match /buffetAuth/{id} {
+      allow read:  if hasBuffet();
+      allow create: if canA('buffet','add');
+      allow update: if canA('buffet','edit');
+      allow delete: if canA('buffet','delete');
+    }
+    match /buffetIssues/{id} {
+      allow read:   if hasBuffet();
+      allow create: if canA('buffet','add') ||
+                       (hasModule('buffet')
+                        && request.resource.data.createdBy == request.auth.uid
+                        && request.resource.data.ts == request.time
+                        && request.resource.data.qty is number
+                        && request.resource.data.qty > 0
+                        && exists(/databases/$(database)/documents/buffetAuth/$(request.resource.data.authId))
+                        && get(/databases/$(database)/documents/buffetAuth/$(request.resource.data.authId)).data.limits[request.resource.data.itemId] >= request.resource.data.qty);
+      allow update: if canA('buffet','edit');
+      allow delete: if canA('buffet','delete');
+      match /chunks/{c} {
+        allow read:   if hasBuffet();
+        allow create: if hasBuffet();
+        allow update: if canA('buffet','edit');
+        allow delete: if canA('buffet','delete');
+      }
+    }
+
+    // ===== الأدوات المكتبية =====
+    function hasStationery() { return isAdmin() || hasModule('stationery'); }
+    match /stationeryItems/{id} {
+      allow read:  if hasStationery();
+      allow create: if canA('stationery','add');
+      allow update: if canA('stationery','edit');
+      allow delete: if canA('stationery','delete');
+    }
+    match /stationeryReceipts/{id} {
+      allow read:  if hasStationery();
+      allow create: if canA('stationery','add');
+      allow update: if canA('stationery','edit');
+      allow delete: if canA('stationery','delete');
+      match /chunks/{c} {
+        allow read:  if hasStationery();
+        allow create: if canA('stationery','add');
+        allow update: if canA('stationery','edit');
+        allow delete: if canA('stationery','delete');
+      }
+    }
+    match /stationeryAuth/{id} {
+      allow read:  if hasStationery();
+      allow create: if canA('stationery','add');
+      allow update: if canA('stationery','edit');
+      allow delete: if canA('stationery','delete');
+    }
+    match /stationeryIssues/{id} {
+      allow read:   if hasStationery();
+      allow create: if canA('stationery','add') ||
+                       (hasModule('stationery')
+                        && request.resource.data.createdBy == request.auth.uid
+                        && request.resource.data.ts == request.time
+                        && request.resource.data.qty is number
+                        && request.resource.data.qty > 0
+                        && exists(/databases/$(database)/documents/stationeryAuth/$(request.resource.data.authId))
+                        && get(/databases/$(database)/documents/stationeryAuth/$(request.resource.data.authId)).data.limits[request.resource.data.itemId] >= request.resource.data.qty);
+      allow update: if canA('stationery','edit');
+      allow delete: if canA('stationery','delete');
+      match /chunks/{c} {
+        allow read:   if hasStationery();
+        allow create: if hasStationery();
+        allow update: if canA('stationery','edit');
+        allow delete: if canA('stationery','delete');
+      }
+    }
+
+    // ===== المهام =====
+    match /tasks/{id} {
+      allow read:   if wr('tasks') ||
+                       (hasModule('tasks') && request.auth.uid in resource.data.assignees);
+      allow create: if canA('tasks','add');
+      allow delete: if canA('tasks','delete');
+      allow update: if canA('tasks','edit') ||
+                       (hasModule('tasks')
+                        && request.auth.uid in resource.data.assignees
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneAt', 'doneByName']));
+    }
+
+    // ===== نماذج العمل (لينكات نماذج جوجل) =====
+    // كل نموذج له صلاحية خاصة: access.forms = ['<id النموذج>', ...] أو '*' لكل النماذج. الكتابة للمدير.
+    // ملحوظة: الاستعلام الكامل على المجموعة مسموح لمن عنده '*' (أو المدير)، والباقي بيجيب نماذجه واحد واحد بالـ id.
+    match /workForms/{id} {
+      allow read:   if canA('forms','*') || can('forms', id);
+      allow create: if canA('forms','add');
+      allow update: if canA('forms','edit');
+      allow delete: if canA('forms','delete');
+    }
+
+    // ===== لينكات هامة (اسم + لينك + وصف) =====
+    // العرض لمن عنده can('links','view') والإضافة/التعديل/الحذف لمن عنده can('links','edit') أو المدير.
+    match /workLinks/{id} {
+      allow read:  if can('links','view');
+      allow create: if canA('links','add');
+      allow update: if canA('links','edit');
+      allow delete: if canA('links','delete');
+    }
+
+    // ===== الهيكل التنظيمي (مخطط / موظفون / مراحل التعيين) =====
+    // القراءة لمن عنده can('orgchart','view') والكتابة لمن عنده can('orgchart','edit') أو المدير.
+    match /orgChart/{id} {
+      allow read:  if can('orgchart','view');
+      allow write: if wr('orgchart');
+    }
+
+    // ===== ID (كروت تصريح الدخول: الموظفون + الظهر + الصور) =====
+    match /idCards/{id} {
+      allow read:  if can('idcard','view');
+      allow write: if wr('idcard');
+    }
+
+    // ===== سجل أوراق التعيين والاستقالة =====
+    match /hiringRecords/{id} {
+      allow read:   if anyA('hiring');
+      allow create: if canA('hiring','add');
+      allow update: if canA('hiring','edit');
+      allow delete: if canA('hiring','delete');
+    }
+    match /resignRecords/{id} {
+      allow read:   if anyA('resign');
+      allow create: if canA('resign','add');
+      allow update: if canA('resign','edit');
+      allow delete: if canA('resign','delete');
+    }
+
+    // أي حاجة تانية مقفولة
+    match /{document=**} { allow read, write: if false; }
+  }
+}
