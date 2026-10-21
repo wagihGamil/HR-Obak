@@ -359,6 +359,7 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
 #adm#adm .rounded-xl{border-radius:8px}
 #adm#adm .shadow-sm{box-shadow:0 1px 5px rgba(0,0,0,.12)}
 #adm#adm .bg-slate-200\/60{background:#dfe2ea}
+#adm.no-del button:has(.fa-trash),#adm.no-del button:has(.fa-trash-can){display:none!important}
 @media print{
   #adm .no-print,#adm nav,#adm .tab-btn,#adm button,#adm #toast-container{display:none!important}
   #adm .tab-content{display:none!important}
@@ -1752,7 +1753,7 @@ const LocalBackend = {
   async updateEmployee(row){ const r=LS.get('demo_emps',[]); const i=r.findIndex(x=>x.code===row.code); if(i>=0){ r[i]=row; LS.set('demo_emps',r);} },
   async loadSettings(){ return LS.get('demo_settings',{}); },
   async saveSettings(s){ LS.set('demo_settings',s); },
-  async listForms(){ const all=LS.get('demo_forms',[]); const acc=((ME.access||{}).forms)||[]; return (ME.isAdmin||acc.includes('*'))?all:all.filter(f=>acc.includes(f.id)); },
+  async listForms(){ const all=LS.get('demo_forms',[]); const acc=((ME.access||{}).forms)||[]; return (ME.isAdmin||acc.includes('*')||acc.includes('admin'))?all:all.filter(f=>acc.includes(f.id)); },
   async saveForm(id,data){ const all=LS.get('demo_forms',[]); if(id){ const i=all.findIndex(f=>f.id===id); if(i>=0) all[i]={...all[i],...data}; } else all.push({id:'f'+Date.now(),...data}); LS.set('demo_forms',all); },
   async deleteForm(id){ LS.set('demo_forms',LS.get('demo_forms',[]).filter(f=>f.id!==id)); },
   async listLinks(){ return LS.get('demo_links',[]); },
@@ -1846,7 +1847,7 @@ const FirebaseBackend = {
   async saveSettings(v){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(this.db,'settings','insurance'),v); },
   async listForms(){
     const {Fs}=this.S; const acc=((ME.access||{}).forms)||[];
-    if(ME.isAdmin||acc.includes('*')){ const s=await Fs.getDocs(Fs.collection(this.db,'workForms')); return s.docs.map(d=>({id:d.id,...d.data()})); }
+    if(ME.isAdmin||acc.includes('*')||acc.includes('admin')){ const s=await Fs.getDocs(Fs.collection(this.db,'workForms')); return s.docs.map(d=>({id:d.id,...d.data()})); }
     const out=[]; await Promise.all(acc.map(async id=>{ try{ const d=await Fs.getDoc(Fs.doc(this.db,'workForms',id)); if(d.exists()) out.push({id:d.id,...d.data()}); }catch(e){} })); return out;
   },
   async saveForm(id,data){ const {Fs}=this.S; if(id) await Fs.setDoc(Fs.doc(this.db,'workForms',id),data,{merge:true}); else await Fs.addDoc(Fs.collection(this.db,'workForms'),{...data,createdAt:Date.now()}); },
@@ -2054,6 +2055,16 @@ const PERM = {
   orgchart:{label:'الهيكل التنظيمي',acts:{view:'عرض الهيكل وخطة التعيينات وطباعتها',edit:'رفع الشيتات وتعديل الهيكل والمراحل'}},
   idcard:{label:'ID',acts:{view:'عرض وطباعة كروت الدخول',edit:'رفع الشيت وتعديل البيانات والصور والظهر'}}
 };
+const LV_MODS=['housing','cars','buffet','stationery','tasks','links','orgchart','idcard'];
+const LV_LBL={admin:'مدير المديول (كل الصلاحيات)',add:'إضافة',edit:'تعديل',delete:'حذف'};
+LV_MODS.forEach(m=>{ const v=PERM[m].acts.view; PERM[m].acts={view:v,add:'إضافة (تسجيل جديد)',edit:'تعديل الموجود',delete:'حذف',admin:LV_LBL.admin}; PERM[m].lv=true; });
+const LV_BASE={hiring:['acks','kin','contract','policy'],resign:['rq','rf','er','ho','cl'],forms:['*']};
+const LV_XL={hiring:{add:'السجل: إضافة (حفظ موظف جديد)',edit:'السجل: تعديل (تحديث موظف محفوظ)',delete:'السجل: حذف موظف من السجل'},resign:{add:'السجل: إضافة (حفظ موظف جديد)',edit:'السجل: تعديل (تحديث موظف محفوظ)',delete:'السجل: حذف موظف من السجل'},forms:{add:'إضافة نماذج جديدة',edit:'تعديل النماذج',delete:'حذف نماذج'}};
+Object.keys(LV_BASE).forEach(m=>{ PERM[m].acts={...PERM[m].acts,...LV_XL[m],admin:LV_LBL.admin}; PERM[m].lv=true; PERM[m].base=LV_BASE[m]; PERM[m].vl=m==='forms'?'عرض كل النماذج فقط':'طباعة الأوراق فقط (السجل للعرض)'; });
+const lvPre=m=>{ const b=(PERM[m]&&PERM[m].base)||['view']; return {none:[],view:b,add:[...b,'add'],del:[...b,'delete'],ae:[...b,'add','edit'],admin:[...b,'add','edit','delete','admin']}; };
+const LV_PRESETS=lvPre('housing');
+function lvDetect(c,m){ c=c||[]; if(!c.length) return 'none'; const s=[...c].sort().join(); for(const [k,v] of Object.entries(lvPre(m))) if([...v].sort().join()===s) return k; return 'custom'; }
+function lvName(c,m){ c=c||[]; if(c.includes('admin')) return 'مدير'; const p=lvDetect(c,m); return {none:'—',view:'عرض',add:'إضافة',del:'حذف',ae:'إضافة وتعديل'}[p]||c.filter(a=>a!=='view').map(a=>LV_LBL[a]||a).join(' + ')||'عرض'; }
 if(!ENABLE_INSURANCE) delete PERM.insurance;
 const ICONS={
   hiring:'<svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M10 12h5M10 15.5h5M10 8.5h2"/></svg>',
@@ -2088,7 +2099,8 @@ const MODS={
   idcard:{title:'ID',color:'linear-gradient(135deg,#e53935,#8e24aa)',subs:null},
   users:{title:'إدارة المستخدمين',color:'linear-gradient(135deg,#27ae60,#17703c)',subs:null,admin:true}
 };
-const can = (m,a)=>!!ME && (ME.isAdmin || (((ME.access||{})[m])||[]).includes(a));
+const can = (m,a)=>{ if(!ME) return false; if(ME.isAdmin) return true; const c=((ME.access||{})[m])||[]; if(c.includes(a)) return true; if(a!=='*'&&c.includes('admin')) return true; if(ME.permV===2) return false; if((a==='add'||a==='delete')&&c.includes('edit')) return true; return (m==='hiring'||m==='resign')&&(a==='add'||a==='edit'||a==='delete')&&c.length>0; };
+const canW = m => can(m,'add')||can(m,'edit')||can(m,'delete');
 const canMod = m => (m!=='insurance'||ENABLE_INSURANCE) && !!ME && (MODS[m].admin ? !!ME.isAdmin : (ME.isAdmin || ((((ME.access||{})[m])||[]).length>0)));
 const esc = s => S(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 let toastT=null;
@@ -2170,7 +2182,7 @@ function buildHiring(){
   renderSheets(out,'cnt_h',dx);
 }
 function mountHiring(){
-  setLayout({panel:'pn_hiring',sheets:true});
+  setLayout({panel:'pn_hiring',sheets:true}); rcUI('hiring');
   [['acks','o_ak'],['kin','o_kn'],['contract','o_ct'],['policy','o_po']].forEach(([a,c])=>document.querySelector('.'+c).hidden=!can('hiring',a));
   buildHiring();
 }
@@ -2187,7 +2199,7 @@ function buildResign(){
   renderSheets(out,'cnt_r',dx);
 }
 function mountResign(){
-  setLayout({panel:'pn_resign',sheets:true});
+  setLayout({panel:'pn_resign',sheets:true}); rcUI('resign');
   [['rq','r_rq'],['rf','r_rf'],['er','r_er'],['ho','r_ho'],['cl','r_cl']].forEach(([a,c])=>document.querySelector('.'+c).hidden=!can('resign',a));
   buildResign();
 }
@@ -2518,7 +2530,7 @@ function userAccessTags(u){
     const nums=(window.ADM&&window.ADM.aptsOf)?window.ADM.aptsOf(u.uid):[];
     return '<span class="tag2 adm">مشرف شقة</span>'+(nums.length?nums.map(n=>`<span class="tag2">${esc(n)}</span>`).join(''):'<span class="muted">لا توجد شقق</span>');
   }
-  const t=Object.keys(PERM).filter(m=>((u.access||{})[m]||[]).length).map(m=>`<span class="tag2">${PERM[m].label} (${u.access[m].length})</span>`);
+  const t=Object.keys(PERM).filter(m=>((u.access||{})[m]||[]).length).map(m=>PERM[m].lv?`<span class="tag2">${PERM[m].label}: ${lvName(u.access[m],m)}</span>`:`<span class="tag2">${PERM[m].label} (${u.access[m].length})</span>`);
   return t.join('')||'<span class="muted">بدون صلاحيات</span>';
 }
 function renderUsers(){
@@ -2553,6 +2565,7 @@ function userModal(u){
   const perms=Object.entries(PERM).map(([m,d])=>{
     const cur=(u.access||{})[m]||[];
     return `<div class="mb" data-m="${m}"><h4><span>${d.label}</span><label style="margin:0"><input type="checkbox" data-all="${m}"> الكل</label></h4>
+      ${d.lv?`<select class="pset" data-preset="${m}" style="width:100%;margin:4px 0 6px;padding:6px 8px;border:1.5px solid #c3c6cf;border-radius:8px;font:inherit"><option value="none">بدون صلاحية</option><option value="view">${d.vl||'عرض فقط'}</option><option value="add">إضافة فقط</option><option value="del">حذف فقط</option><option value="ae">إضافة وتعديل (من غير حذف)</option><option value="admin">مدير المديول — كل الصلاحيات</option><option value="custom">مخصص (حسب العلامات تحت)</option></select>`:''}
       ${Object.entries(d.acts).map(([a,l])=>`<label><input type="checkbox" data-pm="${m}" data-pa="${a}" ${cur.includes(a)?'checked':''}> ${l}</label>`).join('')}</div>`;
   }).join('');
   const apts=(window.ADM&&window.ADM.getApts)?window.ADM.getApts():[];
@@ -2577,8 +2590,10 @@ function userModal(u){
   const sync=()=>{ const t=$('um_type').value, adm=t==='admin';
     $('um_perm').hidden=(t==='sup'); $('um_aptsbox').hidden=(t!=='sup');
     $('um_perm').style.opacity=adm?.4:1; m.querySelectorAll('[data-pm],[data-all]').forEach(x=>x.disabled=adm);
-    m.querySelectorAll('.mb').forEach(b=>{ const bx=[...b.querySelectorAll('[data-pm]')]; b.classList.toggle('off',!adm&&!bx.some(x=>x.checked)); const all=b.querySelector('[data-all]'); all.checked=bx.every(x=>x.checked); }); };
+    m.querySelectorAll('.mb').forEach(b=>{ const bx=[...b.querySelectorAll('[data-pm]')]; b.classList.toggle('off',!adm&&!bx.some(x=>x.checked)); const all=b.querySelector('[data-all]'); all.checked=bx.every(x=>x.checked);
+      const ps=b.querySelector('.pset'); if(ps){ const v=b.querySelector('[data-pa="view"]'); if(v&&!adm&&bx.some(x=>x.checked&&x!==v)&&!v.checked) v.checked=true; ps.value=lvDetect(bx.filter(x=>x.checked).map(x=>x.dataset.pa),b.dataset.m); ps.disabled=adm; } }); };
   m.addEventListener('change',e=>{
+    if(e.target.dataset.preset){ const mm=e.target.dataset.preset, v=e.target.value; if(v!=='custom'){ const set=lvPre(mm)[v]||[]; m.querySelectorAll(`[data-pm="${mm}"]`).forEach(x=>x.checked=set.includes(x.dataset.pa)); } }
     if(e.target.dataset.all){ m.querySelectorAll(`[data-pm="${e.target.dataset.all}"]`).forEach(x=>x.checked=e.target.checked); }
     sync();
   });
@@ -2589,7 +2604,7 @@ function userModal(u){
     const type=$('um_type').value;
     const access={}; m.querySelectorAll('[data-pm]').forEach(x=>{ if(x.checked){ (access[x.dataset.pm]=access[x.dataset.pm]||[]).push(x.dataset.pa); } });
     const aptIds=[...m.querySelectorAll('[data-apt]')].filter(x=>x.checked).map(x=>x.dataset.apt);
-    const data={name:$('um_name').value.trim(),isAdmin:type==='admin',supervisor:type==='sup',active:$('um_active').checked,access:type==='sup'?{housing:['view']}:access};
+    const data={name:$('um_name').value.trim(),isAdmin:type==='admin',supervisor:type==='sup',active:$('um_active').checked,permV:2,access:type==='sup'?{housing:['view']}:access};
     if(!data.name){ err.textContent='اكتب الاسم'; return; }
     if(type==='sup' && !aptIds.length){ err.textContent='اختر شقة واحدة على الأقل للمشرف'; return; }
     if(u.uid===ME.uid && (!data.isAdmin||!data.active)){ err.textContent='مينفعش تشيل صلاحية المدير أو توقف حسابك انت'; return; }
@@ -2612,7 +2627,7 @@ let WFORMS=[];
 const fSort=(a,b)=>((+a.ord||0)-(+b.ord||0))||String(a.title).localeCompare(String(b.title),'ar');
 async function syncFormsPerm(){
   let list=[]; try{ list=await BE.listForms(); }catch(e){}
-  const acts={'*':'كل النماذج (حتى اللي تتضاف بعدين)'}; list.slice().sort(fSort).forEach(f=>{ acts[f.id]=f.title; });
+  const acts={'*':'كل النماذج (حتى اللي تتضاف بعدين)',add:PERM.forms.acts.add,edit:PERM.forms.acts.edit,delete:PERM.forms.acts.delete,admin:PERM.forms.acts.admin}; list.slice().sort(fSort).forEach(f=>{ acts[f.id]=f.title; });
   PERM.forms.acts=acts;
 }
 function fEmbed(u){ try{ const x=new URL(u); if(x.hostname==='docs.google.com'&&x.pathname.startsWith('/forms/')){ x.searchParams.set('embedded','true'); return x.href; } }catch(e){} return ''; }
@@ -2622,16 +2637,16 @@ async function mountForms(){
   renderForms();
 }
 function renderForms(q){
-  q=(q||'').trim().toLowerCase(); const adm=!!ME.isAdmin;
+  q=(q||'').trim().toLowerCase(); const cA=can('forms','add'), cE=can('forms','edit'), cD=can('forms','delete'), adm=cA||cE||cD;
   const list=WFORMS.slice().sort(fSort).filter(f=>!q||(f.title+' '+(f.desc||'')).toLowerCase().includes(q));
   $('view').innerHTML=`<div class="card"><div class="tb"><h2 style="margin:0">نماذج العمل</h2><input type="search" id="f_q" placeholder="بحث في النماذج…" value="${esc(q)}">
-    <span class="sp" style="flex:1"></span>${adm?'<button class="btn pri" id="f_new" type="button">+ نموذج جديد</button>':''}</div>
+    <span class="sp" style="flex:1"></span>${cA?'<button class="btn pri" id="f_new" type="button">+ نموذج جديد</button>':''}</div>
     ${list.length?`<div class="fgrid">${list.map(f=>`<div class="fcard"><div class="ft">${esc(f.title)}</div>${f.desc?`<div class="fd">${esc(f.desc)}</div>`:''}
       <div class="fb"><a class="btn pri sm" href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">فتح النموذج</a>
       ${fEmbed(f.url)?`<button class="btn sm" type="button" data-fview="${esc(f.id)}">عرض داخل الصفحة</button>`:''}
-      ${adm?`<button class="btn sm" type="button" data-fedit="${esc(f.id)}">تعديل</button><button class="btn sm" type="button" data-fdel="${esc(f.id)}">حذف</button>`:''}</div></div>`).join('')}</div>`
-    :`<div class="muted" style="padding:20px;text-align:center">${adm?'لسه مفيش نماذج — اضغط «+ نموذج جديد» وحط لينك نموذج جوجل.':(WFORMS.length?'مفيش نتائج.':'مفيش نماذج متاحة لحسابك.')}</div>`}
-    ${adm?'<div class="note">من «إدارة المستخدمين» تقدر تحدد لكل مستخدم أي نماذج يشوفها (أو «كل النماذج»). الصلاحية بتتفرض من قاعدة البيانات نفسها.</div>':''}</div>`;
+      ${cE?`<button class="btn sm" type="button" data-fedit="${esc(f.id)}">تعديل</button>`:''}${cD?`<button class="btn sm" type="button" data-fdel="${esc(f.id)}">حذف</button>`:''}</div></div>`).join('')}</div>`
+    :`<div class="muted" style="padding:20px;text-align:center">${cA?'لسه مفيش نماذج — اضغط «+ نموذج جديد» وحط لينك نموذج جوجل.':(WFORMS.length?'مفيش نتائج.':'مفيش نماذج متاحة لحسابك.')}</div>`}
+    ${ME.isAdmin?'<div class="note">من «إدارة المستخدمين» تقدر تحدد لكل مستخدم أي نماذج يشوفها (أو «كل النماذج»). الصلاحية بتتفرض من قاعدة البيانات نفسها.</div>':''}</div>`;
 }
 function formModal(f){
   const isNew=!f; f=f||{title:'',url:'',desc:'',ord:(WFORMS.reduce((m,x)=>Math.max(m,+x.ord||0),0)+1)};
@@ -2659,9 +2674,9 @@ function formModal(f){
 }
 function formsClick(t){
   if(CUR.mod!=='forms') return false;
-  if(t.closest('#f_new')){ formModal(null); return true; }
-  const e=t.closest('[data-fedit]'); if(e){ formModal(WFORMS.find(x=>x.id===e.dataset.fedit)); return true; }
-  const d=t.closest('[data-fdel]'); if(d){ const f=WFORMS.find(x=>x.id===d.dataset.fdel); if(f&&confirm(`حذف النموذج «${f.title}»؟`)) BE.deleteForm(f.id).then(()=>{ toast('تم الحذف'); return mountForms(); }).catch(er=>toast(authMsg(er),true)); return true; }
+  if(t.closest('#f_new')){ if(can('forms','add')) formModal(null); return true; }
+  const e=t.closest('[data-fedit]'); if(e){ if(can('forms','edit')) formModal(WFORMS.find(x=>x.id===e.dataset.fedit)); return true; }
+  const d=t.closest('[data-fdel]'); if(d){ const f=WFORMS.find(x=>x.id===d.dataset.fdel); if(f&&can('forms','delete')&&confirm(`حذف النموذج «${f.title}»؟`)) BE.deleteForm(f.id).then(()=>{ toast('تم الحذف'); return mountForms(); }).catch(er=>toast(authMsg(er),true)); return true; }
   const v=t.closest('[data-fview]'); if(v){ const f=WFORMS.find(x=>x.id===v.dataset.fview); if(f){
     $('view').innerHTML=`<div class="card"><div class="tb"><button class="btn" id="f_back" type="button">‹ رجوع للنماذج</button><b>${esc(f.title)}</b><span class="sp" style="flex:1"></span><a class="btn sm" href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">فتح في تبويب جديد</a></div>
       <iframe src="${esc(fEmbed(f.url))}" style="width:100%;height:calc(100vh - 170px);min-height:480px;border:0;border-radius:8px;background:#fff"></iframe></div>`; } return true; }
@@ -2688,7 +2703,7 @@ async function mountLinks(){
   LQ=''; LCAT=''; renderLinks();
 }
 function renderLinks(){
-  const ed=can('links','edit'); const q=LQ.trim().toLowerCase();
+  const ed=canW('links'), cA=can('links','add'), cE=can('links','edit'), cD=can('links','delete'); const q=LQ.trim().toLowerCase();
   const cats=[...new Set(WLINKS.map(x=>(x.cat||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
   if(LCAT&&!cats.includes(LCAT)) LCAT='';
   const list=WLINKS.slice().sort(lSort).filter(x=>(!q||(x.title+' '+(x.desc||'')+' '+(x.cat||'')).toLowerCase().includes(q))&&(!LCAT||(x.cat||'').trim()===LCAT));
@@ -2697,9 +2712,9 @@ function renderLinks(){
       <div class="lkmeta"><span class="lkbadge" style="background:${k.c}">${esc(k.t)}</span>${x.cat?`<span class="lkcat">${esc(x.cat)}</span>`:''}</div>
       <div class="ft">${esc(x.title)}</div>${x.desc?`<div class="fd">${esc(x.desc)}</div>`:''}
       <div class="fb"><a class="btn pri sm" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">فتح اللينك</a><button class="btn sm" type="button" data-lcopy="${esc(x.id)}">نسخ</button>
-      ${ed?`<button class="btn sm" type="button" data-ledit="${esc(x.id)}">تعديل</button><button class="btn sm" type="button" data-ldel="${esc(x.id)}">حذف</button>`:''}</div></div>`; };
+      ${cE?`<button class="btn sm" type="button" data-ledit="${esc(x.id)}">تعديل</button>`:''}${cD?`<button class="btn sm" type="button" data-ldel="${esc(x.id)}">حذف</button>`:''}</div></div>`; };
   $('view').innerHTML=`<div class="card"><div class="tb"><h2 style="margin:0">لينكات هامة</h2><input type="search" id="l_q" placeholder="بحث في اللينكات…" value="${esc(LQ)}">
-    <span class="sp" style="flex:1"></span>${ed?'<button class="btn pri" id="l_new" type="button">+ لينك جديد</button>':''}</div>
+    <span class="sp" style="flex:1"></span>${cA?'<button class="btn pri" id="l_new" type="button">+ لينك جديد</button>':''}</div>
     ${cats.length?`<div class="lkchips"><button type="button" class="lkchip${LCAT?'':' on'}" data-lkcat="">الكل</button>${cats.map(c=>`<button type="button" class="lkchip${c===LCAT?' on':''}" data-lkcat="${esc(c)}">${esc(c)}</button>`).join('')}</div>`:''}
     ${list.length?`<div class="fgrid">${list.map(card).join('')}</div>`
     :`<div class="muted" style="padding:20px;text-align:center">${WLINKS.length?'مفيش نتائج.':(ed?'لسه مفيش لينكات — اضغط «+ لينك جديد» وحط لينك فيديو يوتيوب أو ملف درايف أو أي لينك مهم.':'مفيش لينكات لسه.')}</div>`}</div>`;
@@ -2732,9 +2747,9 @@ function linkModal(x){
 }
 function linksClick(t){
   if(CUR.mod!=='links') return false;
-  if(t.closest('#l_new')){ if(can('links','edit')) linkModal(null); return true; }
+  if(t.closest('#l_new')){ if(can('links','add')) linkModal(null); return true; }
   const e=t.closest('[data-ledit]'); if(e){ if(can('links','edit')) linkModal(WLINKS.find(x=>x.id===e.dataset.ledit)); return true; }
-  const d=t.closest('[data-ldel]'); if(d){ const x=WLINKS.find(y=>y.id===d.dataset.ldel); if(x&&can('links','edit')&&confirm(`حذف اللينك «${x.title}»؟`)) BE.deleteLink(x.id).then(()=>{ toast('تم الحذف'); return mountLinks(); }).catch(er=>toast(authMsg(er),true)); return true; }
+  const d=t.closest('[data-ldel]'); if(d){ const x=WLINKS.find(y=>y.id===d.dataset.ldel); if(x&&can('links','delete')&&confirm(`حذف اللينك «${x.title}»؟`)) BE.deleteLink(x.id).then(()=>{ toast('تم الحذف'); return mountLinks(); }).catch(er=>toast(authMsg(er),true)); return true; }
   const c=t.closest('[data-lcopy]'); if(c){ const x=WLINKS.find(y=>y.id===c.dataset.lcopy); if(x){ const done=()=>toast('تم نسخ اللينك ✓'); try{ navigator.clipboard.writeText(x.url).then(done,()=>{ prompt('انسخ اللينك:',x.url); }); }catch(er){ prompt('انسخ اللينك:',x.url); } } return true; }
   const g=t.closest('[data-lkcat]'); if(g){ LCAT=g.dataset.lkcat; renderLinks(); return true; }
   return false;
@@ -3095,7 +3110,7 @@ const OC_CSS=`
 `;
 function ocCard(o){
   const dn=!!(o.dnd&&o.id);
-  return `<div class="oc-n${o.lead?' lead':''}${o.cls?' '+o.cls:''}"${o.id?` data-ocn="${esc(o.id)}"`:''}${dn?' draggable="true"':''}>${dn&&o.addId?`<button class="oc-add" type="button" data-ocadd="${esc(o.addId)}" title="إضافة وظيفة تحتها">+</button>`:''}<div class="oc-r"><span class="oc-t">${esc(o.t)}</span><span class="oc-c">${o.c}</span></div>${o.sub?`<div class="oc-s">${esc(o.sub)}</div>`:''}${o.names?`<div class="oc-nm">${o.names}</div>`:''}</div>`;
+  return `<div class="oc-n${o.lead?' lead':''}${o.cls?' '+o.cls:''}"${o.id?` data-ocn="${esc(o.id)}"`:''}${dn?' draggable="true"':''}>${o.id&&o.addId?`<button class="oc-add" type="button" data-ocadd="${esc(o.addId)}" title="إضافة وظيفة تحتها">+</button>`:''}<div class="oc-r"><span class="oc-t">${esc(o.t)}</span><span class="oc-c">${o.c}</span></div>${o.sub?`<div class="oc-s">${esc(o.sub)}</div>`:''}${o.names?`<div class="oc-nm">${o.names}</div>`:''}</div>`;
 }
 function ocNode(r,kids,mk){ const ks=(kids.get(r.id)||[]).map((x,i)=>[x,i]).sort((a,b)=>ocRank(a[0].job)-ocRank(b[0].job)||a[1]-b[1]).map(x=>x[0]); return `<div class="oc-nw">${mk(r)}${ks.length?`<div class="oc-kids">${ks.map(k=>`<div class="oc-kid">${ocNode(k,kids,mk)}</div>`).join('')}</div>`:''}</div>`; }
 function ocTree(rows,mk,extra){
@@ -3118,18 +3133,18 @@ function ocChart(kind,opt){
   const order=isA?[...C.pDept,...C.extraD]:C.pDept;
   order.forEach(d=>{
     const rows=C.P.filter(r=>r.dept===d); let body='', n=0;
-    if(!isA){ n=rows.reduce((s,r)=>s+(+r.count||0),0); totalJobs+=n; body=ocTree(rows,r=>ocCard({t:r.job,c:ocNum(r.count),lead:r.lead,id:'p:'+r.id,dnd:opt.dnd,addId:opt.dnd?r.id:''}),[]); }
+    if(!isA){ n=rows.reduce((s,r)=>s+(+r.count||0),0); totalJobs+=n; body=ocTree(rows,r=>ocCard({t:r.job,c:ocNum(r.count),lead:r.lead,id:'p:'+r.id,dnd:opt.dnd,addId:opt.addb?r.id:''}),[]); }
     else{
       const exm=C.ex.get(d)||new Map(); const exh=[];
       [...exm.entries()].sort((a,b)=>b[1].length-a[1].length).forEach(([j,l])=>{ n+=l.length; exh.push({rk:ocRank(j),html:`<div class="oc-root">${ocCard({t:j,c:ocNum(l.length),cls:'ex',lead:ocLead(j)&&!rows.length,sub:'خارج الخطة',names:nm(l),id:'x:'+d+'|'+j,dnd:opt.dnd})}</div>`}); });
       if(rows.length){
         rows.forEach(r=>{ n+=C.cur(r.id); });
-        body=ocTree(rows,r=>{ const l=C.byP.get(r.id)||[]; return ocCard({t:r.job,c:ocNum(l.length),lead:r.lead,cls:l.length?'':'zero',sub:`مخطط ${ocNum(r.count)} · متبقي ${ocNum(C.rem(r))}`,names:nm(l),id:'a:'+r.id,dnd:opt.dnd,addId:opt.dnd?r.id:''}); },exh);
+        body=ocTree(rows,r=>{ const l=C.byP.get(r.id)||[]; return ocCard({t:r.job,c:ocNum(l.length),lead:r.lead,cls:l.length?'':'zero',sub:`مخطط ${ocNum(r.count)} · متبقي ${ocNum(C.rem(r))}`,names:nm(l),id:'a:'+r.id,dnd:opt.dnd,addId:opt.addb?r.id:''}); },exh);
       } else body=exh.map((x,i)=>({...x,i})).sort((a,b)=>a.rk-b.rk||a.i-b.i).map(x=>x.html).join('');
       totalJobs+=n;
     }
     if(isA&&!n) return;
-    const dd=!!opt.dnd; cols.push(`<div class="oc-col"${dd?` data-ocd="${esc(d)}"`:''}><div class="oc-h"${dd&&rows.length?` data-ocdh="${esc(d)}" title="تعديل الإدارة"`:''}><span>${esc(d)}</span><span style="display:flex;gap:6px;align-items:center">${dd&&rows.length?`<button class="oc-hadd" type="button" data-ocaddd="${esc(d)}" title="إضافة وظيفة في الإدارة">+</button>`:''}<span class="oc-bd">${ocNum(n)}</span></span></div><div class="oc-body">${body}</div></div>`);
+    const dd=!!opt.dnd, hh=!!(opt.wr&&rows.length); cols.push(`<div class="oc-col"${dd?` data-ocd="${esc(d)}"`:''}><div class="oc-h"${hh?` data-ocdh="${esc(d)}" title="تعديل الإدارة"`:''}><span>${esc(d)}</span><span style="display:flex;gap:6px;align-items:center">${opt.addb&&rows.length?`<button class="oc-hadd" type="button" data-ocaddd="${esc(d)}" title="إضافة وظيفة في الإدارة">+</button>`:''}<span class="oc-bd">${ocNum(n)}</span></span></div><div class="oc-body">${body}</div></div>`);
   });
   const th=isA?'b':'g';
   const top=opt.compact?`<div class="oc-top"><div class="oc-ttl"><h2 style="font-size:20px">${isA?'الهيكل الحالي للموظفين':'الهيكل التنظيمي المخطط'}</h2></div><div class="oc-sb" style="font-weight:700;color:var(--ac)">${ocNum(totalJobs)} ${isA?'موظف':'وظيفة'} · ${cols.length} أقسام</div></div>`
@@ -3214,8 +3229,8 @@ function ocStats(){
   return {planned,cur,matched,unm:cur-matched};
 }
 function renderOrg(){
-  OC.C=ocCalc(); const C=OC.C, ed=can('orgchart','edit'), S=ocStats(), D=OC.data;
-  const upl=(k,cls,title,hint,id,ok)=>`<label class="ocu ${cls}${ed?'':' ro'}"><b>${title}</b>${ed?`<input type="file" id="${id}" accept=".xlsx,.xls">`:''}<div class="st ${ok?'ok':''}">${ok||hint}</div></label>`;
+  OC.C=ocCalc(); const C=OC.C, ed=canW('orgchart'), S=ocStats(), D=OC.data;
+  const upl=(k,cls,title,hint,id,ok)=>`<label class="ocu ${cls}${can('orgchart','add')?'':' ro'}"><b>${title}</b>${can('orgchart','add')?`<input type="file" id="${id}" accept=".xlsx,.xls">`:''}<div class="st ${ok?'ok':''}">${ok||hint}</div></label>`;
   const pOk=D.planned?`✓ ${C.P.length} وظيفة · إجمالي ${ocNum(S.planned)} · ${C.pDept.length} أقسام — رُفع ${ocDate(D.planned.at)} (${esc(D.planned.file||'')})`:'';
   const eOk=D.emps?`✓ ${ocNum(S.cur)} موظف — مربوط بالخطة ${ocNum(S.matched)} · غير مربوط ${ocNum(S.unm)} — رُفع ${ocDate(D.emps.at)} (${esc(D.emps.file||'')})`:'';
   $('view').innerHTML=`<div class="card"><div class="tb"><h2 style="margin:0">الهيكل التنظيمي</h2><span style="flex:1"></span><button class="btn" id="oc_print" type="button">🖨 طباعة</button></div>
@@ -3226,11 +3241,11 @@ function renderOrg(){
 function ocChartTab(ed,pOk,eOk,upl,S){
   const C=OC.C, v=OC.view;
   let h=`<div class="ocup">${upl('p','g','① شيت الهيكل المخطط (أعداد الموظفين المخطط لهم)','الأعمدة: الإدارة · الوظيفة · العدد'+(ed?' — اضغط لاختيار الملف':''),'oc_fp',pOk)}${upl('e','b','② شيت الموظفين الحاليين','الأعمدة: اسم الموظف · القسم · المنصب الوظيفي'+(ed?' — اضغط لاختيار الملف':''),'oc_fe',eOk)}</div>`;
-  if(C.E.length&&C.P.length&&(S.unm>0||C.manualMapped.length)) h+=`<div class="ocwarn"><span>${ocNum(S.unm)} موظف مش مربوطين بوظيفة في الخطة (بيظهروا في الهيكل الحالي كوظائف «خارج الخطة» ومش بيتخصموا من المتبقي).</span>${ed?'<button class="btn sm" id="oc_map" type="button">ربط الوظائف يدويًا</button>':''}</div>`;
+  if(C.E.length&&C.P.length&&(S.unm>0||C.manualMapped.length)) h+=`<div class="ocwarn"><span>${ocNum(S.unm)} موظف مش مربوطين بوظيفة في الخطة (بيظهروا في الهيكل الحالي كوظائف «خارج الخطة» ومش بيتخصموا من المتبقي).</span>${can('orgchart','edit')?'<button class="btn sm" id="oc_map" type="button">ربط الوظائف يدويًا</button>':''}</div>`;
   h+=`<div class="ocbar"><div class="ocseg"><button type="button" data-ocv="p" class="${v==='p'?'on':''}">المخطط</button><button type="button" data-ocv="a" class="${v==='a'?'on':''}">الحالي</button><button type="button" data-ocv="ab" class="${v==='ab'?'on':''}">الاتنين فوق بعض</button></div>
    <label style="display:inline-flex;gap:6px;align-items:center;font-size:13.5px"><input type="checkbox" id="oc_names" ${OC.names?'checked':''}> إظهار أسماء الموظفين في الكروت</label>
-   ${ed?'<button class="btn sm" id="oc_adddept" type="button">+ إدارة جديدة</button>':''}<button class="btn sm" id="oc_zoom" type="button">${OC.fit?'حجم حقيقي':'ملاءمة العرض'}</button><span class="muted" style="font-size:12.5px">${ed?'اسحب أي وظيفة وسيبها على وظيفة تانية (تبقى تابعة لها) أو على إدارة (تبقى مستوى أول فيها). زر + على الوظيفة يضيف وظيفة تحتها، والضغط على الوظيفة يفتح تعديلها.':'اضغط على أي وظيفة لعرض تفاصيلها.'}</span></div>`;
-  const parts=[]; if(v==='p'||v==='ab') parts.push(ocChart('p',{int:true,dnd:ed})); if(v==='a'||v==='ab') parts.push(ocChart('a',{int:true,dnd:ed,names:OC.names}));
+   ${can('orgchart','add')?'<button class="btn sm" id="oc_adddept" type="button">+ إدارة جديدة</button>':''}<button class="btn sm" id="oc_zoom" type="button">${OC.fit?'حجم حقيقي':'ملاءمة العرض'}</button><span class="muted" style="font-size:12.5px">${ed?'اسحب أي وظيفة وسيبها على وظيفة تانية (تبقى تابعة لها) أو على إدارة (تبقى مستوى أول فيها). زر + على الوظيفة يضيف وظيفة تحتها، والضغط على الوظيفة يفتح تعديلها.':'اضغط على أي وظيفة لعرض تفاصيلها.'}</span></div>`;
+  const parts=[]; if(v==='p'||v==='ab') parts.push(ocChart('p',{int:true,dnd:can('orgchart','edit'),addb:can('orgchart','add'),wr:ed})); if(v==='a'||v==='ab') parts.push(ocChart('a',{int:true,dnd:can('orgchart','edit'),addb:can('orgchart','add'),wr:ed,names:OC.names}));
   h+=`<div class="ocscroll" id="oc_scroll">${parts.map(p=>`<div class="ocwrap" style="margin:8px">${p}</div>`).join('')}</div>`;
   return h;
 }
@@ -3259,9 +3274,9 @@ function ocPlanTab(ed){
       +`<tr class="tot"><td colspan="2">الإجمالي</td><td>${ocNum(vis.reduce((s,x)=>s+(+x.r.count||0),0))}</td><td>${ocNum(vis.reduce((s,x)=>s+x.cur,0))}</td><td>${ocNum(vis.reduce((s,x)=>s+x.rem,0))}</td><td>${ocNum(vis.reduce((s,x)=>s+Math.min(x.al,x.rem),0))}</td><td>${ocNum(vis.reduce((s,x)=>s+Math.max(0,x.rem-x.al),0))}</td></tr>`
       :`<tr><td colspan="7" class="muted" style="text-align:center;padding:16px">مفيش وظائف متبقية 🎉</td></tr>`)+`</tbody></table></div>`;
   if(!C.E.length) h+=`<div class="note">ملحوظة: لسه ما اترفعش شيت الموظفين الحاليين، فالمتبقي = المخطط بالكامل.</div>`;
-  h+=`<div class="ocbar" style="margin-top:20px"><h3 style="margin:0;font-size:16px;color:var(--navy)">مراحل التعيين</h3><span style="flex:1"></span>${ed?'<button class="btn pri" id="oc_newph" type="button">+ مرحلة جديدة</button>':''}</div>`;
+  h+=`<div class="ocbar" style="margin-top:20px"><h3 style="margin:0;font-size:16px;color:var(--navy)">مراحل التعيين</h3><span style="flex:1"></span>${can('orgchart','add')?'<button class="btn pri" id="oc_newph" type="button">+ مرحلة جديدة</button>':''}</div>`;
   h+=phases.length?phases.map(p=>{ const [st,cl]=ocPhaseState(p); const tot=p.items.reduce((s,i)=>s+i.n,0);
-    return `<div class="ocph"><h3>${esc(p.name)} <span class="pill ${cl}">${st}</span><span class="pill">${ocNum(tot)} وظيفة</span><span style="flex:1"></span>${ed?`<button class="btn sm" data-ocph="${esc(p.id)}" type="button">تعديل</button><button class="btn sm" data-ocphdel="${esc(p.id)}" type="button">حذف</button>`:''}</h3>
+    return `<div class="ocph"><h3>${esc(p.name)} <span class="pill ${cl}">${st}</span><span class="pill">${ocNum(tot)} وظيفة</span><span style="flex:1"></span>${can('orgchart','edit')?`<button class="btn sm" data-ocph="${esc(p.id)}" type="button">تعديل</button>`:''}${can('orgchart','delete')?`<button class="btn sm" data-ocphdel="${esc(p.id)}" type="button">حذف</button>`:''}</h3>
       <div class="dts">من ${ocDate(p.start)} إلى ${ocDate(p.end)}${p.note?' — '+esc(p.note):''}</div>
       <table class="octbl"><thead><tr><th>القسم</th><th>الوظيفة</th><th>العدد</th></tr></thead><tbody>${p.items.map(i=>{ const r=C.byId.get(i.pid); return r?`<tr><td>${esc(r.dept)}</td><td>${esc(r.job)}</td><td>${ocNum(i.n)}</td></tr>`:''; }).join('')||'<tr><td colspan="3" class="muted">مفيش وظائف</td></tr>'}</tbody></table></div>`; }).join('')
     :`<div class="muted" style="padding:14px;text-align:center">${ed?'لسه مفيش مراحل — اضغط «+ مرحلة جديدة» وحدد اسمها وتاريخ البداية والنهاية والوظائف اللي هتتعين فيها.':'لسه مفيش مراحل.'}</div>`;
@@ -3303,7 +3318,7 @@ function ocPhaseModal(id){
 /* ----- نوافذ: تفاصيل وظيفة / تعديل وظيفة مخططة / الربط اليدوي / الطباعة ----- */
 function ocModal(html,w){ const m=document.createElement('div'); m.className='modal'; m.id='ocmodal'; m.innerHTML=`<div class="box" style="width:min(${w||620}px,100%)">${html}</div>`; document.body.appendChild(m); m.addEventListener('click',e=>{ if(e.target===m||e.target.closest('[data-ocx]')) m.remove(); }); return m; }
 function ocJobModal(id){
-  const C=OC.C, [k,rest]=[id.slice(0,1),id.slice(2)]; const ed=can('orgchart','edit');
+  const C=OC.C, [k,rest]=[id.slice(0,1),id.slice(2)]; const ed=canW('orgchart');
   if(k==='p'){ ocPlanJobModal(rest); return; }
   let list=[], title='', sub='';
   if(k==='a'){ const r=C.byId.get(rest); if(!r) return; list=C.byP.get(r.id)||[]; title=r.job; sub=`${r.dept} — مخطط ${ocNum(r.count)} · حالي ${ocNum(list.length)} · متبقي ${ocNum(C.rem(r))}`; }
@@ -3425,15 +3440,14 @@ function ocPlanJobModal(id){
     <div><label>تتبع وظيفة</label><select id="oj_p" ${dis}></select></div></div>
     <label style="display:flex;gap:6px;align-items:center;margin-top:10px"><input type="checkbox" id="oj_l" ${r.lead?'checked':''} ${dis}> وظيفة قيادية (إطار مميز وتظهر الأول في القسم)</label>
     <div class="muted" style="font-size:12.5px;margin-top:8px">الحاليون على الوظيفة دي: ${ocNum(C.cur(r.id))} — المتبقي: ${ocNum(C.rem(r))}</div>
-    <div class="lerr" id="oj_err"></div><div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">${ed?'<button class="btn pri" id="oj_save" type="button">حفظ</button><button class="btn" id="oj_add" type="button">+ وظيفة تحتها</button><button class="btn" id="oj_del" type="button" style="color:#c62828">حذف الوظيفة</button>':''}<button class="btn" data-ocx type="button">${ed?'إلغاء':'إغلاق'}</button></div>`,620);
+    <div class="lerr" id="oj_err"></div><div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">${ed?'<button class="btn pri" id="oj_save" type="button">حفظ</button>':''}${can('orgchart','add')?'<button class="btn" id="oj_add" type="button">+ وظيفة تحتها</button>':''}${can('orgchart','delete')?'<button class="btn" id="oj_del" type="button" style="color:#c62828">حذف الوظيفة</button>':''}<button class="btn" data-ocx type="button">${ed?'إلغاء':'إغلاق'}</button></div>`,620);
   const q=s=>m.querySelector(s), fill=()=>{ const d=q('#oj_d').value; q('#oj_p').innerHTML='<option value="">— مستوى أول في الإدارة —</option>'+rows.filter(x=>x.dept===d&&!ds.has(x.id)).map(x=>`<option value="${esc(x.id)}" ${x.id===r.parent?'selected':''}>${esc(x.job)}</option>`).join(''); };
   fill(); q('#oj_d').onchange=fill;
-  if(!ed) return;
-  q('#oj_add').onclick=()=>{ m.remove(); ocAddModal({parent:id}); };
-  q('#oj_del').onclick=async()=>{ const kids=rows.filter(x=>x.parent===id).length; if(!confirm(`حذف الوظيفة «${r.job}»؟${kids?` (الوظائف التابعة لها (${kids}) هتتنقل لمستوى الوظيفة الأعلى)`:''}${C.cur(id)?`\\nفيه ${C.cur(id)} موظف حالي عليها هيظهروا «خارج الخطة».`:''}`)) return;
+  if(q('#oj_add')) q('#oj_add').onclick=()=>{ m.remove(); ocAddModal({parent:id}); };
+  if(q('#oj_del')) q('#oj_del').onclick=async()=>{ const kids=rows.filter(x=>x.parent===id).length; if(!confirm(`حذف الوظيفة «${r.job}»؟${kids?` (الوظائف التابعة لها (${kids}) هتتنقل لمستوى الوظيفة الأعلى)`:''}${C.cur(id)?`\\nفيه ${C.cur(id)} موظف حالي عليها هيظهروا «خارج الخطة».`:''}`)) return;
     rows.forEach(x=>{ if(x.parent===id) x.parent=r.parent||''; }); D_rm(rows,id); OC.data.plan.phases.forEach(p=>{ p.items=p.items.filter(i=>i.pid!==id); }); m.remove();
     try{ await BE.ocSet('plan',OC.data.plan); }catch(e){} await ocSaveAll('تم الحذف'); };
-  q('#oj_save').onclick=async()=>{ const n=q('#oj_n').value.trim(), err=q('#oj_err'); if(!n){ err.textContent='اكتب اسم الوظيفة'; return; }
+  if(q('#oj_save')) q('#oj_save').onclick=async()=>{ const n=q('#oj_n').value.trim(), err=q('#oj_err'); if(!n){ err.textContent='اكتب اسم الوظيفة'; return; }
     const nd=q('#oj_d').value, np=q('#oj_p').value; r.job=n; r.count=Math.max(0,Math.floor(+q('#oj_c').value||0)); r.lead=q('#oj_l').checked; r.parent=np||'';
     if(nd!==r.dept) rows.forEach(x=>{ if(ds.has(x.id)) x.dept=nd; }); m.remove(); await ocSaveAll('تم الحفظ ✓'); };
 }
@@ -3441,12 +3455,12 @@ function D_rm(rows,id){ const i=rows.findIndex(x=>x.id===id); if(i>=0) rows.spli
 function ocDeptModal(d){
   const rows=ocPR(); if(!rows.some(r=>r.dept===d)) return; const n=rows.filter(r=>r.dept===d).length;
   const m=ocModal(`<h3>الإدارة: ${esc(d)}</h3><div class="form2"><div><label>اسم الإدارة</label><input id="od_n" value="${esc(d)}"></div></div><div class="muted" style="font-size:12.5px;margin-top:6px">${ocNum(n)} وظيفة في الخطة.</div>
-    <div class="lerr" id="od_err"></div><div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button class="btn pri" id="od_save" type="button">حفظ الاسم</button><button class="btn" id="od_add" type="button">+ وظيفة في الإدارة</button><button class="btn" id="od_del" type="button" style="color:#c62828">حذف الإدارة بوظائفها</button><button class="btn" data-ocx type="button">إغلاق</button></div>`,560);
+    <div class="lerr" id="od_err"></div><div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">${can('orgchart','edit')?'<button class="btn pri" id="od_save" type="button">حفظ الاسم</button>':''}${can('orgchart','add')?'<button class="btn" id="od_add" type="button">+ وظيفة في الإدارة</button>':''}${can('orgchart','delete')?'<button class="btn" id="od_del" type="button" style="color:#c62828">حذف الإدارة بوظائفها</button>':''}<button class="btn" data-ocx type="button">إغلاق</button></div>`,560);
   const q=s=>m.querySelector(s);
-  q('#od_add').onclick=()=>{ m.remove(); ocAddModal({dept:d}); };
-  q('#od_save').onclick=async()=>{ const nn=q('#od_n').value.trim(); if(!nn){ q('#od_err').textContent='اكتب الاسم'; return; } if(nn===d){ m.remove(); return; }
+  if(q('#od_add')) q('#od_add').onclick=()=>{ m.remove(); ocAddModal({dept:d}); };
+  if(q('#od_save')) q('#od_save').onclick=async()=>{ const nn=q('#od_n').value.trim(); if(!nn){ q('#od_err').textContent='اكتب الاسم'; return; } if(nn===d){ m.remove(); return; }
     if(rows.some(r=>r.dept!==d&&ocN(r.dept)===ocN(nn))){ q('#od_err').textContent='فيه إدارة بنفس الاسم'; return; } rows.forEach(r=>{ if(r.dept===d) r.dept=nn; }); m.remove(); await ocSaveAll('تم تغيير الاسم ✓'); };
-  q('#od_del').onclick=async()=>{ if(!confirm(`حذف الإدارة «${d}» و${n} وظيفة فيها من الهيكل المخطط؟ (الموظفون الحاليون عليها هيظهروا «خارج الخطة»)`)) return;
+  if(q('#od_del')) q('#od_del').onclick=async()=>{ if(!confirm(`حذف الإدارة «${d}» و${n} وظيفة فيها من الهيكل المخطط؟ (الموظفون الحاليون عليها هيظهروا «خارج الخطة»)`)) return;
     const ids=new Set(rows.filter(r=>r.dept===d).map(r=>r.id)); for(let i=rows.length-1;i>=0;i--) if(ids.has(rows[i].id)) rows.splice(i,1);
     OC.data.plan.phases.forEach(p=>{ p.items=p.items.filter(i=>!ids.has(i.pid)); }); m.remove(); try{ await BE.ocSet('plan',OC.data.plan); }catch(e){} await ocSaveAll('تم حذف الإدارة'); };
 }
@@ -3458,7 +3472,7 @@ document.addEventListener('dragend',()=>{ ocDrag=null; ocClr(); });
 document.addEventListener('dragover',e=>{ if(!ocDrag||CUR.mod!=='orgchart') return; ocClr(); const t=ocDropTarget(e.target); if(!t) return; e.preventDefault(); t.el.classList.add('over'); });
 document.addEventListener('drop',e=>{ if(!ocDrag||CUR.mod!=='orgchart') return; const t=ocDropTarget(e.target), src=ocDrag; ocDrag=null; ocClr(); if(!t||!can('orgchart','edit')) return; e.preventDefault();
   let parent='', dept; if(t.kind==='job'){ const tr=ocPR().find(x=>x.id===t.id); if(!tr) return; parent=tr.id; dept=tr.dept; } else dept=t.dept;
-  if(src.startsWith('x:')) ocAdoptEx(src,parent,dept); else ocMoveJob(src.slice(2),parent,dept); });
+  if(src.startsWith('x:')){ if(!can('orgchart','add')){ toast('إدراج وظيفة جديدة في الهيكل محتاج صلاحية «إضافة»',true); return; } ocAdoptEx(src,parent,dept); } else ocMoveJob(src.slice(2),parent,dept); });
 
 /* ----- الأحداث ----- */
 function orgClick(t){
@@ -3570,7 +3584,7 @@ async function mountID(){
 function renderID(){
   const ed=can('idcard','edit');
   hdrTabs([{k:'list',t:'الموظفون والكروت',on:ID.tab==='list'},{k:'design',t:'الظهر والتوقيعات',on:ID.tab==='design'}],k=>{ if(ID.tab==='design') ID.draft=null; ID.tab=k; renderID(); });
-  $('view').innerHTML=ID.tab==='list'?idListTab(ed):idDesignTab(ed);
+  $('view').innerHTML=ID.tab==='list'?idListTab(can('idcard','add')):idDesignTab(ed);
   if(ID.tab==='list') idRows(); else idFitPrev();
 }
 function idFitPrev(){ document.querySelectorAll('#view .idk').forEach(k=>idFit(k)); }
@@ -3584,10 +3598,10 @@ function idListTab(ed){
   <div class="idwrap"><table class="idtbl"><thead><tr><th><input type="checkbox" id="idc_sall" title="تحديد الكل"></th><th>#</th><th>صورة</th><th>الاسم</th><th>الكود</th><th>الرقم القومي</th><th>الوظيفة</th><th>القسم</th><th>تاريخ التعيين</th><th></th></tr></thead><tbody id="idc_tb"></tbody></table></div></div>`;
 }
 function idRows(){
-  const tb=$('idc_tb'); if(!tb) return; const ed=can('idcard','edit'), q=ocN(ID.q||'');
+  const tb=$('idc_tb'); if(!tb) return; const cE=can('idcard','edit'), cD=can('idcard','delete'), q=ocN(ID.q||'');
   const L=idList().filter(e=>!q||ocN([e.n,e.code,e.nid,e.d,e.j].join(' ')).includes(q));
   tb.innerHTML=L.map((e,i)=>`<tr><td><input type="checkbox" class="idc_ck" data-k="${idE(e.k)}" ${ID.sel.has(e.k)?'checked':''}></td><td>${i+1}</td><td>${ID.photos[e.k]?`<img class="pt" src="${ID.photos[e.k]}">`:'<span class="no">—</span>'}</td><td><b>${idE(e.n)}</b></td><td>${idE(e.code)}</td><td>${idE(e.nid)}</td><td>${idE(e.j)}</td><td>${idE(e.d)}</td><td>${idE(e.t)}</td>
-   <td style="white-space:nowrap"><button class="btn sm" data-idprev="${idE(e.k)}" type="button">معاينة</button> ${ed?`<button class="btn sm" data-ided="${idE(e.k)}" type="button">تعديل</button> <button class="btn sm" data-iddel="${idE(e.k)}" type="button">حذف</button>`:''}</td></tr>`).join('')||'<tr><td colspan="10" class="muted">لا يوجد موظفين.</td></tr>';
+   <td style="white-space:nowrap"><button class="btn sm" data-idprev="${idE(e.k)}" type="button">معاينة</button> ${cE?`<button class="btn sm" data-ided="${idE(e.k)}" type="button">تعديل</button> `:''}${cD?`<button class="btn sm" data-iddel="${idE(e.k)}" type="button">حذف</button>`:''}</td></tr>`).join('')||'<tr><td colspan="10" class="muted">لا يوجد موظفين.</td></tr>';
   const c=$('idc_cnt'); if(c) c.textContent=`${L.length} من ${idList().length} — محدد: ${ID.sel.size}`;
 }
 function idDesignTab(ed){
@@ -3628,7 +3642,7 @@ async function idPhotoBulk(files){
   toast(`تم ربط ${ok} صورة`+(miss.length?` — لم تُربط: ${miss.slice(0,4).join('، ')}${miss.length>4?'…':''}`:''),!!miss.length&&!ok); renderID();
 }
 function idEditModal(k){
-  const ed=can('idcard','edit'); if(!ed) return; const L=idList(), e=k?L.find(x=>x.k===k):null; let ph=e?ID.photos[e.k]:null, chg=false;
+  if(!can('idcard',k?'edit':'add')) return; const L=idList(), e=k?L.find(x=>x.k===k):null; let ph=e?ID.photos[e.k]:null, chg=false;
   const f=(id,l,v,t)=>`<div><label>${l}</label><input id="${id}" type="${t||'text'}" value="${idE(v)}"></div>`;
   const m=ocModal(`<h3>${e?'تعديل بيانات الموظف':'إضافة موظف'}</h3><div class="form2" style="grid-template-columns:1fr 1fr">${f('ie_n','الاسم',e&&e.n)}${f('ie_code','الرقم الوظيفي (الكود)',e&&e.code)}${f('ie_nid','الرقم القومي',e&&e.nid)}${f('ie_t','تاريخ التعيين',e&&e.t,'date')}${f('ie_j','الوظيفة',e&&e.j)}${f('ie_d','الإدارة / القسم',e&&e.d)}</div>
    <div class="idphe"><img id="ie_pi" src="${ph||ID_PH}"><label class="btn idup">📷 اختيار صورة<input type="file" id="ie_pf" accept="image/*"></label><button class="btn sm" id="ie_prm" type="button">إزالة الصورة</button></div>
@@ -3704,6 +3718,7 @@ function rcSnap(mod){
 }
 function rcKey(mod,s){ const nid=String(s.nid||'').replace(/\D/g,''); if(nid.length>=10) return 'n'+nid; const n=rcNm(s.name); return n?'m'+rcHash(n.replace(/[ً-ْ]/g,'')):''; }
 async function rcSave(mod,silent){
+  if(!(can(mod,'add')||can(mod,'edit'))){ if(!silent) toast('مفيش صلاحية حفظ في السجل',true); return false; }
   const s=rcSnap(mod), key=rcKey(mod,s); if(!key){ if(!silent) toast('اكتب اسم الموظف الأول',true); return false; }
   s.updatedAt=new Date().toISOString(); s.by=(ME&&(ME.email||ME.name))||'';
   try{ await BE.rcSet(RC_COL[mod],key,s); RC.cur=key; if(!silent) toast('تم الحفظ في السجل ✓'); return true; }
@@ -3734,13 +3749,14 @@ async function rcModal(mod){
   const fmt=t=>{ if(!t) return ''; const d=new Date(t); return isNaN(d)?'':d.toLocaleString('ar-EG',{dateStyle:'short',timeStyle:'short'}); };
   const draw=()=>{ const q=rcNm(m.querySelector('#rc_q').value).toLowerCase(); const L=list.filter(r=>!q||[r.name,r.nid,r.code,r.job,r.dept].join(' ').toLowerCase().includes(q));
     m.querySelector('#rc_tb').innerHTML=L.map((r,i)=>`<tr><td>${i+1}</td><td><b>${esc(r.name)}</b></td><td>${esc(r.nid)}</td><td>${esc(r.code)}</td><td>${esc(r.job)}</td><td>${esc(r.dept)}</td><td style="white-space:nowrap">${esc(fmt(r.updatedAt))}</td>
-      <td style="white-space:nowrap"><button class="btn" data-o="${esc(r.id)}" type="button">فتح</button> <button class="btn" data-p="${esc(r.id)}" type="button">طباعة</button> <button class="btn" data-d="${esc(r.id)}" type="button">حذف</button></td></tr>`).join('')||'<tr><td colspan="8" class="muted" style="padding:14px;text-align:center">السجل فاضي.</td></tr>'; };
+      <td style="white-space:nowrap"><button class="btn" data-o="${esc(r.id)}" type="button">فتح</button> <button class="btn" data-p="${esc(r.id)}" type="button">طباعة</button> ${can(mod,'delete')?`<button class="btn" data-d="${esc(r.id)}" type="button">حذف</button>`:''}</td></tr>`).join('')||'<tr><td colspan="8" class="muted" style="padding:14px;text-align:center">السجل فاضي.</td></tr>'; };
   draw(); m.querySelector('#rc_q').oninput=draw;
   m.querySelector('#rc_tb').onclick=async e=>{ const b=e.target.closest('button'); if(!b) return; const id=b.dataset.o||b.dataset.p||b.dataset.d, r=list.find(x=>x.id===id); if(!r) return;
-    if(b.dataset.d){ if(!confirm(`حذف «${r.name}» من السجل؟`)) return; try{ await BE.rcDel(RC_COL[mod],id); list=list.filter(x=>x.id!==id); if(RC.cur===id) RC.cur=null; draw(); toast('تم الحذف'); }catch(er){ toast(authMsg(er),true); } return; }
+    if(b.dataset.d){ if(!can(mod,'delete')) return; if(!confirm(`حذف «${r.name}» من السجل؟`)) return; try{ await BE.rcDel(RC_COL[mod],id); list=list.filter(x=>x.id!==id); if(RC.cur===id) RC.cur=null; draw(); toast('تم الحذف'); }catch(er){ toast(authMsg(er),true); } return; }
     m.remove(); rcLoad(mod,r); toast('تم فتح «'+r.name+'»'); if(b.dataset.p){ setTimeout(()=>{ resetScale(); window.print(); },400); } };
 }
 async function rcNew(mod){ const s=rcSnap(mod); if(rcKey(mod,s)) await rcSave(mod,true); rcClear(mod); toast('موظف جديد — السجل اتحفظ'); }
+function rcUI(mod){ document.querySelectorAll(`#pn_${mod} [data-rc="save"],#pn_${mod} [data-rc="new"]`).forEach(b=>b.hidden=!(can(mod,'add')||can(mod,'edit'))); }
 function rcClick(t){
   if(CUR.mod!=='hiring'&&CUR.mod!=='resign') return false; const b=t.closest('[data-rc]'); if(!b) return false; const a=b.dataset.rc;
   if(a==='save') rcSave(CUR.mod,false); else if(a==='open') rcModal(CUR.mod); else if(a==='new') rcNew(CUR.mod); return true;
@@ -3900,7 +3916,26 @@ boot();
 <script type="module">
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, writeBatch, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, doc, getDoc, setDoc as _setDoc, updateDoc as _updateDoc, deleteDoc as _deleteDoc, onSnapshot, query, where, writeBatch as _writeBatch, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+/* ---- حارس الصلاحيات (إضافة / تعديل / حذف) حسب المديول — القواعد في firestore.rules هي الحماية الفعلية ---- */
+const COL_MOD = { apartments:'housing', apartmentsFinance:'housing', employees:'housing', documents:'housing', requests:'housing', carsData:'cars', carsFiles:'cars',
+  buffetItems:'buffet', buffetReceipts:'buffet', buffetAuth:'buffet', buffetIssues:'buffet', stationeryItems:'stationery', stationeryReceipts:'stationery', stationeryAuth:'stationery', stationeryIssues:'stationery', tasks:'tasks' };
+const acts_ = m => ((P && P.access) || {})[m] || [];
+const hasAct = (m, a) => { if (!P) return false; if (P.role === 'admin') return true; const c = acts_(m); return c.includes(a) || c.includes('admin') || (P.permV !== 2 && (a === 'add' || a === 'delete') && c.includes('edit')); };
+const isWriter = m => !!P && P.role !== 'admin' && (['add', 'edit', 'delete', 'admin'].some(a => acts_(m).includes(a)) || (P.permV !== 2 && acts_(m).includes('edit')));
+const GUARD_MSG = { set: 'الحفظ', add: 'الإضافة', edit: 'التعديل', delete: 'الحذف' };
+function guard(ref, act, data) {
+  if (!P || P.role === 'admin') return;
+  const col = String((ref && ref.path) || '').split('/')[0], m = COL_MOD[col]; if (!m || !isWriter(m)) return;
+  if (/Issues$/.test(col)) return;
+  if (col === 'tasks' && act === 'edit' && data && Object.keys(data).every(k => ['done', 'doneAt', 'doneByName'].includes(k))) return;
+  const ok = act === 'set' ? (hasAct(m, 'add') || hasAct(m, 'edit')) : hasAct(m, act);
+  if (!ok) throw { message: 'مفيش صلاحية ' + GUARD_MSG[act] + ' في المديول ده' };
+}
+const setDoc = (r, ...a) => { try { guard(r, 'set'); } catch (e) { return Promise.reject(e); } return _setDoc(r, ...a); };
+const updateDoc = (r, d, ...a) => { try { guard(r, 'edit', d); } catch (e) { return Promise.reject(e); } return _updateDoc(r, d, ...a); };
+const deleteDoc = r => { try { guard(r, 'delete'); } catch (e) { return Promise.reject(e); } return _deleteDoc(r); };
+const writeBatch = d => { const b = _writeBatch(d); return { set: (r, ...a) => { guard(r, 'set'); return b.set(r, ...a); }, update: (r, dd, ...a) => { guard(r, 'edit', dd); return b.update(r, dd, ...a); }, delete: r => { guard(r, 'delete'); return b.delete(r); }, commit: () => b.commit() }; };
 
 const GOOGLE_CLIENT_ID = "162458550031-0mu8mg2254u0od915v9iucdqovq5mqgq.apps.googleusercontent.com";
 
@@ -3965,7 +4000,9 @@ const linkBtns = a => waBtn(a) + mapBtn(a);
 const typeClass = t => t === 'شقة عمال' ? 'bg-blue-100 text-blue-700' : t === 'شقة مهندسين' ? 'bg-purple-100 text-purple-700' : 'bg-amber-100 text-amber-700';
 const sortedApts = () => [...S.apts].sort((a, b) => a.number.localeCompare(b.number, 'ar', { numeric: true }));
 const occupantsOf = id => S.emps.filter(e => e.aptId === id).sort((a, b) => a.bedIndex - b.bedIndex);
-const isAdmin = () => P && P.role === 'admin';
+const isAdmin = () => P && (P.role === 'admin' || (!!currentModule && isWriter(currentModule)));
+const effRole = () => (P.role === 'viewer' && isWriter('housing')) ? 'admin' : P.role;
+function applyPermClass(key) { const a = $('adm'); if (a) a.classList.toggle('no-del', !!P && P.role !== 'admin' && isWriter(key) && !hasAct(key, 'delete')); }
 
 /* ---------------------- الربط مع موقع HR (الدخول والصلاحيات من موقع HR) ---------------------- */
 function normHrUser(u) {
@@ -4000,7 +4037,7 @@ function startApp() {
   unsubs.push(onSnapshot(doc(db, 'users', P.uid), snap => {
     if (!snap.exists()) return;
     const n = normHrUser({ id: P.uid, ...snap.data() });
-    if (n.role !== P.role || JSON.stringify(n.modules) !== JSON.stringify(P.modules)) location.reload();
+    if (n.role !== P.role || JSON.stringify(n.modules) !== JSON.stringify(P.modules) || JSON.stringify(n.access || {}) !== JSON.stringify(P.access || {})) location.reload();
   }));
 
   if (P.role === 'admin') {
@@ -4016,6 +4053,12 @@ function startApp() {
     if (P.role === 'viewer') {
       listen(collection(db, 'apartments'), d => S.apts = d);
       listen(collection(db, 'employees'), d => S.emps = d);
+      if (isWriter('housing')) {
+        listen(collection(db, 'requests'), d => S.reqs = d);
+        listen(collection(db, 'documents'), d => S.docs = d);
+        listen(collection(db, 'users'), d => S.users = d.map(normHrUser));
+        if (hasAct('housing', 'admin')) listen(collection(db, 'apartmentsFinance'), d => { S.fin = {}; d.forEach(x => S.fin[x.id] = x.rent); });
+      }
     } else { // supervisor
       listen(query(collection(db, 'apartments'), where('supervisorUid', '==', P.uid)), d => S.apts = d);
       listen(query(collection(db, 'employees'), where('supervisorUid', '==', P.uid)), d => S.emps = d);
@@ -4036,10 +4079,13 @@ function startApp() {
     listen(collection(db, 'stationeryAuth'), d => S.sAuth = d);
     listen(collection(db, 'stationeryIssues'), d => S.sIss = d);
   }
-  if (P.role !== 'admin' && P.modules.includes('tasks')) listen(query(collection(db, 'tasks'), where('assignees', 'array-contains', P.uid)), d => S.tasks = d);
+  if (P.role !== 'admin' && P.modules.includes('tasks')) {
+    if (isWriter('tasks')) { listen(collection(db, 'tasks'), d => S.tasks = d); listen(collection(db, 'users'), d => S.users = d.map(normHrUser)); }
+    else listen(query(collection(db, 'tasks'), where('assignees', 'array-contains', P.uid)), d => S.tasks = d);
+  }
   if (P.role !== 'admin' && P.modules.includes('cars')) listen(collection(db, 'carsFiles'), d => S.carsFiles = d);
 
-  const allowed = TABS.filter(t => t.roles.includes(P.role));
+  const allowed = TABS.filter(t => t.roles.includes(effRole()));
   $('tabs-nav').innerHTML = allowed.map(t =>
     `<button onclick="switchTab('${t.key}')" id="tab-btn-${t.key}" class="tab-btn flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-white/60 transition flex items-center justify-center gap-2"><i class="fa-solid ${t.icon}"></i><span>${t.label}</span></button>`).join('');
   $('emp-entry-date').value = new Date().toISOString().split('T')[0];
@@ -4076,13 +4122,13 @@ window.admOpenModule = key => {
   const m = MODULES.find(x => x.key === key);
   if (!m || !canSee(m)) return;
   hideAllModules();
-  currentModule = key;
+  currentModule = key; applyPermClass(key);
   $('module-' + key).classList.remove('hidden');
   if (key === 'tasks') { setupTasksUI(); window.resetTaskForm(); if (isAdmin() && GOOGLE_CLIENT_ID && gRestore() && !S.gcal.length) loadGcalEvents(); if (isAdmin()) gcalUpdateUI(); }
   if (key === 'stationery') { setupStationeryUI(); window.switchStTab('stock'); }
   if (key === 'buffet') { setupBuffetUI(); window.switchBfTab('stock'); }
   if (key === 'cars') { loadCarsFrame(); window.switchCarsTab('main'); }
-  if (key === 'housing') window.switchTab(TABS.filter(t => t.roles.includes(P.role))[0].key);
+  if (key === 'housing') window.switchTab(TABS.filter(t => t.roles.includes(effRole()))[0].key);
   else { currentTab = null; renderAll(); }
 };
 
@@ -4115,7 +4161,7 @@ window.addEventListener('message', async ev => {
     renderCarsFiles();
   }
   if (m.type === 'cars-save' && (m.kind === 'employees' || m.kind === 'stations')) {
-    if (P.role !== 'admin') { toast('تم رفع الملف للعرض فقط. حفظ البيانات في قاعدة البيانات للمدير فقط.', 'warning'); return; }
+    if (!hasAct('cars', 'add') && !hasAct('cars', 'edit')) { toast('تم رفع الملف للعرض فقط. الحفظ في قاعدة البيانات لمن عنده صلاحية إضافة/تعديل في المديول.', 'warning'); return; }
     try {
       await setDoc(doc(db, 'carsData', m.kind), { json: JSON.stringify(m.data), ts: Date.now(), by: P.name });
       toast(m.kind === 'employees' ? 'تم حفظ بيانات الموظفين في قاعدة البيانات' : 'تم حفظ مواعيد المحطات في قاعدة البيانات', 'success');
