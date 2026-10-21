@@ -3088,7 +3088,8 @@ const OC_CSS=`
 .oc.int .oc-n{cursor:pointer}.oc.int .oc-n:hover{box-shadow:0 2px 8px rgba(0,0,0,.18)}
 `;
 function ocCard(o){
-  return `<div class="oc-n${o.lead?' lead':''}${o.cls?' '+o.cls:''}"${o.id?` data-ocn="${esc(o.id)}"`:''}><div class="oc-r"><span class="oc-t">${esc(o.t)}</span><span class="oc-c">${o.c}</span></div>${o.sub?`<div class="oc-s">${esc(o.sub)}</div>`:''}${o.names?`<div class="oc-nm">${o.names}</div>`:''}</div>`;
+  const dn=!!(o.dnd&&o.id);
+  return `<div class="oc-n${o.lead?' lead':''}${o.cls?' '+o.cls:''}"${o.id?` data-ocn="${esc(o.id)}"`:''}${dn?' draggable="true"':''}>${dn&&o.addId?`<button class="oc-add" type="button" data-ocadd="${esc(o.addId)}" title="إضافة وظيفة تحتها">+</button>`:''}<div class="oc-r"><span class="oc-t">${esc(o.t)}</span><span class="oc-c">${o.c}</span></div>${o.sub?`<div class="oc-s">${esc(o.sub)}</div>`:''}${o.names?`<div class="oc-nm">${o.names}</div>`:''}</div>`;
 }
 function ocNode(r,kids,mk){ const ks=(kids.get(r.id)||[]).map((x,i)=>[x,i]).sort((a,b)=>ocRank(a[0].job)-ocRank(b[0].job)||a[1]-b[1]).map(x=>x[0]); return `<div class="oc-nw">${mk(r)}${ks.length?`<div class="oc-kids">${ks.map(k=>`<div class="oc-kid">${ocNode(k,kids,mk)}</div>`).join('')}</div>`:''}</div>`; }
 function ocTree(rows,mk,extra){
@@ -3111,18 +3112,18 @@ function ocChart(kind,opt){
   const order=isA?[...C.pDept,...C.extraD]:C.pDept;
   order.forEach(d=>{
     const rows=C.P.filter(r=>r.dept===d); let body='', n=0;
-    if(!isA){ n=rows.reduce((s,r)=>s+(+r.count||0),0); totalJobs+=n; body=ocTree(rows,r=>ocCard({t:r.job,c:ocNum(r.count),lead:r.lead,id:'p:'+r.id}),[]); }
+    if(!isA){ n=rows.reduce((s,r)=>s+(+r.count||0),0); totalJobs+=n; body=ocTree(rows,r=>ocCard({t:r.job,c:ocNum(r.count),lead:r.lead,id:'p:'+r.id,dnd:opt.dnd,addId:opt.dnd?r.id:''}),[]); }
     else{
       const exm=C.ex.get(d)||new Map(); const exh=[];
-      [...exm.entries()].sort((a,b)=>b[1].length-a[1].length).forEach(([j,l])=>{ n+=l.length; exh.push({rk:ocRank(j),html:`<div class="oc-root">${ocCard({t:j,c:ocNum(l.length),cls:'ex',lead:ocLead(j)&&!rows.length,sub:'خارج الخطة',names:nm(l),id:'x:'+d+'|'+j})}</div>`}); });
+      [...exm.entries()].sort((a,b)=>b[1].length-a[1].length).forEach(([j,l])=>{ n+=l.length; exh.push({rk:ocRank(j),html:`<div class="oc-root">${ocCard({t:j,c:ocNum(l.length),cls:'ex',lead:ocLead(j)&&!rows.length,sub:'خارج الخطة',names:nm(l),id:'x:'+d+'|'+j,dnd:opt.dnd})}</div>`}); });
       if(rows.length){
         rows.forEach(r=>{ n+=C.cur(r.id); });
-        body=ocTree(rows,r=>{ const l=C.byP.get(r.id)||[]; return ocCard({t:r.job,c:ocNum(l.length),lead:r.lead,cls:l.length?'':'zero',sub:`مخطط ${ocNum(r.count)} · متبقي ${ocNum(C.rem(r))}`,names:nm(l),id:'a:'+r.id}); },exh);
+        body=ocTree(rows,r=>{ const l=C.byP.get(r.id)||[]; return ocCard({t:r.job,c:ocNum(l.length),lead:r.lead,cls:l.length?'':'zero',sub:`مخطط ${ocNum(r.count)} · متبقي ${ocNum(C.rem(r))}`,names:nm(l),id:'a:'+r.id,dnd:opt.dnd,addId:opt.dnd?r.id:''}); },exh);
       } else body=exh.map((x,i)=>({...x,i})).sort((a,b)=>a.rk-b.rk||a.i-b.i).map(x=>x.html).join('');
       totalJobs+=n;
     }
     if(isA&&!n) return;
-    cols.push(`<div class="oc-col"><div class="oc-h"><span>${esc(d)}</span><span class="oc-bd">${ocNum(n)}</span></div><div class="oc-body">${body}</div></div>`);
+    const dd=!!opt.dnd; cols.push(`<div class="oc-col"${dd?` data-ocd="${esc(d)}"`:''}><div class="oc-h"${dd&&rows.length?` data-ocdh="${esc(d)}" title="تعديل الإدارة"`:''}><span>${esc(d)}</span><span style="display:flex;gap:6px;align-items:center">${dd&&rows.length?`<button class="oc-hadd" type="button" data-ocaddd="${esc(d)}" title="إضافة وظيفة في الإدارة">+</button>`:''}<span class="oc-bd">${ocNum(n)}</span></span></div><div class="oc-body">${body}</div></div>`);
   });
   const th=isA?'b':'g';
   const top=opt.compact?`<div class="oc-top"><div class="oc-ttl"><h2 style="font-size:20px">${isA?'الهيكل الحالي للموظفين':'الهيكل التنظيمي المخطط'}</h2></div><div class="oc-sb" style="font-weight:700;color:var(--ac)">${ocNum(totalJobs)} ${isA?'موظف':'وظيفة'} · ${cols.length} أقسام</div></div>`
@@ -3166,7 +3167,7 @@ async function ocUploadEmps(file){
 /* ----- الشاشة الرئيسية للمديول ----- */
 async function mountOrg(){
   setLayout({view:true}); $('view').innerHTML='<div class="card muted">جارٍ التحميل…</div>';
-  if(!$('ocstyle')){ const s=document.createElement('style'); s.id='ocstyle'; s.textContent=OC_CSS+OC_UI_CSS; document.head.appendChild(s); }
+  if(!$('ocstyle')){ const s=document.createElement('style'); s.id='ocstyle'; s.textContent=OC_CSS+OC_UI_CSS+OC_EDIT_CSS; document.head.appendChild(s); }
   try{ const all=await BE.ocAll(); OC.data.planned=all.planned||null; OC.data.emps=all.emps||null; OC.data.plan=all.plan||{phases:[]}; if(!OC.data.plan.phases) OC.data.plan.phases=[]; OC.data.set=all.set||{map:{}}; if(!OC.data.set.map) OC.data.set.map={}; }
   catch(e){ $('view').innerHTML=`<div class="card bad">${esc(authMsg(e))}</div>`; return; }
   renderOrg();
@@ -3222,8 +3223,8 @@ function ocChartTab(ed,pOk,eOk,upl,S){
   if(C.E.length&&C.P.length&&(S.unm>0||C.manualMapped.length)) h+=`<div class="ocwarn"><span>${ocNum(S.unm)} موظف مش مربوطين بوظيفة في الخطة (بيظهروا في الهيكل الحالي كوظائف «خارج الخطة» ومش بيتخصموا من المتبقي).</span>${ed?'<button class="btn sm" id="oc_map" type="button">ربط الوظائف يدويًا</button>':''}</div>`;
   h+=`<div class="ocbar"><div class="ocseg"><button type="button" data-ocv="p" class="${v==='p'?'on':''}">المخطط</button><button type="button" data-ocv="a" class="${v==='a'?'on':''}">الحالي</button><button type="button" data-ocv="ab" class="${v==='ab'?'on':''}">الاتنين فوق بعض</button></div>
    <label style="display:inline-flex;gap:6px;align-items:center;font-size:13.5px"><input type="checkbox" id="oc_names" ${OC.names?'checked':''}> إظهار أسماء الموظفين في الكروت</label>
-   <button class="btn sm" id="oc_zoom" type="button">${OC.fit?'حجم حقيقي':'ملاءمة العرض'}</button><span class="muted" style="font-size:12.5px">${ed?'اضغط على أي وظيفة في الهيكل المخطط لتعديل العدد أو تبعيتها، وفي الحالي لعرض أسماء الموظفين.':'اضغط على أي وظيفة لعرض تفاصيلها.'}</span></div>`;
-  const parts=[]; if(v==='p'||v==='ab') parts.push(ocChart('p',{int:true})); if(v==='a'||v==='ab') parts.push(ocChart('a',{int:true,names:OC.names}));
+   ${ed?'<button class="btn sm" id="oc_adddept" type="button">+ إدارة جديدة</button>':''}<button class="btn sm" id="oc_zoom" type="button">${OC.fit?'حجم حقيقي':'ملاءمة العرض'}</button><span class="muted" style="font-size:12.5px">${ed?'اسحب أي وظيفة وسيبها على وظيفة تانية (تبقى تابعة لها) أو على إدارة (تبقى مستوى أول فيها). زر + على الوظيفة يضيف وظيفة تحتها، والضغط على الوظيفة يفتح تعديلها.':'اضغط على أي وظيفة لعرض تفاصيلها.'}</span></div>`;
+  const parts=[]; if(v==='p'||v==='ab') parts.push(ocChart('p',{int:true,dnd:ed})); if(v==='a'||v==='ab') parts.push(ocChart('a',{int:true,dnd:ed,names:OC.names}));
   h+=`<div class="ocscroll" id="oc_scroll">${parts.map(p=>`<div class="ocwrap" style="margin:8px">${p}</div>`).join('')}</div>`;
   return h;
 }
@@ -3297,21 +3298,11 @@ function ocPhaseModal(id){
 function ocModal(html,w){ const m=document.createElement('div'); m.className='modal'; m.id='ocmodal'; m.innerHTML=`<div class="box" style="width:min(${w||620}px,100%)">${html}</div>`; document.body.appendChild(m); m.addEventListener('click',e=>{ if(e.target===m||e.target.closest('[data-ocx]')) m.remove(); }); return m; }
 function ocJobModal(id){
   const C=OC.C, [k,rest]=[id.slice(0,1),id.slice(2)]; const ed=can('orgchart','edit');
-  if(k==='p'){ const r=C.byId.get(rest); if(!r) return;
-    const sib=C.P.filter(x=>x.dept===r.dept&&x.id!==r.id);
-    const m=ocModal(`<h3>${esc(r.job)} <span class="muted" style="font-size:13px">— ${esc(r.dept)}</span></h3>
-      <div class="form2" style="grid-template-columns:1fr 1fr"><div><label>العدد المخطط</label><input type="number" min="0" id="oj_c" value="${esc(r.count)}" ${ed?'':'disabled'}></div>
-      <div><label>تتبع وظيفة (داخل نفس القسم)</label><select id="oj_p" ${ed?'':'disabled'}><option value="">— مستوى أعلى —</option>${sib.map(x=>`<option value="${esc(x.id)}" ${x.id===r.parent?'selected':''}>${esc(x.job)}</option>`).join('')}</select></div></div>
-      <label style="display:flex;gap:6px;align-items:center;margin-top:10px"><input type="checkbox" id="oj_l" ${r.lead?'checked':''} ${ed?'':'disabled'}> وظيفة قيادية (إطار مميز وتظهر الأول في القسم)</label>
-      <div class="muted" style="font-size:12.5px;margin-top:8px">الحاليون على الوظيفة دي: ${ocNum(C.cur(r.id))} — المتبقي: ${ocNum(C.rem(r))}</div>
-      <div class="lerr" id="oj_err"></div><div style="display:flex;gap:8px;margin-top:14px">${ed?'<button class="btn pri" id="oj_save" type="button">حفظ</button>':''}<button class="btn" data-ocx type="button">${ed?'إلغاء':'إغلاق'}</button></div>`);
-    const sv=m.querySelector('#oj_save'); if(sv) sv.onclick=async()=>{ r.count=Math.max(0,+m.querySelector('#oj_c').value||0); r.parent=m.querySelector('#oj_p').value; r.lead=m.querySelector('#oj_l').checked;
-      try{ await BE.ocSet('planned',OC.data.planned); m.remove(); toast('تم الحفظ ✓'); renderOrg(); }catch(er){ m.querySelector('#oj_err').textContent=authMsg(er); } };
-    return; }
+  if(k==='p'){ ocPlanJobModal(rest); return; }
   let list=[], title='', sub='';
   if(k==='a'){ const r=C.byId.get(rest); if(!r) return; list=C.byP.get(r.id)||[]; title=r.job; sub=`${r.dept} — مخطط ${ocNum(r.count)} · حالي ${ocNum(list.length)} · متبقي ${ocNum(C.rem(r))}`; }
   else { const [d,j]=[rest.slice(0,rest.indexOf('|')),rest.slice(rest.indexOf('|')+1)]; list=((C.ex.get(d)||new Map()).get(j))||[]; title=j; sub=d+' — خارج الخطة'; }
-  ocModal(`<h3>${esc(title)}</h3><div class="muted" style="font-size:13px;margin-bottom:8px">${esc(sub)}</div>${list.length?`<div class="ocmt"><table class="octbl"><thead><tr><th>#</th><th>الاسم</th><th>القسم</th><th>تاريخ أول عقد</th></tr></thead><tbody>${list.map((e,i)=>`<tr><td>${i+1}</td><td>${esc(e.n)}</td><td>${esc(e.d)}</td><td>${ocDate(e.t)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">مفيش موظفين على الوظيفة دي حاليًا (شاغرة).</div>'}<div style="margin-top:14px"><button class="btn" data-ocx type="button">إغلاق</button></div>`,720);
+  ocModal(`<h3>${esc(title)}</h3><div class="muted" style="font-size:13px;margin-bottom:8px">${esc(sub)}</div>${list.length?`<div class="ocmt"><table class="octbl"><thead><tr><th>#</th><th>الاسم</th><th>القسم</th><th>تاريخ أول عقد</th></tr></thead><tbody>${list.map((e,i)=>`<tr><td>${i+1}</td><td>${esc(e.n)}</td><td>${esc(e.d)}</td><td>${ocDate(e.t)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">مفيش موظفين على الوظيفة دي حاليًا (شاغرة).</div>'}<div style="margin-top:14px;display:flex;gap:8px">${(k==='a'&&ed)?`<button class="btn pri" data-ocjob="${esc(rest)}" type="button">تعديل / نقل / إضافة تحتها</button>`:''}<button class="btn" data-ocx type="button">إغلاق</button></div>`,720);
 }
 function ocMapModal(){
   const C=OC.C, map=OC.data.set.map;
@@ -3374,6 +3365,95 @@ function ocPrint(o){
   document.body.appendChild(fr);
 }
 
+
+/* ----- تعديل الهيكل: إضافة / نقل / حذف وسحب وإفلات ----- */
+const OC_EDIT_CSS=`
+.oc-n{position:relative}
+.oc-add,.oc-hadd{border:0;border-radius:50%;background:var(--ac);color:#fff;cursor:pointer;padding:0;font:700 15px/20px inherit;width:20px;height:20px;text-align:center}
+.oc-add{position:absolute;top:-9px;left:-9px;opacity:0;z-index:3}.oc-n:hover .oc-add{opacity:1}
+.oc-hadd{background:rgba(255,255,255,.25)}.oc-hadd:hover{background:rgba(255,255,255,.45)}
+@media(hover:none){.oc-add{opacity:1}}
+.oc-n[draggable=true]{cursor:grab}.oc-n.dragging{opacity:.35}
+.oc-n.over{outline:3px solid #f0c24b;outline-offset:2px}.oc-col.over .oc-h{outline:3px solid #f0c24b;outline-offset:2px}
+.oc-h[data-ocdh]{cursor:pointer}`;
+const ocPR=()=>{ const D=OC.data; if(!D.planned) D.planned={rows:[],at:new Date().toISOString().slice(0,10),file:'إدخال يدوي'}; return D.planned.rows; };
+function ocDesc(id){ const rows=ocPR(), out=new Set([id]); let ch=true; while(ch){ ch=false; rows.forEach(r=>{ if(r.parent&&out.has(r.parent)&&!out.has(r.id)){ out.add(r.id); ch=true; } }); } return out; }
+function ocNewId(dept,job){ const rows=ocPR(), base=ocN(dept)+'|'+ocN(job); let id=base,k=1; while(rows.some(r=>r.id===id)) id=base+'#'+(++k); return id; }
+async function ocSaveAll(msg,withSet){
+  const sc=$('oc_scroll'), st=sc?[sc.scrollLeft,sc.scrollTop]:null;
+  try{ await BE.ocSet('planned',OC.data.planned); if(withSet) await BE.ocSet('set',OC.data.set); if(msg) toast(msg); renderOrg(); const s2=$('oc_scroll'); if(st&&s2){ s2.scrollLeft=st[0]; s2.scrollTop=st[1]; } return true; }
+  catch(er){ toast(authMsg(er),true); mountOrg(); return false; }
+}
+function ocMoveJob(id,parent,dept){
+  const rows=ocPR(), r=rows.find(x=>x.id===id); if(!r) return; const ds=ocDesc(id);
+  if(parent&&ds.has(parent)){ toast('مينفعش تنقل الوظيفة تحت نفسها أو تحت وظيفة تابعة لها',true); return; }
+  if((parent||'')===(r.parent||'')&&dept===r.dept) return;
+  r.parent=parent||''; rows.forEach(x=>{ if(ds.has(x.id)) x.dept=dept; });
+  ocSaveAll('تم النقل ✓');
+}
+function ocAdoptEx(xid,parent,dept){
+  const C=OC.C, rest=xid.slice(2), i=rest.indexOf('|'), d=rest.slice(0,i), j=rest.slice(i+1), l=((C.ex.get(d)||new Map()).get(j))||[]; if(!l.length) return;
+  const rows=ocPR(), id=ocNewId(dept,j); rows.push({id,dept,job:j,count:l.length,parent:parent||'',lead:ocLead(j)});
+  const map=OC.data.set.map; l.forEach(e=>{ map[ocN(e.d)+'|'+ocN(e.j)]=id; });
+  ocSaveAll(`تم إدراج «${j}» في الهيكل المخطط (العدد ${l.length}) وربط الموظفين بها ✓`,true);
+}
+function ocAddModal(o){
+  const rows=ocPR(), depts=[...new Set(rows.map(r=>r.dept))], par=o.parent?rows.find(r=>r.id===o.parent):null, dept=par?par.dept:(o.dept||depts[0]||'');
+  const m=ocModal(`<h3>${o.newDept?'إدارة جديدة':'إضافة وظيفة'}</h3><div class="form2" style="grid-template-columns:1fr 1fr">
+    ${o.newDept?'<div style="grid-column:1/-1"><label>اسم الإدارة</label><input id="oa_d"></div>':`<div><label>الإدارة</label><select id="oa_d">${depts.map(d=>`<option ${d===dept?'selected':''}>${esc(d)}</option>`).join('')}</select></div><div><label>تتبع وظيفة</label><select id="oa_p"></select></div>`}
+    <div><label>${o.newDept?'أول وظيفة في الإدارة':'اسم الوظيفة'}</label><input id="oa_j"></div><div><label>العدد المخطط</label><input type="number" min="0" id="oa_c" value="1"></div></div>
+    <div class="lerr" id="oa_err"></div><div style="display:flex;gap:8px;margin-top:14px"><button class="btn pri" id="oa_save" type="button">إضافة</button><button class="btn" data-ocx type="button">إلغاء</button></div>`,560);
+  const q=s=>m.querySelector(s), fill=()=>{ const sel=q('#oa_p'); if(!sel) return; const d=q('#oa_d').value; sel.innerHTML='<option value="">— مستوى أول في الإدارة —</option>'+rows.filter(r=>r.dept===d).map(r=>`<option value="${esc(r.id)}" ${r.id===o.parent?'selected':''}>${esc(r.job)}</option>`).join(''); };
+  fill(); if(q('#oa_d').tagName==='SELECT') q('#oa_d').onchange=()=>{ o.parent=''; fill(); };
+  q('#oa_save').onclick=async()=>{ const d=q('#oa_d').value.trim(), j=q('#oa_j').value.trim(), c=Math.max(0,Math.floor(+q('#oa_c').value||0)), err=q('#oa_err');
+    if(!d){ err.textContent='اكتب اسم الإدارة'; return; } if(!j){ err.textContent='اكتب اسم الوظيفة'; return; }
+    let dn=d; if(o.newDept){ if(depts.some(x=>ocN(x)===ocN(d))){ err.textContent='الإدارة دي موجودة بالفعل'; return; } } else dn=d;
+    const parent=o.newDept?'':(q('#oa_p').value||'');
+    rows.push({id:ocNewId(dn,j),dept:dn,job:j,count:c,parent,lead:ocLead(j)}); m.remove(); await ocSaveAll('تمت الإضافة ✓'); };
+}
+function ocPlanJobModal(id){
+  const C=OC.C, rows=ocPR(), r=rows.find(x=>x.id===id); if(!r) return; const ed=can('orgchart','edit'), ds=ocDesc(id), depts=[...new Set(rows.map(x=>x.dept))], dis=ed?'':'disabled';
+  const m=ocModal(`<h3>${esc(r.job)} <span class="muted" style="font-size:13px">— ${esc(r.dept)}</span></h3>
+    <div class="form2" style="grid-template-columns:1fr 1fr"><div><label>اسم الوظيفة</label><input id="oj_n" value="${esc(r.job)}" ${dis}></div><div><label>العدد المخطط</label><input type="number" min="0" id="oj_c" value="${esc(r.count)}" ${dis}></div>
+    <div><label>الإدارة (غيّرها لنقل الوظيفة وتابعيها)</label><select id="oj_d" ${dis}>${depts.map(d=>`<option ${d===r.dept?'selected':''}>${esc(d)}</option>`).join('')}</select></div>
+    <div><label>تتبع وظيفة</label><select id="oj_p" ${dis}></select></div></div>
+    <label style="display:flex;gap:6px;align-items:center;margin-top:10px"><input type="checkbox" id="oj_l" ${r.lead?'checked':''} ${dis}> وظيفة قيادية (إطار مميز وتظهر الأول في القسم)</label>
+    <div class="muted" style="font-size:12.5px;margin-top:8px">الحاليون على الوظيفة دي: ${ocNum(C.cur(r.id))} — المتبقي: ${ocNum(C.rem(r))}</div>
+    <div class="lerr" id="oj_err"></div><div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">${ed?'<button class="btn pri" id="oj_save" type="button">حفظ</button><button class="btn" id="oj_add" type="button">+ وظيفة تحتها</button><button class="btn" id="oj_del" type="button" style="color:#c62828">حذف الوظيفة</button>':''}<button class="btn" data-ocx type="button">${ed?'إلغاء':'إغلاق'}</button></div>`,620);
+  const q=s=>m.querySelector(s), fill=()=>{ const d=q('#oj_d').value; q('#oj_p').innerHTML='<option value="">— مستوى أول في الإدارة —</option>'+rows.filter(x=>x.dept===d&&!ds.has(x.id)).map(x=>`<option value="${esc(x.id)}" ${x.id===r.parent?'selected':''}>${esc(x.job)}</option>`).join(''); };
+  fill(); q('#oj_d').onchange=fill;
+  if(!ed) return;
+  q('#oj_add').onclick=()=>{ m.remove(); ocAddModal({parent:id}); };
+  q('#oj_del').onclick=async()=>{ const kids=rows.filter(x=>x.parent===id).length; if(!confirm(`حذف الوظيفة «${r.job}»؟${kids?` (الوظائف التابعة لها (${kids}) هتتنقل لمستوى الوظيفة الأعلى)`:''}${C.cur(id)?`\\nفيه ${C.cur(id)} موظف حالي عليها هيظهروا «خارج الخطة».`:''}`)) return;
+    rows.forEach(x=>{ if(x.parent===id) x.parent=r.parent||''; }); D_rm(rows,id); OC.data.plan.phases.forEach(p=>{ p.items=p.items.filter(i=>i.pid!==id); }); m.remove();
+    try{ await BE.ocSet('plan',OC.data.plan); }catch(e){} await ocSaveAll('تم الحذف'); };
+  q('#oj_save').onclick=async()=>{ const n=q('#oj_n').value.trim(), err=q('#oj_err'); if(!n){ err.textContent='اكتب اسم الوظيفة'; return; }
+    const nd=q('#oj_d').value, np=q('#oj_p').value; r.job=n; r.count=Math.max(0,Math.floor(+q('#oj_c').value||0)); r.lead=q('#oj_l').checked; r.parent=np||'';
+    if(nd!==r.dept) rows.forEach(x=>{ if(ds.has(x.id)) x.dept=nd; }); m.remove(); await ocSaveAll('تم الحفظ ✓'); };
+}
+function D_rm(rows,id){ const i=rows.findIndex(x=>x.id===id); if(i>=0) rows.splice(i,1); }
+function ocDeptModal(d){
+  const rows=ocPR(); if(!rows.some(r=>r.dept===d)) return; const n=rows.filter(r=>r.dept===d).length;
+  const m=ocModal(`<h3>الإدارة: ${esc(d)}</h3><div class="form2"><div><label>اسم الإدارة</label><input id="od_n" value="${esc(d)}"></div></div><div class="muted" style="font-size:12.5px;margin-top:6px">${ocNum(n)} وظيفة في الخطة.</div>
+    <div class="lerr" id="od_err"></div><div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button class="btn pri" id="od_save" type="button">حفظ الاسم</button><button class="btn" id="od_add" type="button">+ وظيفة في الإدارة</button><button class="btn" id="od_del" type="button" style="color:#c62828">حذف الإدارة بوظائفها</button><button class="btn" data-ocx type="button">إغلاق</button></div>`,560);
+  const q=s=>m.querySelector(s);
+  q('#od_add').onclick=()=>{ m.remove(); ocAddModal({dept:d}); };
+  q('#od_save').onclick=async()=>{ const nn=q('#od_n').value.trim(); if(!nn){ q('#od_err').textContent='اكتب الاسم'; return; } if(nn===d){ m.remove(); return; }
+    if(rows.some(r=>r.dept!==d&&ocN(r.dept)===ocN(nn))){ q('#od_err').textContent='فيه إدارة بنفس الاسم'; return; } rows.forEach(r=>{ if(r.dept===d) r.dept=nn; }); m.remove(); await ocSaveAll('تم تغيير الاسم ✓'); };
+  q('#od_del').onclick=async()=>{ if(!confirm(`حذف الإدارة «${d}» و${n} وظيفة فيها من الهيكل المخطط؟ (الموظفون الحاليون عليها هيظهروا «خارج الخطة»)`)) return;
+    const ids=new Set(rows.filter(r=>r.dept===d).map(r=>r.id)); for(let i=rows.length-1;i>=0;i--) if(ids.has(rows[i].id)) rows.splice(i,1);
+    OC.data.plan.phases.forEach(p=>{ p.items=p.items.filter(i=>!ids.has(i.pid)); }); m.remove(); try{ await BE.ocSet('plan',OC.data.plan); }catch(e){} await ocSaveAll('تم حذف الإدارة'); };
+}
+let ocDrag=null;
+function ocDropTarget(el){ if(!el||!el.closest) return null; const n=el.closest('.oc-n[data-ocn]'); if(n&&!n.dataset.ocn.startsWith('x:')) return {kind:'job',id:n.dataset.ocn.slice(2),el:n}; const c=el.closest('.oc-col[data-ocd]'); return c?{kind:'dept',dept:c.dataset.ocd,el:c}:null; }
+const ocClr=()=>document.querySelectorAll('.oc .over,.oc .dragging,.oc.over').forEach(x=>x.classList.remove('over','dragging'));
+document.addEventListener('dragstart',e=>{ if(CUR.mod!=='orgchart') return; const n=e.target.closest&&e.target.closest('.oc-n[draggable]'); if(!n) return; ocDrag=n.dataset.ocn; e.dataTransfer.effectAllowed='move'; try{ e.dataTransfer.setData('text/plain',ocDrag); }catch(x){} n.classList.add('dragging'); });
+document.addEventListener('dragend',()=>{ ocDrag=null; ocClr(); });
+document.addEventListener('dragover',e=>{ if(!ocDrag||CUR.mod!=='orgchart') return; ocClr(); const t=ocDropTarget(e.target); if(!t) return; e.preventDefault(); t.el.classList.add('over'); });
+document.addEventListener('drop',e=>{ if(!ocDrag||CUR.mod!=='orgchart') return; const t=ocDropTarget(e.target), src=ocDrag; ocDrag=null; ocClr(); if(!t||!can('orgchart','edit')) return; e.preventDefault();
+  let parent='', dept; if(t.kind==='job'){ const tr=ocPR().find(x=>x.id===t.id); if(!tr) return; parent=tr.id; dept=tr.dept; } else dept=t.dept;
+  if(src.startsWith('x:')) ocAdoptEx(src,parent,dept); else ocMoveJob(src.slice(2),parent,dept); });
+
 /* ----- الأحداث ----- */
 function orgClick(t){
   if(CUR.mod!=='orgchart') return false;
@@ -3385,6 +3465,11 @@ function orgClick(t){
   if(t.closest('#oc_newph')){ ocPhaseModal(null); return true; }
   const pe=t.closest('[data-ocph]'); if(pe){ ocPhaseModal(pe.dataset.ocph); return true; }
   const pd=t.closest('[data-ocphdel]'); if(pd){ const p=OC.data.plan.phases.find(x=>x.id===pd.dataset.ocphdel); if(p&&confirm(`حذف المرحلة «${p.name}»؟`)){ OC.data.plan.phases=OC.data.plan.phases.filter(x=>x.id!==p.id); BE.ocSet('plan',OC.data.plan).then(()=>{ toast('تم الحذف'); renderOrg(); }).catch(er=>toast(authMsg(er),true)); } return true; }
+  if(t.closest('#oc_adddept')){ ocAddModal({newDept:true}); return true; }
+  const ad=t.closest('[data-ocadd]'); if(ad){ ocAddModal({parent:ad.dataset.ocadd}); return true; }
+  const adh=t.closest('[data-ocaddd]'); if(adh){ ocAddModal({dept:adh.dataset.ocaddd}); return true; }
+  const dh=t.closest('[data-ocdh]'); if(dh){ ocDeptModal(dh.dataset.ocdh); return true; }
+  const jj=t.closest('[data-ocjob]'); if(jj){ const mm=$('ocmodal'); if(mm) mm.remove(); ocPlanJobModal(jj.dataset.ocjob); return true; }
   const n=t.closest('[data-ocn]'); if(n){ ocJobModal(n.dataset.ocn); return true; }
   return false;
 }
