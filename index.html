@@ -666,7 +666,7 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
       <div class="lg:col-span-8 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
           <h3 class="text-sm font-bold">الشقق المسجلة</h3>
-          <span id="apt-count-badge" class="text-xs bg-brand-50 text-brand-700 font-bold px-2.5 py-1 rounded-lg"></span>
+          <div class="flex items-center gap-2"><button type="button" onclick="notifySupervisors()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold">📨 إرسال للمشرفين</button><span id="apt-count-badge" class="text-xs bg-brand-50 text-brand-700 font-bold px-2.5 py-1 rounded-lg"></span></div>
         </div>
         <div id="apartments-list-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[560px] overflow-y-auto custom-scrollbar pr-1"></div>
       </div>
@@ -1766,7 +1766,9 @@ const LocalBackend = {
   async idDel(id){ const o=LS.get('demo_id',{}); delete o[id]; LS.set('demo_id',o); },
   async rcList(col){ const o=LS.get('demo_rc_'+col,{}); return Object.keys(o).map(k=>({...o[k],id:k})); },
   async rcSet(col,id,data){ const o=LS.get('demo_rc_'+col,{}); o[id]=JSON.parse(JSON.stringify(data)); LS.set('demo_rc_'+col,o); },
-  async rcDel(col,id){ const o=LS.get('demo_rc_'+col,{}); delete o[id]; LS.set('demo_rc_'+col,o); }
+  async rcDel(col,id){ const o=LS.get('demo_rc_'+col,{}); delete o[id]; LS.set('demo_rc_'+col,o); },
+  async ntGet(){ return LS.get('demo_nt',null); },
+  async ntSet(v){ LS.set('demo_nt',v); }
 };
 
 /* ---------------- Firebase ---------------- */
@@ -1862,7 +1864,9 @@ const FirebaseBackend = {
   async idDel(id){ const {Fs}=this.S; await Fs.deleteDoc(Fs.doc(this.db,'idCards',id)); },
   async rcList(col){ const {Fs}=this.S; const s=await Fs.getDocs(Fs.collection(this.db,col)); return s.docs.map(d=>({...d.data(),id:d.id})); },
   async rcSet(col,id,data){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(this.db,col,id),data); },
-  async rcDel(col,id){ const {Fs}=this.S; await Fs.deleteDoc(Fs.doc(this.db,col,id)); }
+  async rcDel(col,id){ const {Fs}=this.S; await Fs.deleteDoc(Fs.doc(this.db,col,id)); },
+  async ntGet(){ const {Fs}=this.S; const d=await Fs.getDoc(Fs.doc(this.db,'appSettings','notify')); return d.exists()?d.data():null; },
+  async ntSet(v){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(this.db,'appSettings','notify'),v); }
 };
 
 /* =====================================================================
@@ -2534,7 +2538,7 @@ function userAccessTags(u){
   return t.join('')||'<span class="muted">بدون صلاحيات</span>';
 }
 function renderUsers(){
-  $('view').innerHTML=`<div class="card"><div class="tb"><h2 style="margin:0">المستخدمون</h2><span class="sp" style="flex:1"></span><button class="btn pri" id="u_new" type="button">+ مستخدم جديد</button></div>
+  $('view').innerHTML=`<div class="card"><div class="tb"><h2 style="margin:0">المستخدمون</h2><span class="sp" style="flex:1"></span><button class="btn" id="u_notify" type="button">📨 إعدادات الإشعارات</button><button class="btn pri" id="u_new" type="button">+ مستخدم جديد</button></div>
   <div class="twrap"><table class="dt"><thead><tr><th>الاسم</th><th>البريد</th><th>الصلاحيات</th><th>الحالة</th><th></th></tr></thead><tbody>
   ${USERS.map(u=>`<tr><td><b>${esc(u.name||'—')}</b></td><td dir="ltr" style="text-align:right">${esc(u.email)}</td><td style="white-space:normal;max-width:420px">${userAccessTags(u)}</td>
    <td>${u.active===false?'<span class="tag2 off">موقوف</span>':'<span class="tag2" style="background:#e1f5e8;color:#0a7a3d">نشط</span>'}</td>
@@ -2574,6 +2578,7 @@ function userModal(u){
   m.innerHTML=`<div class="box"><h3>${isNew?'مستخدم جديد':'تعديل المستخدم'}</h3>
    <div class="form2">
     <div><label>الاسم</label><input id="um_name" value="${esc(u.name)}"></div>
+    <div><label>رقم الموبايل (للواتساب)</label><input id="um_phone" dir="ltr" style="text-align:right" placeholder="01xxxxxxxxx" value="${esc(u.phone||'')}"></div>
     <div><label>البريد الإلكتروني (Gmail)</label><input id="um_email" type="email" dir="ltr" style="text-align:right" value="${esc(u.email)}" ${isNew?'':'disabled'}></div>
     ${isNew?`<div><label>كلمة المرور (6 على الأقل)</label><input id="um_pw" type="text" dir="ltr" style="text-align:right" autocomplete="off"></div>`:''}
     <div><label>نوع المستخدم</label><select id="um_type">
@@ -2604,7 +2609,7 @@ function userModal(u){
     const type=$('um_type').value;
     const access={}; m.querySelectorAll('[data-pm]').forEach(x=>{ if(x.checked){ (access[x.dataset.pm]=access[x.dataset.pm]||[]).push(x.dataset.pa); } });
     const aptIds=[...m.querySelectorAll('[data-apt]')].filter(x=>x.checked).map(x=>x.dataset.apt);
-    const data={name:$('um_name').value.trim(),isAdmin:type==='admin',supervisor:type==='sup',active:$('um_active').checked,permV:2,access:type==='sup'?{housing:['view']}:access};
+    const data={name:$('um_name').value.trim(),isAdmin:type==='admin',supervisor:type==='sup',active:$('um_active').checked,permV:2,phone:($('um_phone').value||'').trim(),access:type==='sup'?{housing:['view']}:access};
     if(!data.name){ err.textContent='اكتب الاسم'; return; }
     if(type==='sup' && !aptIds.length){ err.textContent='اختر شقة واحدة على الأقل للمشرف'; return; }
     if(u.uid===ME.uid && (!data.isAdmin||!data.active)){ err.textContent='مينفعش تشيل صلاحية المدير أو توقف حسابك انت'; return; }
@@ -3761,6 +3766,37 @@ function rcClick(t){
   if(CUR.mod!=='hiring'&&CUR.mod!=='resign') return false; const b=t.closest('[data-rc]'); if(!b) return false; const a=b.dataset.rc;
   if(a==='save') rcSave(CUR.mod,false); else if(a==='open') rcModal(CUR.mod); else if(a==='new') rcNew(CUR.mod); return true;
 }
+/* ================= الإشعارات (Brevo عبر وسيط Cloudflare) ================= */
+const NT={cfg:null};
+async function ntCfg(force){ if(NT.cfg&&!force) return NT.cfg; try{ NT.cfg=(await BE.ntGet())||{}; }catch(e){ NT.cfg={}; } return NT.cfg; }
+async function hrNotify(p){
+  const c=await ntCfg(); if(!c.url) throw new Error('الإشعارات مش متظبطة — المدير يظبطها من «المستخدمون ← إعدادات الإشعارات»');
+  if(BE.mode!=='firebase') throw new Error('الإرسال شغال في النسخة الحقيقية بس (مش التجريبية)');
+  const tok=await BE.auth.currentUser.getIdToken();
+  let r; try{ r=await fetch(c.url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},body:JSON.stringify(p)}); }catch(e){ throw new Error('تعذر الوصول لوسيط الإرسال (راجع الرابط)'); }
+  const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||('خطأ '+r.status)); return j;
+}
+window.hrNotify=hrNotify; window.ntCfg=ntCfg;
+async function ntModal(){
+  const c=await ntCfg(true);
+  const m=document.createElement('div'); m.className='modal'; m.id='ntmodal';
+  m.innerHTML=`<div class="box" style="width:min(620px,100%)"><h3>إعدادات الإشعارات (Brevo)</h3>
+   <div class="muted" style="font-size:12.5px;margin-bottom:10px">الإرسال بيتم عن طريق وسيط (Cloudflare Worker) بيحتفظ بمفتاح Brevo — المفتاح عمره ما بيتحط في الموقع. خطوات التجهيز في ملف «تجهيز الإشعارات».</div>
+   <div class="form2" style="grid-template-columns:1fr"><div><label>رابط الوسيط (Worker URL)</label><input id="nt_url" dir="ltr" style="text-align:left" placeholder="https://hr-notify.xxxx.workers.dev" value="${esc(c.url||'')}"></div></div>
+   <label style="display:flex;gap:6px;align-items:center;margin-top:10px"><input type="checkbox" id="nt_task" ${c.taskAuto!==false?'checked':''}> إرسال إيميل تلقائي للموظف لما تتسند له مهمة جديدة</label>
+   <div class="idsec" style="font-weight:800;margin:14px 0 6px">تجربة</div>
+   <div style="display:flex;gap:8px"><input id="nt_te" type="email" dir="ltr" style="text-align:left;flex:1;padding:8px 10px;border:1.5px solid #c3c6cf;border-radius:8px;font:inherit" placeholder="إيميل لتجربة الإرسال"><button class="btn" id="nt_test" type="button">إرسال رسالة تجربة</button></div>
+   <div class="lerr" id="nt_err"></div><div style="display:flex;gap:8px;margin-top:14px"><button class="btn pri" id="nt_save" type="button">حفظ</button><button class="btn" id="nt_x" type="button">إغلاق</button></div></div>`;
+  document.body.appendChild(m); const q=s=>m.querySelector(s);
+  q('#nt_x').onclick=()=>m.remove(); m.addEventListener('click',e=>{ if(e.target===m) m.remove(); });
+  const read=()=>({url:q('#nt_url').value.trim().replace(/\/+$/,''),taskAuto:q('#nt_task').checked});
+  q('#nt_save').onclick=async()=>{ const v=read(); if(v.url&&!/^https:\/\//.test(v.url)){ q('#nt_err').textContent='الرابط لازم يبدأ بـ https://'; return; }
+    try{ await BE.ntSet(v); NT.cfg=v; m.remove(); toast('تم حفظ إعدادات الإشعارات ✓'); }catch(e){ q('#nt_err').textContent=authMsg(e); } };
+  q('#nt_test').onclick=async()=>{ const em=q('#nt_te').value.trim(); if(!em){ q('#nt_err').textContent='اكتب إيميل للتجربة'; return; } NT.cfg={...read()}; q('#nt_err').textContent='جارٍ الإرسال…';
+    try{ const r=await hrNotify({kind:'test',channel:'email',messages:[{email:em,name:'تجربة',subject:'تجربة إشعارات أوباك',text:'دي رسالة تجربة من نظام الموارد البشرية. لو وصلتك يبقى الإرسال شغال ✓'}]});
+      q('#nt_err').textContent=r.sent?'✓ اتبعتت — راجع الإيميل (وفولدر الـ Spam)':'فشل: '+((r.failed[0]||{}).error||''); }catch(e){ q('#nt_err').textContent=e.message; } };
+}
+function ntClick(t){ if(CUR.mod!=='users') return false; if(t.closest('#u_notify')){ ntModal(); return true; } return false; }
 /* ---------------- تابات المديول في الشريط العلوي ---------------- */
 let HK=null, admSyncT=null, ADMBT=[], admObs=null;
 function hdrTabs(items,fn){
@@ -3871,6 +3907,7 @@ document.addEventListener('click',e=>{
   if(orgClick(t)) return;
   if(idClick(t)) return;
   if(rcClick(t)) return;
+  if(ntClick(t)) return;
   const ue=t.closest('[data-uedit]'); if(ue) userModal(USERS.find(x=>x.uid===ue.dataset.uedit));
   const ur=t.closest('[data-ureset]'); if(ur){ BE.resetPassword(ur.dataset.ureset).then(()=>toast('اتبعت إيميل إعادة تعيين كلمة المرور ✓')).catch(er=>toast(authMsg(er),true)); }
 });
@@ -4257,7 +4294,7 @@ function renderReport() {
       <td class="p-3.5 text-center">${idx === 0 ? `<span class="px-2 py-1 rounded-md text-[10px] bg-slate-200 font-bold">${occ.length} / ${a.totalBeds}</span>` : ''}</td>`;
     const tail = idx => `${idx === 0 ? rentCell : (admin ? '<td></td>' : '')}
       <td class="p-3.5">${idx === 0 ? contractBadge(a.contractEnd) : ''}</td>
-      <td class="p-3.5">${idx === 0 ? esc(a.supervisorName || '--') : ''}</td>`;
+      <td class="p-3.5">${idx === 0 ? esc(a.supervisorName || '--') + supWaBtn(a) : ''}</td>`;
     if (!occ.length) {
       return `<tr class="hover:bg-slate-50">${common(0)}<td class="p-3.5 text-slate-400 italic">-- لا يوجد ساكنين --</td><td class="p-3.5 text-slate-400">--</td><td></td>${tail(0)}${admin ? '<td class="no-print"></td>' : ''}</tr>`;
     }
@@ -4365,7 +4402,7 @@ function renderAptList() {
       <div class="grid grid-cols-2 gap-2 text-[11px] bg-white p-2.5 rounded-lg border border-slate-200">
         <div><span class="text-slate-400">الإيجار:</span> <strong>${fmt(S.fin[a.id])} ج.م</strong></div>
         <div><span class="text-slate-400">العقد حتى:</span> <strong>${contractBadge(a.contractEnd)}</strong></div>
-        <div class="col-span-2"><span class="text-slate-400">المشرف:</span> <strong>${esc(a.supervisorName || 'غير محدد')}</strong></div>
+        <div class="col-span-2"><span class="text-slate-400">المشرف:</span> <strong>${esc(a.supervisorName || 'غير محدد')}</strong>${supWaBtn(a)}</div>
         <div class="col-span-2">${linkBtns(a) || '<span class="text-slate-400">لا يوجد رابط جروب واتساب</span>'}</div></div>
       <div class="flex gap-2 pt-1 border-t border-slate-200">
         <button onclick="editApt('${a.id}')" class="flex-1 py-1.5 bg-slate-200 hover:bg-slate-300 font-bold rounded-lg text-xs"><i class="fa-solid fa-pen ml-1"></i> تعديل</button>
@@ -5459,7 +5496,7 @@ function renderTasks() {
         <div class="font-bold text-sm ${x.kind !== 'req' && x.done ? 'line-through text-slate-400' : ''}">${esc(x.title)}</div>
         ${x.notes ? `<div class="text-[11px] text-slate-500 mt-0.5">${esc(x.notes)}</div>` : ''}
         <div class="flex flex-wrap items-center gap-2 mt-1.5 text-[10px]">
-          ${x.kind === 'task' && isAdmin() ? `<span class="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-bold"><i class="fa-solid fa-user"></i> ${(x.assignees || []).length ? esc(x.assignees.map(tkUserName).join('، ')) : 'لي فقط'}</span>` : ''}
+          ${x.kind === 'task' && isAdmin() ? `<span class="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-bold"><i class="fa-solid fa-user"></i> ${(x.assignees || []).length ? esc(x.assignees.map(tkUserName).join('، ')) : 'لي فقط'}</span>${(x.assignees || []).length ? `<button type="button" onclick="notifyTask('${x.id}')" class="px-1.5 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold">📨 إرسال تذكير</button>` : ''}` : ''}
           ${x.kind === 'task' && x.done && x.doneByName ? `<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold"><i class="fa-solid fa-check"></i> تم بواسطة ${esc(x.doneByName)}</span>` : ''}
           ${x.kind === 'gcal' ? `<span class="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-bold"><i class="fa-brands fa-google"></i> ${x.isTask ? 'مهمة جوجل' : 'تقويم جوجل'}${x.cal ? ': ' + esc(x.cal) : ''}</span>` : ''}
           ${x.kind === 'req' ? `<span class="px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-bold"><i class="fa-solid fa-receipt"></i> طلب من مشرف${x.by ? ': ' + esc(x.by) : ''}</span>` : ''}
@@ -5481,10 +5518,12 @@ $('tk-form').addEventListener('submit', async e => {
   const id = $('tk-id').value, old = S.tasks.find(x => x.id === id);
   try {
     const ref = id ? doc(db, 'tasks', id) : doc(collection(db, 'tasks'));
+    const _nt = { title: $('tk-title').value.trim(), due: $('tk-due').value, notes: $('tk-notes').value.trim(), as: [...$('tk-assignees').querySelectorAll('input:checked')].map(i => i.value) };
     await setDoc(ref, { title: $('tk-title').value.trim(), due: $('tk-due').value, notes: $('tk-notes').value.trim(),
       assignees: [...$('tk-assignees').querySelectorAll('input:checked')].map(i => i.value),
       done: old ? !!old.done : false, doneAt: old && old.doneAt ? old.doneAt : 0, doneByName: old && old.doneByName ? old.doneByName : '', createdAt: old ? old.createdAt : Date.now(), createdBy: old ? old.createdBy : P.uid });
     toast(id ? 'تم تعديل المهمة' : 'تمت إضافة المهمة', 'success'); window.resetTaskForm();
+    if (window.ntCfg) window.ntCfg().then(cf => { if (cf.url && cf.taskAuto !== false) { const prev = (old && old.assignees) || []; const added = _nt.as.filter(x => !prev.includes(x)); if (added.length) tkNotify(_nt, added, false); } });
   } catch (err) { toast(errMsg(err), 'error'); }
 });
 window.toggleTask = async (id, done) => {
@@ -5812,6 +5851,90 @@ async function migrateOld(email, pass, log) {
   log('تم النقل بنجاح ✓');
 }
 
+
+/* --- إشعارات Brevo: المهام + مشرفين الشقق --- */
+const ntUser = id => S.users.find(u => u.id === id);
+async function tkNotify(t, uids, manual) {
+  const msgs = uids.map(ntUser).filter(u => u && u.email && u.id !== P.uid).map(u => ({ email: u.email, name: u.name, subject: 'مهمة جديدة: ' + t.title,
+    text: `السلام عليكم ${u.name}،\n\nتم إسناد مهمة لحضرتك:\n\n• المهمة: ${t.title}\n• الموعد: ${t.due || 'بدون تاريخ'}\n${t.notes ? '• التفاصيل: ' + t.notes + '\n' : ''}\nمن فضلك افتح الموقع (قسم المهام) لمتابعتها.` }));
+  if (!msgs.length) { if (manual) toast('مفيش إيميلات للمكلّفين (راجع بيانات المستخدمين)', 'error'); return; }
+  try { const r = await window.hrNotify({ kind: 'task', channel: 'email', messages: msgs });
+    toast(`اتبعت إشعار بالإيميل لـ ${r.sent} من ${msgs.length}` + (r.failed.length ? ' — فشل: ' + r.failed.map(f => f.error).join('، ') : ''), r.failed.length ? 'error' : 'success');
+  } catch (e) { if (manual || !/متظبطة/.test(e.message)) toast('تعذر إرسال الإشعار: ' + e.message, 'error'); }
+}
+window.notifyTask = id => { const t = S.tasks.find(x => x.id === id); if (t) tkNotify(t, t.assignees || [], true); };
+const waNum = p => { let d = String(p || '').replace(/\D/g, ''); if (d.startsWith('00')) d = d.slice(2); else if (d.startsWith('0')) d = '20' + d.slice(1); return d.length >= 11 ? d : ''; };
+function aptMsgFor(sup, apts, note) {
+  const L = [`السلام عليكم ${sup.name}،`, '', 'بيانات الشقق المسؤول عنها وسكانها حاليًا:', ''];
+  apts.forEach(a => { const occ = occupantsOf(a.id);
+    L.push(`🏠 شقة ${a.number} — ${a.type}${a.location ? ' — ' + a.location : ''}`, `   الإشغال: ${occ.length} من ${a.totalBeds}${a.contractEnd ? ' — نهاية العقد: ' + a.contractEnd : ''}`);
+    if (!occ.length) L.push('   (لا يوجد ساكنين)'); occ.forEach((e, i) => L.push(`   ${i + 1}. ${e.name}${e.role ? ' — ' + e.role : ''}${e.entryDate ? ' — دخول: ' + e.entryDate : ''}`)); L.push(''); });
+  if (note) L.push(note, ''); L.push('برجاء مراجعة البيانات وإبلاغنا بأي تعديل.'); return L.join('\n');
+}
+
+const HW_POLICY0=`• السكن مخصص للموظفين المسجلين بالشقة فقط، ويُمنع استضافة أو مبيت أي شخص غير مسجل.
+• الحفاظ على نظافة الشقة والأثاث والأجهزة، وأي تلف أو فقد يتحمله المتسبب فيه.
+• ترشيد استهلاك الكهرباء والمياه والغاز، وغلق الأجهزة والإضاءة عند الخروج.
+• يُمنع التدخين والمواد الممنوعة والأسلحة وأي مواد خطرة داخل السكن.
+• الالتزام بالهدوء وعدم إزعاج الجيران خاصة بعد الساعة 10 مساءً.
+• أي عطل أو صيانة يتم إبلاغ مشرف الشقة فورًا، ولا يتم إصلاح أي شيء على نفقة الموظف دون موافقة الإدارة.
+• لا يجوز نقل سرير أو تبديل غرفة أو التنازل عن السكن لشخص آخر دون موافقة الإدارة.
+• عند إنهاء الخدمة أو الاستقالة يتم إخلاء السكن وتسليم المفاتيح والعهدة في الموعد المحدد.`;
+const hwPolicy=()=>{ try{ return localStorage.getItem('hr_housing_policy')||HW_POLICY0; }catch(e){ return HW_POLICY0; } };
+const supWaBtn = a => (isAdmin() && a.supervisorUid) ? `<button type="button" onclick="aptWa('${a.id}')" class="no-print" title="رسالة واتساب للمشرف بيانات الشقة وسياسة السكن" style="background:#25d366;color:#fff;border-radius:6px;padding:1px 8px;font-size:11px;font-weight:700;margin-inline-start:6px;cursor:pointer">واتساب</button>` : '';
+function aptWaMsg(sup, a, policy){
+  const occ=occupantsOf(a.id), L=[`السلام عليكم ${sup.name}،`,'',`بخصوص 🏠 شقة ${a.number} — ${a.type}${a.location?' — '+a.location:''}`,`الإشغال: ${occ.length} من ${a.totalBeds}${a.contractEnd?' — نهاية العقد: '+a.contractEnd:''}`,'','الساكنين حاليًا:'];
+  if(!occ.length) L.push('(لا يوجد ساكنين)'); occ.forEach((e,i)=>L.push(`${i+1}. ${e.name}${e.role?' — '+e.role:''}`));
+  if(policy&&policy.trim()) L.push('','📌 أهم بنود سياسة سكن الموظفين:',policy.trim());
+  L.push('','برجاء مراجعة البيانات والتأكد من التزام الساكنين، وإبلاغنا بأي مخالفة أو تعديل.'); return L.join('\n');
+}
+window.aptWa = function(id){
+  const a=S.apts.find(x=>x.id===id); if(!a) return; const sup=S.users.find(u=>u.id===a.supervisorUid); if(!sup){ toast('مشرف الشقة مش موجود في المستخدمين','error'); return; }
+  const num=waNum(sup.phone); if(!num){ toast('مفيش رقم موبايل للمشرف — ضيفه من «إدارة المستخدمين»','error'); return; }
+  const ov=document.createElement('div'); ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:14px;direction:rtl';
+  ov.innerHTML=`<div style="background:#fff;border-radius:12px;padding:18px;width:min(720px,100%);max-height:92vh;overflow:auto;font-size:14px">
+   <h3 style="font-weight:800;font-size:16px;margin-bottom:4px">واتساب للمشرف: ${esc(sup.name)} <span style="font-size:12px;color:#64748b;font-weight:400">— شقة ${esc(a.number)} · ${esc(sup.phone||'')}</span></h3>
+   <label style="display:block;margin:8px 0 3px;font-size:12px;color:#64748b">بنود سياسة السكن (بتتضاف للرسالة)</label>
+   <textarea id="hw-pol" rows="6" style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:6px 8px;font-size:12.5px"></textarea>
+   <div style="margin:4px 0 8px"><button type="button" id="hw-save" style="border:1.5px solid #cbd5e1;border-radius:8px;padding:3px 10px;font-size:12px">حفظ البنود كافتراضي (على المتصفح ده)</button></div>
+   <label style="display:block;margin:6px 0 3px;font-size:12px;color:#64748b">الرسالة (تقدر تعدّل فيها قبل الإرسال)</label>
+   <textarea id="hw-msg" rows="14" style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:6px 8px;font-size:12.5px"></textarea>
+   <div style="display:flex;gap:8px;margin-top:10px"><button type="button" id="hw-go" style="background:#25d366;color:#fff;border-radius:8px;padding:8px 18px;font-weight:700">فتح واتساب بالرسالة</button><button type="button" id="hw-x" style="border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 16px">إغلاق</button></div></div>`;
+  ($('adm')||document.body).appendChild(ov); const q=s=>ov.querySelector(s); q('#hw-pol').value=hwPolicy();
+  const gen=()=>{ q('#hw-msg').value=aptWaMsg(sup,a,q('#hw-pol').value); }; gen(); q('#hw-pol').oninput=gen;
+  q('#hw-save').onclick=()=>{ try{ localStorage.setItem('hr_housing_policy',q('#hw-pol').value); toast('تم حفظ البنود','success'); }catch(e){ toast('تعذر الحفظ','error'); } };
+  q('#hw-x').onclick=()=>ov.remove(); ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
+  q('#hw-go').onclick=()=>{ window.open('https://wa.me/'+num+'?text='+encodeURIComponent(q('#hw-msg').value),'_blank','noopener'); };
+};
+window.notifySupervisors = function () {
+  const sups = S.users.filter(u => u.role === 'supervisor').map(u => ({ u, apts: S.apts.filter(a => a.supervisorUid === u.id) })).filter(x => x.apts.length);
+  if (!sups.length) { toast('مفيش مشرفين عليهم شقق', 'error'); return; }
+  const ov = document.createElement('div'); ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:14px;direction:rtl';
+  ov.innerHTML = `<div style="background:#fff;border-radius:12px;padding:18px;width:min(760px,100%);max-height:92vh;overflow:auto;font-size:14px">
+    <h3 style="font-weight:800;font-size:16px;margin-bottom:6px">إرسال بيانات الشقق وسكانها للمشرفين</h3>
+    <p style="font-size:12px;color:#64748b;margin-bottom:10px">كل مشرف بيوصله رسالة فيها شققه والموظفين الساكنين فيها. الإيميل بيتبعت عن طريق Brevo، وزر «واتساب» بيفتح محادثة واتساب بالرسالة جاهزة (من غير ما تحتاج حساب واتساب Business).</p>
+    <div id="sn-list" style="border:1px solid #e2e8f0;border-radius:8px;max-height:300px;overflow:auto"></div>
+    <label style="display:block;margin:10px 0 4px;font-size:12px;color:#64748b">ملاحظة إضافية تتضاف لكل الرسائل (اختياري)</label>
+    <textarea id="sn-note" rows="2" style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:6px 8px"></textarea>
+    <details style="margin-top:8px"><summary style="cursor:pointer;font-size:12px;color:#475569">معاينة الرسالة (أول مشرف)</summary><pre id="sn-prev" style="white-space:pre-wrap;font-family:inherit;background:#f8fafc;border-radius:8px;padding:10px;margin-top:6px;font-size:12px"></pre></details>
+    <div id="sn-msg" style="color:#c62828;font-size:12px;min-height:18px;margin-top:6px"></div>
+    <div style="display:flex;gap:8px;margin-top:8px"><button id="sn-send" style="background:#d71920;color:#fff;border-radius:8px;padding:8px 16px;font-weight:700">📨 إرسال إيميل للمحدد</button><button id="sn-close" style="border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 16px">إغلاق</button></div></div>`;
+  ($('adm') || document.body).appendChild(ov); const q = s => ov.querySelector(s);
+  q('#sn-list').innerHTML = sups.map((x, i) => { const has = !!x.u.email, wa = waNum(x.u.phone);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid #f1f5f9"><input type="checkbox" class="sn-ck" data-i="${i}" ${has ? 'checked' : 'disabled'}>
+      <div style="flex:1"><b>${esc(x.u.name)}</b> <span style="font-size:12px;color:#64748b">— ${x.apts.length} شقة (${x.apts.map(a => esc(a.number)).join('، ')})</span><div style="font-size:11px;color:${has ? '#64748b' : '#c62828'}">${has ? esc(x.u.email) : '⚠ مفيش إيميل'}${wa ? ' · ' + esc(x.u.phone) : ' · لا يوجد رقم موبايل'}</div></div>
+      ${wa ? `<button type="button" class="sn-wa" data-i="${i}" style="background:#25d366;color:#fff;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700">واتساب</button>` : ''}</div>`; }).join('');
+  const note = () => q('#sn-note').value.trim(), msg = i => aptMsgFor(sups[i].u, sups[i].apts, note());
+  const prev = () => { q('#sn-prev').textContent = msg(0); }; prev(); q('#sn-note').oninput = prev;
+  q('#sn-close').onclick = () => ov.remove(); ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+  ov.addEventListener('click', e => { const b = e.target.closest('.sn-wa'); if (b) { const i = +b.dataset.i; window.open('https://wa.me/' + waNum(sups[i].u.phone) + '?text=' + encodeURIComponent(msg(i)), '_blank', 'noopener'); } });
+  q('#sn-send').onclick = async () => {
+    const idx = [...ov.querySelectorAll('.sn-ck:checked')].map(c => +c.dataset.i); if (!idx.length) { q('#sn-msg').textContent = 'اختار مشرف واحد على الأقل'; return; }
+    q('#sn-msg').style.color = '#475569'; q('#sn-msg').textContent = 'جارٍ الإرسال…'; q('#sn-send').disabled = true;
+    try { const r = await window.hrNotify({ kind: 'housing', channel: 'email', messages: idx.map(i => ({ email: sups[i].u.email, name: sups[i].u.name, subject: 'بيانات شققك وسكانها — أوباك', text: msg(i) })) });
+      q('#sn-msg').style.color = r.failed.length ? '#c62828' : '#188038'; q('#sn-msg').textContent = `اتبعتت ${r.sent} من ${idx.length}` + (r.failed.length ? ' — فشل: ' + r.failed.map(f => f.email + ' (' + f.error + ')').join('، ') : ' ✓');
+    } catch (e) { q('#sn-msg').style.color = '#c62828'; q('#sn-msg').textContent = e.message; } q('#sn-send').disabled = false; };
+};
 window.ADM = {
   start(profile) {
     admStop();
