@@ -4373,10 +4373,10 @@ $('add-employee-form').addEventListener('submit', async e => {
   const cat = target.type;
   try {
     const ref = doc(collection(db, 'employees'));
-    await setDoc(ref, { name, role, phone: ($('emp-phone').value||'').trim(), category: cat, entryDate, aptId: target.id, bedIndex: bed, supervisorUid: target.supervisorUid || '', createdAt: Date.now() });
+    await setDoc(ref, { name, role, phone: (window.__hwPh = ($('emp-phone').value||'').trim()), category: cat, entryDate, aptId: target.id, bedIndex: bed, supervisorUid: target.supervisorUid || '', createdAt: Date.now() });
     $('add-employee-form').reset(); $('emp-entry-date').value = new Date().toISOString().split('T')[0];
     aptTouched = false; renderEmpAptOptions();
-    toast(`تم تسكين (${name}) في ${target.number} - سرير ${bed}`, 'success');
+    toast(`تم تسكين (${name}) في ${target.number} - سرير ${bed}`, 'success'); hwWelcome({ name, role, phone: window.__hwPh, entryDate }, target);
   } catch (err) { toast(errMsg(err), 'error'); }
 });
 window.evictEmp = id => {
@@ -5890,19 +5890,20 @@ function aptWaMsg(sup, a, policy){
   if(policy&&policy.trim()) L.push('','📌 أهم بنود سياسة سكن الموظفين:',policy.trim());
   L.push('','برجاء مراجعة البيانات والتأكد من التزام الساكنين، وإبلاغنا بأي مخالفة أو تعديل.'); return L.join('\n');
 }
-function hwOpen(title, phone, build){
+function hwOpen(title, phone, build, occ){
   const num=waNum(phone); if(!num){ toast('مفيش رقم موبايل — ضيفه الأول','error'); return; }
   const ov=document.createElement('div'); ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:14px;direction:rtl';
   ov.innerHTML=`<div style="background:#fff;border-radius:12px;padding:18px;width:min(720px,100%);max-height:92vh;overflow:auto;font-size:14px">
    <h3 style="font-weight:800;font-size:16px;margin-bottom:4px">${title} <span style="font-size:12px;color:#64748b;font-weight:400" dir="ltr">${esc(phone||'')}</span></h3>
+   ${occ?`<div style="margin:8px 0;border:1.5px solid ${occ.length?'#bbf7d0':'#fecaca'};background:${occ.length?'#f0fdf4':'#fef2f2'};border-radius:8px;padding:8px 10px"><div style="font-weight:700;font-size:12.5px;margin-bottom:4px">ساكنين الشقة حاليًا (${occ.length}) — بيتضافوا للرسالة تلقائي من النظام</div>${occ.length?occ.map((e,i)=>`<div style="font-size:12.5px">${i+1}. <b>${esc(e.name)}</b> — ${esc(e.role||'بدون وظيفة')}${e.phone?` <span dir="ltr" style="color:#64748b">· ${esc(e.phone)}</span>`:''}</div>`).join(''):'<div style="font-size:12.5px;color:#b91c1c">مفيش موظفين مسكّنين في الشقة دي في النظام.</div>'}</div>`:''}
    <label style="display:block;margin:8px 0 3px;font-size:12px;color:#64748b">بنود سياسة السكن (بتتضاف للرسالة)</label>
    <textarea id="hw-pol" rows="6" style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:6px 8px;font-size:12.5px"></textarea>
    <div style="margin:4px 0 8px"><button type="button" id="hw-save" style="border:1.5px solid #cbd5e1;border-radius:8px;padding:3px 10px;font-size:12px">حفظ البنود كافتراضي (على المتصفح ده)</button></div>
-   <label style="display:block;margin:6px 0 3px;font-size:12px;color:#64748b">الرسالة (تقدر تعدّل فيها قبل الإرسال)</label>
+   <label style="display:flex;justify-content:space-between;margin:6px 0 3px;font-size:12px;color:#64748b"><span>الرسالة (تقدر تعدّل فيها قبل الإرسال)</span><button type="button" id="hw-regen" style="color:#0369a1;font-weight:700">↻ تحديث الرسالة من بيانات النظام</button></label>
    <textarea id="hw-msg" rows="14" style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:6px 8px;font-size:12.5px"></textarea>
    <div style="display:flex;gap:8px;margin-top:10px"><button type="button" id="hw-go" style="background:#25d366;color:#fff;border-radius:8px;padding:8px 18px;font-weight:700">فتح واتساب بالرسالة</button><button type="button" id="hw-x" style="border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 16px">إغلاق</button></div></div>`;
   ($('adm')||document.body).appendChild(ov); const q=s=>ov.querySelector(s); q('#hw-pol').value=hwPolicy();
-  const gen=()=>{ q('#hw-msg').value=build(q('#hw-pol').value); }; gen(); q('#hw-pol').oninput=gen;
+  const gen=()=>{ q('#hw-msg').value=build(q('#hw-pol').value); }; gen(); q('#hw-pol').oninput=gen; q('#hw-regen').onclick=gen;
   q('#hw-save').onclick=()=>{ try{ localStorage.setItem('hr_housing_policy',q('#hw-pol').value); toast('تم حفظ البنود','success'); }catch(e){ toast('تعذر الحفظ','error'); } };
   q('#hw-x').onclick=()=>ov.remove(); ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
   q('#hw-go').onclick=()=>{ window.open('https://wa.me/'+num+'?text='+encodeURIComponent(q('#hw-msg').value),'_blank','noopener'); };
@@ -5910,16 +5911,29 @@ function hwOpen(title, phone, build){
 window.aptWa = function(id){
   const a=S.apts.find(x=>x.id===id); if(!a) return; const sup=S.users.find(u=>u.id===a.supervisorUid); if(!sup){ toast('مشرف الشقة مش موجود في المستخدمين','error'); return; }
   if(!waNum(sup.phone)){ toast('مفيش رقم موبايل للمشرف — ضيفه من «إدارة المستخدمين»','error'); return; }
-  hwOpen(`واتساب للمشرف: ${esc(sup.name)} — شقة ${esc(a.number)}`, sup.phone, pol=>aptWaMsg(sup,a,pol));
+  hwOpen(`واتساب للمشرف: ${esc(sup.name)} — شقة ${esc(a.number)}`, sup.phone, pol=>aptWaMsg(sup,a,pol), occupantsOf(a.id));
 };
 const resWaBtn = e => (isAdmin() && waNum(e.phone)) ? `<button type="button" onclick="empWa('${e.id}')" class="no-print" title="واتساب للموظف" style="background:#25d366;color:#fff;border-radius:6px;padding:1px 8px;font-size:11px;font-weight:700;margin-inline-start:6px;cursor:pointer">واتساب</button>` : '';
+const hwMap = m => { m=String(m||'').trim(); if(!m) return ''; if(/^https?:/i.test(m)) return m; const c=m.match(/(-?\d+\.\d+)\s*[,،]\s*(-?\d+\.\d+)/); return c?`https://maps.google.com/?q=${c[1]},${c[2]}`:''; };
+function hwEmpMsg(e,a,sup,pol,welcome){
+  const L=[`السلام عليكم ${e.name}،`,''];
+  if(welcome) L.push('أهلًا بيك في شركة أوباك للصناعات الغذائية 🌟','تم تسكينك في:'); else L.push('بخصوص سكنك في:');
+  L.push(`🏠 شقة ${a.number||''}${a.type?' — '+a.type:''}`);
+  if(e.role) L.push(`💼 وظيفتك: ${e.role}`);
+  if(a.location) L.push(`📍 الموقع: ${a.location}`); const mp=hwMap(a.mapLink); if(mp) L.push(`🗺 لوكيشن الشقة على الخريطة: ${mp}`);
+  if(e.entryDate) L.push(`📅 تاريخ الدخول: ${e.entryDate}`);
+  if(sup&&(sup.name||sup.phone)) L.push(`👤 مشرف الشقة: ${sup.name||''}${sup.phone?' — 📞 '+sup.phone:''}`);
+  if(pol&&pol.trim()) L.push('','📌 أهم بنود سياسة سكن الموظفين:',pol.trim());
+  L.push('','برجاء الالتزام بالبنود، وللتواصل مع مشرف الشقة في أي ملاحظة أو عطل.'); return L.join('\n');
+}
+window.hwWelcome = function(e,a){
+  try{ if(!waNum(e.phone)) return; const sup=S.users.find(u=>u.id===a.supervisorUid)||{name:a.supervisorName||'',phone:(P&&P.uid===a.supervisorUid)?(P.phone||''):''};
+    setTimeout(()=>hwOpen(`تم تسكين ${esc(e.name)} ✓ — رسالة ترحيب بالموظف`, e.phone, pol=>hwEmpMsg(e,a,sup,pol,true)),350); }catch(err){}
+};
 window.empWa = function(id){
   const e=S.emps.find(x=>x.id===id); if(!e) return; const a=S.apts.find(x=>x.id===e.aptId)||{}; const sup=S.users.find(u=>u.id===a.supervisorUid);
   hwOpen(`واتساب للموظف: ${esc(e.name)}`, e.phone, pol=>{
-    const L=[`السلام عليكم ${e.name}،`,'',`بخصوص سكنك في 🏠 شقة ${a.number||''}${a.type?' — '+a.type:''}${a.location?' — '+a.location:''}`];
-    if(sup) L.push(`مشرف الشقة: ${sup.name}${sup.phone?' — '+sup.phone:''}`);
-    if(pol&&pol.trim()) L.push('','📌 أهم بنود سياسة سكن الموظفين:',pol.trim());
-    L.push('','برجاء الالتزام بالبنود، وللتواصل مع مشرف الشقة في أي ملاحظة أو عطل.'); return L.join('\n'); });
+    return hwEmpMsg(e,a,sup,pol,false); });
 };
 window.notifySupervisors = function () {
   const sups = S.users.filter(u => u.role === 'supervisor').map(u => ({ u, apts: S.apts.filter(a => a.supervisorUid === u.id) })).filter(x => x.apts.length);
