@@ -5922,6 +5922,8 @@ function hwEmpMsg(e,a,sup,pol,welcome){
   if(e.role) L.push(`💼 وظيفتك: ${e.role}`);
   if(a.location) L.push(`📍 الموقع: ${a.location}`); const mp=hwMap(a.mapLink); if(mp) L.push(`🗺 لوكيشن الشقة على الخريطة: ${mp}`);
   if(e.entryDate) L.push(`📅 تاريخ الدخول: ${e.entryDate}`);
+  const mates=occupantsOf(a.id).filter(x=>x.id!==e.id&&x.name!==e.name);
+  if(mates.length){ L.push('','👥 الساكنين معاك في الشقة:'); mates.forEach((x,i)=>L.push(`${i+1}. ${x.name}${x.role?' — '+x.role:''}`)); L.push(''); }
   if(sup&&(sup.name||sup.phone)) L.push(`👤 مشرف الشقة: ${sup.name||''}${sup.phone?' — 📞 '+sup.phone:''}`);
   if(pol&&pol.trim()) L.push('','📌 أهم بنود سياسة سكن الموظفين:',pol.trim());
   L.push('','برجاء الالتزام بالبنود، وللتواصل مع مشرف الشقة في أي ملاحظة أو عطل.'); return L.join('\n');
