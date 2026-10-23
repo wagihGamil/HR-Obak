@@ -6097,6 +6097,9 @@ function rcClick(t){
   if(CUR.mod!=='hiring'&&CUR.mod!=='resign') return false; const b=t.closest('[data-rc]'); if(!b) return false; const a=b.dataset.rc;
   if(a==='save') rcSave(CUR.mod,false); else if(a==='open') rcModal(CUR.mod); else if(a==='new') rcNew(CUR.mod); return true;
 }
+/* حفظ تلقائي عند أي طباعة (زر الطباعة أو Ctrl+P) */
+let RC_LAST=0;
+window.addEventListener('beforeprint',()=>{ if((CUR.mod==='hiring'||CUR.mod==='resign')&&Date.now()-RC_LAST>1500){ RC_LAST=Date.now(); rcSave(CUR.mod,true); } });
 /* ================= الإشعارات (Brevo عبر وسيط Cloudflare) ================= */
 const NT={cfg:null};
 async function ntCfg(force){ if(NT.cfg&&!force) return NT.cfg; try{ NT.cfg=(await BE.ntGet())||{}; }catch(e){ NT.cfg={}; } return NT.cfg; }
@@ -6225,7 +6228,7 @@ function onAuthState(profile,why){
   if(!ME){
     admCall('stop').catch(()=>{});
     $('shell').hidden=true; $('login').hidden=false;
-    $('lg_err').textContent = why?authMsg({code:why}):'';
+    $('lg_err').textContent = why?authMsg({code:why}):(/^#\/r\//.test(location.hash)?'🔒 سجّل دخولك الأول عشان تفتح أوراق الإخلاء من كارت الـ ID':'');
     return;
   }
   $('login').hidden=true; $('shell').hidden=false; $('lg_pw').value='';
@@ -6253,7 +6256,7 @@ document.addEventListener('click',e=>{
   const pb=t.closest('.pbtn'); if(pb){
     if(CUR.mod==='hiring'){ const bad=[]; if(!V.name) bad.push('الاسم'); if(V.nid.length!==14) bad.push('الرقم القومي (14 رقم)'); if(bad.length && !confirm('ناقص: '+bad.join('، ')+'\nتكمل الطباعة كده؟')) return; }
     if(CUR.mod==='insurance'){ if(INS.busy){ toast('استنى لحد ما يخلص تجهيز المرفقات',true); return; } if(!insTargets().length && !confirm('لسه ماختارتش موظف — هتتطبع الاستمارة فاضية. تكمل؟')) return; }
-    if(CUR.mod==='hiring'||CUR.mod==='resign') rcSave(CUR.mod,true); resetScale(); setTimeout(()=>window.print(),50);
+    if((CUR.mod==='hiring'||CUR.mod==='resign')&&Date.now()-RC_LAST>1500){ RC_LAST=Date.now(); rcSave(CUR.mod,true); } resetScale(); setTimeout(()=>window.print(),50);
   }
   const cb=t.closest('.cb'); if(cb){ const r=+cb.dataset.r,c=+cb.dataset.c; if(CK[r]===c) delete CK[r]; else CK[r]=c;
     document.querySelectorAll(`.cb[data-r="${r}"]`).forEach(x=>x.firstElementChild.classList.toggle('on',CK[r]===+x.dataset.c)); }
