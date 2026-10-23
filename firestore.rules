@@ -252,8 +252,8 @@ service cloud.firestore {
 
     // ===== ID (كروت تصريح الدخول: الموظفون + الظهر + الصور) =====
     match /idCards/{id} {
-      allow read:  if can('idcard','view');
-      allow write: if wr('idcard');
+      allow read:  if can('idcard','view') || ((id == 'emps' || id == 'pw') && (anyA('resign') || anyA('hiring')));
+      allow write: if wr('idcard') || (id == 'emps' && canA('hiring','add'));
     }
 
     // ===== سجل أوراق التعيين والاستقالة =====
@@ -268,6 +268,12 @@ service cloud.firestore {
       allow create: if canA('resign','add');
       allow update: if canA('resign','edit');
       allow delete: if canA('resign','delete');
+    }
+
+    // ===== إعدادات الإشعارات (رابط الوسيط وخيارات الإرسال) =====
+    match /appSettings/{id} {
+      allow read:  if active();
+      allow write: if isAdmin();
     }
 
     // أي حاجة تانية مقفولة
