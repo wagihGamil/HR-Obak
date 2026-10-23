@@ -423,6 +423,7 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
           <div class="fld"><label for="in_job">الوظيفة المعيّن عليها</label><input type="text" id="in_job" autocomplete="off"><div class="hint"></div></div>
           <div class="fld"><label for="in_code">كود الموظف الوظيفي</label><input type="text" id="in_code" autocomplete="off" dir="ltr" style="text-align:right"><div class="hint"></div></div>
           <div class="fld"><label for="in_start">تاريخ مباشرة العمل</label><input type="date" id="in_start"><div class="hint"></div></div>
+          <div class="fld"><label>صورة الموظف (للـ ID)</label><div style="display:flex;align-items:center;gap:10px"><img id="in_pimg" alt="" style="display:none;width:54px;height:63px;object-fit:cover;border-radius:6px;background:#e9ecf1"><label class="btn" style="cursor:pointer">📷 اختيار صورة<input type="file" id="in_photo" accept="image/*" hidden></label><button class="btn" type="button" id="in_pclr" hidden>إزالة</button></div><div class="hint" id="h_photo">بتتحفظ في مديول الـ ID</div></div>
         </div>
         <div class="opts">
           <label class="o_ak">نسخ الإقرارات <input type="number" id="c_ak" min="0" max="9" value="1"></label>
@@ -6037,13 +6038,28 @@ async function idFromHiring(s){
     const E=(await BE.idGet('emps'))||{rows:[],at:new Date().toISOString().slice(0,10),file:'من أوراق التعيين'}; if(!E.rows) E.rows=[];
     let r=E.rows.find(x=>(code&&String(x.code||'')===code)||(nid&&String(x.nid||'')===nid)), isNew=!r;
     if(!r){ let k=code||nid||('h'+rcHash(name)); while(E.rows.some(x=>x.k===k)) k+='_'; r={k,n:name,nid:'',code:'',j:'',d:'',t:''}; E.rows.push(r); }
-    const old=JSON.stringify(r);
+    const old=JSON.stringify(r), hadPh=!!HP.u;
     r.n=name; if(nid) r.nid=nid; if(code) r.code=code; if(job) r.j=job; if(dept) r.d=dept; if(t) r.t=t;
-    if(!isNew&&JSON.stringify(r)===old) return;
-    await BE.idSet('emps',E); if(ID.data.emps) ID.data.emps=E;
-    if(isNew) toast(`اتضاف «${name}» في مديول الـ ID — فاضل ترفع صورته`);
+    if(isNew||JSON.stringify(r)!==old){ await BE.idSet('emps',E); if(ID.data.emps) ID.data.emps=E; }
+    if(hadPh){ const u=HP.u; await BE.idSet('ph_'+r.k,{u}); ID.photos[r.k]=u; HP.prev=u; HP.u=null; hpShow(); }
+    if(isNew) toast(hadPh?`اتضاف «${name}» في مديول الـ ID بصورته ✓`:`اتضاف «${name}» في مديول الـ ID — فاضل ترفع صورته`);
+    else if(hadPh) toast('اتحفظت الصورة في مديول الـ ID ✓');
   }catch(e){ console.warn('idFromHiring',e); }
 }
+
+/* ---- صورة الموظف في أوراق التعيين (بتتحفظ في الـ ID) ---- */
+const HP={u:null,prev:null};
+function hpShow(){ const i=$('in_pimg'); if(!i) return; const src=HP.u||HP.prev; i.style.display=src?'':'none'; if(src) i.src=src; $('in_pclr').hidden=!HP.u;
+  $('h_photo').textContent=HP.u?'هتتحفظ في مديول الـ ID مع بيانات الموظف عند الطباعة أو الحفظ':(HP.prev?'✓ الصورة محفوظة في مديول الـ ID':'بتتحفظ في مديول الـ ID'); }
+async function hpLoad(rec){
+  HP.u=null; HP.prev=null; hpShow();
+  try{ const em=await BE.idGet('emps'), rows=(em&&em.rows)||[], nid=String(rec.nid||'').replace(/\D/g,''), code=String(rec.code||'').trim();
+    const r=rows.find(x=>(code&&String(x.code||'')===code)||(nid&&String(x.nid||'')===nid)); if(!r) return;
+    const p=await BE.idGet('ph_'+r.k); if(p&&p.u){ HP.prev=p.u; hpShow(); } }catch(e){}
+}
+document.addEventListener('change',async e=>{ if(e.target.id!=='in_photo') return; const f=e.target.files[0]; e.target.value=''; if(!f) return;
+  try{ HP.u=await idImg(f,360,421); hpShow(); }catch(er){ toast(er.message||'صورة غير صالحة',true); } });
+document.addEventListener('click',e=>{ if(e.target.closest&&e.target.closest('#in_pclr')){ HP.u=null; hpShow(); } });
 /* ================= سجل أوراق التعيين / الاستقالة ================= */
 const RC_COL={hiring:'hiringRecords',resign:'resignRecords'}, RC={cur:null};
 const rcHash=s=>{ let h=5381; s=String(s); for(let i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))|0; return Math.abs(h).toString(36); };
@@ -6062,7 +6078,7 @@ async function rcSave(mod,silent){
 }
 function rcClear(mod){
   RC.cur=null;
-  if(mod==='hiring'){ Object.keys(V).forEach(k=>V[k]=''); Object.keys(CK).forEach(k=>delete CK[k]); ['in_name','in_nid','in_addr','in_dept','in_job','in_code','in_start'].forEach(i=>$(i).value=''); onHInput(); buildHiring(); }
+  if(mod==='hiring'){ HP.u=null; HP.prev=null; hpShow(); Object.keys(V).forEach(k=>V[k]=''); Object.keys(CK).forEach(k=>delete CK[k]); ['in_name','in_nid','in_addr','in_dept','in_job','in_code','in_start'].forEach(i=>$(i).value=''); onHInput(); buildHiring(); }
   else{ Object.keys(ED).forEach(k=>delete ED[k]); buildResign(); }
 }
 function rcLoad(mod,rec){
@@ -6071,7 +6087,7 @@ function rcLoad(mod,rec){
     $('in_name').value=V.name; $('in_nid').value=V.nid; $('in_addr').value=V.addr; $('in_dept').value=V.dept; $('in_job').value=V.job; $('in_code').value=V.code;
     $('in_start').value=V.start?V.start.split('/').reverse().join('-'):''; const ck=rec.ck||{}; Object.keys(ck).forEach(k=>CK[k]=ck[k]);
     const c=rec.copies||{}; [['c_ak','ak'],['c_kn','kn'],['c_ct','ct'],['c_po','po']].forEach(([i,k])=>{ if(c[k]!==undefined&&c[k]!=='') $(i).value=c[k]; });
-    onHInput(); buildHiring(); }
+    onHInput(); buildHiring(); hpLoad(rec); }
   else{ Object.assign(ED,rec.ed||{}); buildResign(); }
 }
 async function rcModal(mod){

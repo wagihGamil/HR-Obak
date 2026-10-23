@@ -252,8 +252,8 @@ service cloud.firestore {
 
     // ===== ID (كروت تصريح الدخول: الموظفون + الظهر + الصور) =====
     match /idCards/{id} {
-      allow read:  if can('idcard','view') || ((id == 'emps' || id == 'pw') && (anyA('resign') || anyA('hiring')));
-      allow write: if wr('idcard') || (id == 'emps' && canA('hiring','add'));
+      allow read:  if can('idcard','view') || ((id == 'emps' || id == 'pw') && (anyA('resign') || anyA('hiring'))) || (id.matches('ph_.*') && anyA('hiring'));
+      allow write: if wr('idcard') || ((id == 'emps' || id.matches('ph_.*')) && canA('hiring','add'));
     }
 
     // ===== سجل أوراق التعيين والاستقالة =====
