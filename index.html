@@ -3333,14 +3333,88 @@ function ocJobModal(id){
   ocModal(`<h3>${esc(title)}</h3><div class="muted" style="font-size:13px;margin-bottom:8px">${esc(sub)}</div>${list.length?`<div class="ocmt"><table class="octbl"><thead><tr><th>#</th><th>الاسم</th><th>القسم</th><th>تاريخ أول عقد</th></tr></thead><tbody>${list.map((e,i)=>`<tr><td>${i+1}</td><td>${esc(e.n)}</td><td>${esc(e.d)}</td><td>${ocDate(e.t)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">مفيش موظفين على الوظيفة دي حاليًا (شاغرة).</div>'}<div style="margin-top:14px;display:flex;gap:8px">${(k==='a'&&ed)?`<button class="btn pri" data-ocjob="${esc(rest)}" type="button">تعديل / نقل / إضافة تحتها</button>`:''}<button class="btn" data-ocx type="button">إغلاق</button></div>`,720);
 }
 function ocMapModal(){
-  const C=OC.C, map=OC.data.set.map;
-  const items=[...C.unm,...C.manualMapped].sort((a,b)=>a.d.localeCompare(b.d,'ar')||a.j.localeCompare(b.j,'ar'));
-  const opts=sel=>`<option value="">— تلقائي (غير مربوط) —</option><option value="out" ${sel==='out'?'selected':''}>خارج الخطة (مش هتتحسب)</option>`+C.pDept.map(d=>`<optgroup label="${esc(d)}">${C.P.filter(r=>r.dept===d).map(r=>`<option value="${esc(r.id)}" ${sel===r.id?'selected':''}>${esc(r.job)}</option>`).join('')}</optgroup>`).join('');
-  const m=ocModal(`<h3>ربط وظائف الموظفين بالخطة</h3><div class="muted" style="font-size:13px">اختار لكل وظيفة حالية الوظيفة المقابلة لها في الهيكل المخطط. الربط بيتحفظ وبيتطبق تلقائيًا في كل رفع جديد.</div>
-   <div class="ocmt" style="max-height:56vh"><table class="octbl"><thead><tr><th>القسم (من الشيت)</th><th>المنصب (من الشيت)</th><th>العدد</th><th>الوظيفة في الخطة</th></tr></thead><tbody>${items.map(u=>`<tr><td>${esc(u.d)}</td><td>${esc(u.j)}</td><td>${ocNum(u.n)}</td><td><select class="mp" data-k="${esc(u.key)}">${opts(map[u.key]!==undefined?map[u.key]:'')}</select></td></tr>`).join('')}</tbody></table></div>
-   <div class="lerr" id="mp_err"></div><div style="display:flex;gap:8px;margin-top:14px"><button class="btn pri" id="mp_save" type="button">حفظ وإعادة الحساب</button><button class="btn" data-ocx type="button">إلغاء</button></div>`,980);
-  m.querySelector('#mp_save').onclick=async()=>{ const nm={...map}; m.querySelectorAll('select.mp').forEach(s=>{ if(s.value) nm[s.dataset.k]=s.value; else delete nm[s.dataset.k]; });
-    OC.data.set.map=nm; try{ await BE.ocSet('set',OC.data.set); m.remove(); toast('تم الحفظ ✓'); renderOrg(); }catch(er){ m.querySelector('#mp_err').textContent=authMsg(er); } };
+  const C=OC.C, ed=canW('orgchart'), draft={...(OC.data.set.map||{})};
+  if(!document.getElementById('mgcss')){ const st=document.createElement('style'); st.id='mgcss'; st.textContent=`
+.mgov{position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9000;display:flex;align-items:center;justify-content:center;padding:10px}
+.mgbox{background:#f8fafc;border-radius:14px;width:min(1180px,100%);height:min(92vh,100%);display:flex;flex-direction:column;overflow:hidden;direction:rtl}
+.mgtop{padding:12px 16px;background:#fff;border-bottom:1px solid #e2e8f0;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.mgtop h3{margin:0;font-size:16px;color:#1f3864}.mgtop small{color:#64748b;font-size:12px;flex-basis:100%}
+.mgtop input[type=search]{border:1px solid #cbd5e1;border-radius:8px;padding:5px 10px;font:inherit;font-size:13px;width:170px}
+.mgsc{flex:1;overflow:auto;position:relative}
+.mgcv{position:relative;display:flex;justify-content:space-between;gap:20px;padding:16px 20px 40px;min-height:100%}
+.mgcol{width:330px;flex:none;display:flex;flex-direction:column;gap:6px;position:relative;z-index:2}
+.mgmid{flex:1;min-width:160px}
+.mgsv{position:absolute;left:0;top:0;z-index:1;overflow:visible}
+.mgdh{font-weight:800;font-size:12.5px;color:#475569;margin:10px 2px 2px;padding-bottom:2px;border-bottom:2px solid #cbd5e1}
+.mgcolh{font-weight:800;font-size:14px;padding:6px 10px;border-radius:8px;color:#fff;position:sticky;top:0;z-index:3}
+.mgn{position:relative;display:flex;align-items:center;gap:8px;background:#fff;border:1.5px solid #cbd5e1;border-radius:9px;padding:6px 12px;font-size:13px;min-height:36px}
+.mgn.c{border-inline-start:5px solid #1f5fa8;padding-left:26px}.mgn.p{border-inline-start:5px solid #2f9e6f;padding-right:26px}
+.mgn.o{border-inline-start:5px solid #e08a1e;background:#fff7ed;padding-right:26px}
+.mgn .mgt{flex:1;min-width:0;line-height:1.35}.mgn small{display:block;color:#64748b;font-size:11px}
+.mgq{background:#eef2f7;border-radius:6px;padding:0 7px;font-size:11.5px;font-weight:700;flex:none}.mgq.full{background:#d1fae5;color:#065f46}.mgq.over{background:#fee2e2;color:#991b1b}
+.mgh{position:absolute;top:50%;width:18px;height:18px;margin-top:-9px;border-radius:50%;background:#fff;border:3px solid #1f5fa8;z-index:3;touch-action:none}
+.mgn.c .mgh{left:-10px;cursor:crosshair}.mgn.c .mgh:hover{background:#1f5fa8}.mgn.c.lk .mgh{background:#1f5fa8}
+.mgn.p .mgh{right:-10px;border-color:#2f9e6f;pointer-events:none}.mgn.p.lk .mgh{background:#2f9e6f}.mgn.o .mgh{border-color:#e08a1e}.mgn.o.lk .mgh{background:#e08a1e}
+.mgn.p.hot{outline:3px solid #f0c24b;outline-offset:2px;background:#fffbeb}
+.mgl{fill:none;stroke-width:2.5;pointer-events:none}.mgl.m{stroke:#2f9e6f}.mgl.a{stroke:#94a3b8;stroke-dasharray:6 5}.mgl.o{stroke:#e08a1e}.mgl.t{stroke:#f0a500;stroke-dasharray:3 4}
+.mghit{fill:none;stroke:transparent;stroke-width:16;cursor:pointer;pointer-events:stroke}.mghit:hover+.mgl{stroke-width:4.5;stroke:#dc2626}
+.mgft{padding:10px 16px;background:#fff;border-top:1px solid #e2e8f0;display:flex;gap:8px;align-items:center}
+@media(max-width:820px){.mgcol{width:250px}.mgmid{min-width:70px}}`; document.head.appendChild(st); }
+  const keyInfo=new Map(); C.E.forEach(e=>{ const k=ocN(e.d)+'|'+ocN(e.j); const u=keyInfo.get(k)||keyInfo.set(k,{key:k,d:e.d,j:e.j,n:0}).get(k); u.n++; });
+  const auto=new Map(); C.byP.forEach((l,pid)=>l.forEach(e=>{ const k=ocN(e.d)+'|'+ocN(e.j); if(!(k in (OC.data.set.map||{}))) auto.set(k,pid); }));
+  const eff=k=>{ const v=draft[k]; if(v===undefined){ const a=auto.get(k); return a?{pid:a,t:'a'}:null; } if(v==='out') return {pid:'out',t:'o'}; if(v&&C.byId.has(v)) return {pid:v,t:'m'}; return null; };
+  const cur=[...keyInfo.values()].sort((a,b)=>a.d.localeCompare(b.d,'ar')||a.j.localeCompare(b.j,'ar'));
+  const grp=(arr,dk)=>{ let h='',last=null; arr.forEach(x=>{ const d=dk(x); if(d!==last){ h+=`<div class="mgdh" data-gd="${esc(ocN(d))}">${esc(d)}</div>`; last=d; } h+=x.html; }); return h; };
+  const L=grp(cur.map(u=>({d:u.d,html:`<div class="mgn c" data-k="${esc(u.key)}" data-s="${esc(ocN(u.d+' '+u.j))}"><div class="mgt"><b>${esc(u.j)}</b></div><span class="mgq">${ocNum(u.n)}</span><i class="mgh s" data-k="${esc(u.key)}"></i></div>`})),x=>x.d);
+  const R=grp(C.P.map(r=>({d:r.dept,html:`<div class="mgn p" data-pid="${esc(r.id)}" data-cnt="${+r.count||0}" data-s="${esc(ocN(r.dept+' '+r.job))}"><div class="mgt"><b>${esc(r.job)}</b></div><span class="mgq"></span><i class="mgh"></i></div>`})),x=>x.d);
+  const m=document.createElement('div'); m.className='mgov'; m.id='ocmap';
+  m.innerHTML=`<div class="mgbox"><div class="mgtop"><h3>🔗 ربط الهيكل الحالي بالمخطط</h3>
+   <input type="search" id="mg_sl" placeholder="بحث في الوظائف الحالية…"><input type="search" id="mg_sr" placeholder="بحث في الوظائف المخططة…">
+   <label style="font-size:13px"><input type="checkbox" id="mg_un"> غير المربوطة فقط</label><span id="mg_st" style="font-size:12.5px;color:#475569;margin-inline-start:auto"></span>
+   <small>${ed?'اسحب من النقطة الزرقاء ● بجنب الوظيفة الحالية وسيبها على الوظيفة المخططة المقابلة. اضغط على الخط لفصله. الخط المتقطع الرمادي = ربط تلقائي، الأخضر = ربط يدوي، البرتقالي = خارج الخطة.':'عرض فقط — محتاج صلاحية تعديل للربط.'}</small></div>
+   <div class="mgsc" id="mgsc"><div class="mgcv" id="mgcv"><svg class="mgsv" id="mgsv"></svg>
+    <div class="mgcol" id="mgL"><div class="mgcolh" style="background:#1f5fa8">الهيكل الحالي (من شيت الموظفين)</div>${L}</div><div class="mgmid"></div>
+    <div class="mgcol" id="mgR"><div class="mgcolh" style="background:#2f9e6f">الهيكل المخطط</div><div class="mgn o" data-pid="out"><div class="mgt"><b>خارج الخطة</b><small>مش هتتحسب في المخطط</small></div><span class="mgq"></span><i class="mgh"></i></div>${R}</div></div></div>
+   <div class="mgft"><div class="lerr" id="mp_err" style="flex:1"></div>${ed?'<button class="btn pri" id="mg_save" type="button">حفظ وإعادة الحساب</button>':''}<button class="btn" id="mg_x" type="button">${ed?'إلغاء':'إغلاق'}</button></div></div>`;
+  document.body.appendChild(m);
+  const q=s=>m.querySelector(s), qa=s=>[...m.querySelectorAll(s)], cv=q('#mgcv'), sv=q('#mgsv'), sc=q('#mgsc');
+  const shown=el=>el.offsetParent!==null, ctr=(el,r0)=>{ const r=el.getBoundingClientRect(); return {x:r.left+r.width/2-r0.left,y:r.top+r.height/2-r0.top}; };
+  const bez=(a,b)=>{ const cx=(a.x+b.x)/2; return `M${a.x} ${a.y} C${cx} ${a.y},${cx} ${b.y},${b.x} ${b.y}`; };
+  let drag=null, tmp=null;
+  function draw(){
+    const r0=cv.getBoundingClientRect(); sv.setAttribute('width',cv.offsetWidth); sv.setAttribute('height',cv.offsetHeight);
+    const per=new Map(); let linked=0, tot=0; let h='';
+    qa('.mgn.c').forEach(n=>{ const k=n.dataset.k, e=eff(k), u=keyInfo.get(k); tot++; n.classList.toggle('lk',!!e); if(!e) return; linked++; per.set(e.pid,(per.get(e.pid)||0)+u.n);
+      const t=q(`.mgn[data-pid="${CSS.escape(e.pid)}"]`); if(!t||!shown(n)||!shown(t)) return; const d=bez(ctr(n.querySelector('.mgh'),r0),ctr(t.querySelector('.mgh'),r0));
+      h+=`<g data-k="${esc(k)}"><path class="mghit" d="${d}"></path><path class="mgl ${e.t}" d="${d}"></path></g>`; });
+    qa('.mgn[data-pid]').forEach(n=>{ const pid=n.dataset.pid, c=per.get(pid)||0; n.classList.toggle('lk',c>0); const b=n.querySelector('.mgq'), pl=+n.dataset.cnt||0;
+      b.textContent=pid==='out'?(c||''):(c+' / '+pl); b.className='mgq'+(pid!=='out'?(c>pl?' over':(c===pl&&pl>0?' full':'')):''); });
+    sv.innerHTML=h+(tmp?`<path class="mgl t" d="${tmp}"></path>`:'');
+    q('#mg_st').textContent=`مربوط ${ocNum(linked)} من ${ocNum(tot)} وظيفة حالية`;
+  }
+  function filt(){ const a=ocN(q('#mg_sl').value), b=ocN(q('#mg_sr').value), un=q('#mg_un').checked;
+    qa('.mgn.c').forEach(n=>{ n.style.display=((!a||n.dataset.s.includes(a))&&(!un||!eff(n.dataset.k)))?'':'none'; });
+    qa('.mgn.p').forEach(n=>{ n.style.display=(!b||n.dataset.s.includes(b))?'':'none'; });
+    ['#mgL','#mgR'].forEach(s=>{ const col=q(s); [...col.querySelectorAll('.mgdh')].forEach(h=>{ let nx=h.nextElementSibling, any=false; while(nx&&!nx.classList.contains('mgdh')){ if(nx.style.display!=='none') any=true; nx=nx.nextElementSibling; } h.style.display=any?'':'none'; }); });
+    draw(); }
+  q('#mg_sl').oninput=q('#mg_sr').oninput=q('#mg_un').onchange=filt;
+  const close=()=>{ m.remove(); window.removeEventListener('resize',draw); };
+  q('#mg_x').onclick=close; window.addEventListener('resize',draw);
+  m.addEventListener('keydown',e=>{ if(e.key==='Escape') close(); });
+  if(ed){
+    sv.addEventListener('click',e=>{ const g=e.target.closest('g[data-k]'); if(!g) return; const k=g.dataset.k; if(auto.has(k)) draft[k]=''; else delete draft[k]; filt(); });
+    let cx=0, cy=0, iv=null;
+    cv.addEventListener('pointerdown',e=>{ const h=e.target.closest('.mgh.s'); if(!h) return; e.preventDefault(); drag=h.dataset.k; try{ h.setPointerCapture(e.pointerId); }catch(er){}
+      cx=e.clientX; cy=e.clientY; iv=setInterval(()=>{ const r=sc.getBoundingClientRect(); if(cy<r.top+50) sc.scrollTop-=14; else if(cy>r.bottom-50) sc.scrollTop+=14; mv(); },30); mv(); });
+    function mv(){ if(!drag) return; const r0=cv.getBoundingClientRect(), n=q(`.mgn.c[data-k="${CSS.escape(drag)}"]`); const a=ctr(n.querySelector('.mgh'),r0); tmp=bez(a,{x:cx-r0.left,y:cy-r0.top});
+      qa('.mgn.p.hot').forEach(x=>x.classList.remove('hot')); const t=document.elementFromPoint(cx,cy), p=t&&t.closest&&t.closest('.mgn.p,.mgn.o'); if(p&&m.contains(p)) p.classList.add('hot'); draw(); }
+    cv.addEventListener('pointermove',e=>{ if(!drag) return; cx=e.clientX; cy=e.clientY; mv(); });
+    const up=e=>{ if(!drag) return; clearInterval(iv); const t=document.elementFromPoint(e.clientX,e.clientY), p=t&&t.closest&&t.closest('.mgn[data-pid]'); const k=drag; drag=null; tmp=null; qa('.mgn.hot').forEach(x=>x.classList.remove('hot'));
+      if(p&&m.contains(p)) draft[k]=p.dataset.pid; filt(); };
+    cv.addEventListener('pointerup',up); cv.addEventListener('pointercancel',()=>{ clearInterval(iv); drag=null; tmp=null; draw(); });
+    q('#mg_save').onclick=async()=>{ OC.data.set.map=draft; try{ await BE.ocSet('set',OC.data.set); close(); toast('تم الحفظ ✓'); renderOrg(); }catch(er){ q('#mp_err').textContent=authMsg(er); } };
+  }
+  setTimeout(draw,30); setTimeout(draw,300);
 }
 
 /* ----- الطباعة (A4 عرضي داخل إطار مخفي) ----- */
