@@ -573,7 +573,7 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
             <option value="شقة مديرين">شقق المديرين</option>
           </select>
           <button onclick="exportCSV()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-file-csv"></i><span>تصدير Excel / Sheets</span></button>
-          <button onclick="window.print()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-print"></i><span>طباعة</span></button>
+          <button onclick="printApts()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-print"></i><span>طباعة</span></button>
         </div>
       </div>
       <div class="overflow-x-auto custom-scrollbar">
@@ -4282,35 +4282,50 @@ function reportRows() {
 function renderReport() {
   const admin = isAdmin();
   $('report-subtitle').textContent = P.role === 'supervisor' ? 'الشقق التي تشرف عليها فقط' : 'كافة الشقق والساكنين';
-  $('report-thead').innerHTML = ['رقم الشقة','نوع الشقة + مكانها','عدد السراير','الاسم','الوظيفة','تاريخ الدخول', ...(admin ? ['قيمة الإيجار'] : []), 'نهاية العقد','المشرف المسؤول', ...(admin ? ['إجراءات'] : [])]
-    .map(h => `<th class="p-3.5 whitespace-nowrap ${h==='إجراءات'?'text-center no-print':''}">${h}</th>`).join('');
-  const rows = reportRows();
-  let rent = 0, people = 0;
-  const html = rows.map(({ a, occ }) => {
-    rent += Number(S.fin[a.id] || 0);
-    people += occ.length;
-    const rentCell = admin ? `<td class="p-3.5 font-mono font-bold">${fmt(S.fin[a.id])} ج.م</td>` : '';
-    const common = idx => `
-      <td class="p-3.5 font-bold">${idx === 0 ? esc(a.number) + linkBtns(a) : '<span class="text-slate-300">↳</span>'}</td>
-      <td class="p-3.5">${idx === 0 ? `${esc(a.type)} - <span class="text-slate-500">${esc(a.location)}</span>` : ''}</td>
-      <td class="p-3.5 text-center">${idx === 0 ? `<span class="px-2 py-1 rounded-md text-[10px] bg-slate-200 font-bold">${occ.length} / ${a.totalBeds}</span>` : ''}</td>`;
-    const tail = idx => `${idx === 0 ? rentCell : (admin ? '<td></td>' : '')}
-      <td class="p-3.5">${idx === 0 ? contractBadge(a.contractEnd) : ''}</td>
-      <td class="p-3.5">${idx === 0 ? esc(a.supervisorName || '--') + supWaBtn(a) : ''}</td>`;
-    if (!occ.length) {
-      return `<tr class="hover:bg-slate-50">${common(0)}<td class="p-3.5 text-slate-400 italic">-- لا يوجد ساكنين --</td><td class="p-3.5 text-slate-400">--</td><td></td>${tail(0)}${admin ? '<td class="no-print"></td>' : ''}</tr>`;
-    }
-    return occ.map((e, i) => `<tr class="hover:bg-slate-50">${common(i)}
-      <td class="p-3.5 font-bold text-brand-900">${esc(e.name)}${resWaBtn(e)}${e.phone ? `<div class="no-print" dir="ltr" style="font-size:11px;color:#64748b;font-weight:400;text-align:right">${esc(e.phone)}</div>` : ''}</td>
-      <td class="p-3.5"><span class="bg-slate-100 px-2 py-0.5 rounded">${esc(e.role)}</span></td>
-      <td class="p-3.5">${esc(e.entryDate)}</td>
-      ${tail(i)}
-      ${admin ? `<td class="p-3.5 text-center no-print"><button onclick="openEditEmp('${e.id}')" class="px-2 py-1 text-brand-700 hover:bg-brand-50 rounded-lg font-bold"><i class="fa-solid fa-pen"></i> تعديل</button> <button onclick="evictEmp('${e.id}')" class="px-2 py-1 text-rose-600 hover:bg-rose-50 rounded-lg font-bold"><i class="fa-solid fa-user-xmark"></i> إخلاء</button></td>` : ''}</tr>`).join('');
-  }).join('');
-  $('report-table-body').innerHTML = html || `<tr><td colspan="10" class="p-6 text-center text-slate-400">لا توجد بيانات</td></tr>`;
+  if (!document.getElementById('rp-style')) { const st = document.createElement('style'); st.id = 'rp-style'; st.textContent = RP_CSS; document.head.appendChild(st); }
+  const rows = reportRows(); let rent = 0, people = 0;
+  const html = rows.map(({ a, occ }) => { rent += Number(S.fin[a.id] || 0); people += occ.length; return rpBlock(a, occ, { admin, screen: true }); }).join('');
+  const th = $('report-thead'); th.innerHTML = ''; if (th.closest('thead')) th.closest('thead').style.display = 'none';
+  $('report-table-body').innerHTML = `<tr><td style="padding:0;border:0">${html || '<div style="padding:24px;text-align:center;color:#94a3b8">لا توجد بيانات</div>'}</td></tr>`;
   $('report-total-records').textContent = `إجمالي الساكنين: ${people} موظف`;
   $('report-total-rent').textContent = admin ? `إجمالي الإيجار الشهري: ${fmt(rent)} ج.م` : '';
 }
+const RP_CSS = `
+.rp-blk{border-bottom:1px solid #e2e8f0;break-inside:avoid}
+.rp-h{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;background:#f1f5f9;padding:5px 12px;font-size:12px}
+.rp-no{font-size:13px;color:#1f3864}.rp-ty{padding:0 8px;border-radius:6px;font-size:11px;font-weight:700;background:#e2e8f0}
+.rp-loc{color:#64748b;flex:1 1 140px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rp-bd{background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:0 8px;font-weight:700}.rp-rent{font-weight:700;color:#a80f15}
+.rp-g{display:grid;grid-template-columns:1fr 1fr;gap:0 26px;padding:2px 12px 4px}
+.rp-r{display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px dotted #d5dae3;font-size:12px;line-height:1.3;min-width:0}
+.rp-i{color:#94a3b8;width:16px;flex:none;text-align:center}.rp-nm{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rp-job{background:#f1f5f9;border-radius:5px;padding:0 6px;font-size:11px;white-space:nowrap;flex:none}.rp-dt{color:#64748b;font-size:11px;white-space:nowrap;flex:none}
+.rp-ac{flex:none;white-space:nowrap}.rp-ac button{padding:0 5px;color:#a80f15;cursor:pointer}
+.rp-e{padding:4px 12px;color:#94a3b8;font-size:12px}
+@media(max-width:800px){.rp-g{grid-template-columns:1fr}}`;
+function rpBlock(a, occ, o) {
+  const ex = a.contractEnd ? (Math.floor((new Date(a.contractEnd) - new Date()) / 864e5) < 0 ? ' (منتهي)' : '') : '';
+  const ct = a.contractEnd ? (o.screen ? contractBadge(a.contractEnd) : esc(a.contractEnd) + ex) : '--';
+  const head = `<div class="rp-h"><b class="rp-no">${esc(a.number)}</b><span class="rp-ty ${o.screen ? typeClass(a.type) : ''}">${esc(a.type)}</span><span class="rp-loc" title="${esc(a.location || '')}">${esc(a.location || '')}</span><span class="rp-bd">${occ.length}/${a.totalBeds}</span><span>العقد: ${ct}</span><span>${a.supervisorName ? 'المشرف: <b>' + esc(a.supervisorName) + '</b>' : 'بدون مشرف'}${o.screen ? supWaBtn(a) : ''}</span>${o.admin ? `<span class="rp-rent">${fmt(S.fin[a.id])} ج.م</span>` : ''}${o.screen ? `<span class="no-print">${linkBtns(a)}</span>` : ''}</div>`;
+  const res = occ.map((e, i) => `<div class="rp-r"><span class="rp-i">${i + 1}</span><b class="rp-nm" title="${esc(e.name)}${e.phone ? ' — ' + esc(e.phone) : ''}">${esc(e.name)}</b><span class="rp-job">${esc(e.role)}</span><span class="rp-dt">${esc(e.entryDate)}</span>${o.screen && o.admin ? `<span class="rp-ac no-print">${resWaBtn(e)}<button onclick="openEditEmp('${e.id}')" title="تعديل"><i class="fa-solid fa-pen"></i></button><button onclick="evictEmp('${e.id}')" title="إخلاء"><i class="fa-solid fa-user-xmark"></i></button></span>` : ''}</div>`);
+  return `<div class="rp-blk">${head}${occ.length ? `<div class="rp-g">${res.join('')}</div>` : '<div class="rp-e">— لا يوجد ساكنين —</div>'}</div>`;
+}
+window.printApts = function () {
+  const admin = isAdmin(), rows = reportRows(); let rent = 0, people = 0;
+  const blocks = rows.map(({ a, occ }) => { rent += Number(S.fin[a.id] || 0); people += occ.length; return rpBlock(a, occ, { admin, screen: false }); }).join('');
+  if (!rows.length) { toast('لا توجد بيانات للطباعة', 'error'); return; }
+  const today = new Date().toLocaleDateString('ar-EG');
+  const css = `@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}body{direction:rtl;font-family:"Segoe UI",Tahoma,Arial,sans-serif;color:#1b1b1f;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .wrap{width:1062px;column-count:2;column-gap:14px}.tp{column-span:all;display:flex;align-items:baseline;gap:18px;border-bottom:2px solid #d71920;padding-bottom:4px;margin-bottom:4px}.tp h1{margin:0;font-size:17px;color:#1f3864}.tp span{font-size:11px;color:#475569}.tp .sp{flex:1}
+  .rp-h{padding:3px 8px;font-size:10.5px}.rp-no{font-size:11.5px}.rp-ty{font-size:10px}.rp-g{padding:1px 8px 2px;grid-template-columns:1fr!important}.rp-blk{border:1px solid #cbd5e1;margin-bottom:3px;break-inside:avoid}.rp-r{font-size:10.5px;padding:1.5px 0}.rp-nm{overflow:visible!important;white-space:normal!important;text-overflow:clip!important}.rp-job,.rp-dt{font-size:9.5px}.rp-loc{overflow:visible!important;white-space:normal!important}${RP_CSS}`;
+  const fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;left:-10000px;top:0;width:1062px;height:733px;border:0;visibility:hidden';
+  fr.srcdoc = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير توزيعة الشقق</title><style>${css}</style></head><body><div class="wrap" id="w"><div class="tp"><h1>تقرير توزيعة الشقق والإسكان — أوباك</h1><span>${rows.length} شقة · ${people} ساكن${admin ? ' · إيجار شهري ' + fmt(rent) + ' ج.م' : ''}</span><span class="sp"></span><span>${today}</span></div>${blocks}</div></body></html>`;
+  fr.onload = () => { const d = fr.contentDocument, w = d.getElementById('w'); let s = 1;
+    for (let i = 0; i < 8; i++) { w.style.zoom = s; w.style.width = (1062 / s) + 'px'; const h = w.getBoundingClientRect().height; if (h <= 722 && i > 0) break; const ns = Math.max(0.45, s * 720 / h); if (Math.abs(ns - s) < 0.003) break; s = Math.min(1, ns); }
+    window.__rpScale = s;
+    setTimeout(() => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) { toast('تعذر فتح الطباعة', 'error'); } setTimeout(() => fr.remove(), 60000); }, 300); };
+  document.body.appendChild(fr);
+};
 $('report-search').addEventListener('input', renderReport);
 $('report-filter-type').addEventListener('change', renderReport);
 
