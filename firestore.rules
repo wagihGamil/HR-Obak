@@ -256,6 +256,11 @@ service cloud.firestore {
       allow write: if wr('idcard') || ((id == 'emps' || id.matches('ph_.*')) && canA('hiring','add'));
     }
 
+    // ===== طابور الطباعة (موبايل ← كمبيوتر) =====
+    match /printJobs/{id} {
+      allow read, create, update, delete: if anyA('resign');
+    }
+
     // ===== سجل أوراق التعيين والاستقالة =====
     match /hiringRecords/{id} {
       allow read:   if anyA('hiring');

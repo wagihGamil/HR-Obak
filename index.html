@@ -445,7 +445,7 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
           <label class="r_er"><input type="checkbox" id="r_er" checked> إنهاء علاقة العمل بالتوافق</label>
           <label class="r_ho"><input type="checkbox" id="r_ho" checked> الاستلام والتسليم</label>
           <label><input type="checkbox" id="k_dx_r" checked> طباعة وش وظهر</label>
-          <button class="btn" type="button" data-rc="new" title="يحفظ الحالي في السجل ويفتح استمارة فاضية">+ موظف جديد</button><button class="btn" type="button" data-rc="save">💾 حفظ في السجل</button><button class="btn" type="button" data-rc="open">📋 السجل</button><span class="sp"></span><span class="cnt" id="cnt_r"></span>
+          <button class="btn" type="button" data-rc="new" title="يحفظ الحالي في السجل ويفتح استمارة فاضية">+ موظف جديد</button><button class="btn" type="button" data-rc="save">💾 حفظ في السجل</button><button class="btn" type="button" data-rc="open">📋 السجل</button><button class="btn" type="button" id="pq_send" title="يبعت الأوراق المفتوحة لكمبيوتر الطباعة">📲 إرسال للطباعة على الكمبيوتر</button><button class="btn" type="button" id="pq_st" title="شغّلها على الكمبيوتر اللي هيطبع">🖥 محطة الطباعة: إيقاف</button><span class="sp"></span><span class="cnt" id="cnt_r"></span>
           <button class="pbtn" type="button">طباعة كل الأوراق</button>
         </div>
         <div class="note">أوراق الاستقالة بتتطبع فاضية، ماعدا <b>إخلاء الطرف</b>: دوس على أي خانة فيه واكتب مباشرة (الاسم والوظيفة والإدارة بيتكتبوا مرة واحدة وبيتكرروا في الإقرار).</div>
@@ -1772,6 +1772,9 @@ const LocalBackend = {
   async rcList(col){ const o=LS.get('demo_rc_'+col,{}); return Object.keys(o).map(k=>({...o[k],id:k})); },
   async rcSet(col,id,data){ const o=LS.get('demo_rc_'+col,{}); o[id]=JSON.parse(JSON.stringify(data)); LS.set('demo_rc_'+col,o); },
   async rcDel(col,id){ const o=LS.get('demo_rc_'+col,{}); delete o[id]; LS.set('demo_rc_'+col,o); },
+  async pqSend(job){ const a=LS.get('demo_pq',[]); a.push({...job,id:'j'+Date.now()}); LS.set('demo_pq',a); },
+  pqWatch(cb){ const t=setInterval(()=>cb(LS.get('demo_pq',[])),2000); cb(LS.get('demo_pq',[])); return ()=>clearInterval(t); },
+  async pqDel(id){ LS.set('demo_pq',LS.get('demo_pq',[]).filter(j=>j.id!==id)); },
   async ntGet(){ return LS.get('demo_nt',null); },
   async ntSet(v){ LS.set('demo_nt',v); },
   async idGet(id){ const o=LS.get('demo_id',{}); return o[id]?JSON.parse(JSON.stringify(o[id])):null; }
@@ -1871,6 +1874,9 @@ const FirebaseBackend = {
   async rcList(col){ const {Fs}=this.S; const s=await Fs.getDocs(Fs.collection(this.db,col)); return s.docs.map(d=>({...d.data(),id:d.id})); },
   async rcSet(col,id,data){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(this.db,col,id),data); },
   async rcDel(col,id){ const {Fs}=this.S; await Fs.deleteDoc(Fs.doc(this.db,col,id)); },
+  async pqSend(job){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(Fs.collection(this.db,'printJobs')),job); },
+  pqWatch(cb){ const {Fs}=this.S; return Fs.onSnapshot(Fs.collection(this.db,'printJobs'),s=>cb(s.docs.map(d=>({...d.data(),id:d.id}))),()=>{}); },
+  async pqDel(id){ const {Fs}=this.S; await Fs.deleteDoc(Fs.doc(this.db,'printJobs',id)); },
   async ntGet(){ const {Fs}=this.S; const d=await Fs.getDoc(Fs.doc(this.db,'appSettings','notify')); return d.exists()?d.data():null; },
   async ntSet(v){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(this.db,'appSettings','notify'),v); },
   async idGet(id){ const {Fs}=this.S; const d=await Fs.getDoc(Fs.doc(this.db,'idCards',id)); return d.exists()?d.data():null; }
@@ -2067,12 +2073,13 @@ const PERM = {
   idcard:{label:'ID',acts:{view:'عرض وطباعة كروت الدخول',edit:'رفع الشيت وتعديل البيانات والصور والظهر'}}
 };
 const LV_MODS=['housing','cars','buffet','stationery','tasks','links','orgchart','idcard'];
-const LV_LBL={admin:'مدير المديول (كل الصلاحيات)',add:'إضافة',edit:'تعديل',delete:'حذف'};
+const LV_LBL={admin:'مدير المديول (كل الصلاحيات)',add:'إضافة',edit:'تعديل',delete:'حذف',issueonly:'صرف فقط'};
 LV_MODS.forEach(m=>{ const v=PERM[m].acts.view; PERM[m].acts={view:v,add:'إضافة (تسجيل جديد)',edit:'تعديل الموجود',delete:'حذف',admin:LV_LBL.admin}; PERM[m].lv=true; });
 const LV_BASE={hiring:['acks','kin','contract','policy'],resign:['rq','rf','er','ho','cl'],forms:['*']};
 const LV_XL={hiring:{add:'السجل: إضافة (حفظ موظف جديد)',edit:'السجل: تعديل (تحديث موظف محفوظ)',delete:'السجل: حذف موظف من السجل'},resign:{add:'السجل: إضافة (حفظ موظف جديد)',edit:'السجل: تعديل (تحديث موظف محفوظ)',delete:'السجل: حذف موظف من السجل'},forms:{add:'إضافة نماذج جديدة',edit:'تعديل النماذج',delete:'حذف نماذج'}};
 Object.keys(LV_BASE).forEach(m=>{ PERM[m].acts={...PERM[m].acts,...LV_XL[m],admin:LV_LBL.admin}; PERM[m].lv=true; PERM[m].base=LV_BASE[m]; PERM[m].vl=m==='forms'?'عرض كل النماذج فقط':'طباعة الأوراق فقط (السجل للعرض)'; });
 const lvPre=m=>{ const b=(PERM[m]&&PERM[m].base)||['view']; return {none:[],view:b,add:[...b,'add'],del:[...b,'delete'],ae:[...b,'add','edit'],admin:[...b,'add','edit','delete','admin']}; };
+['buffet','stationery'].forEach(m=>{ PERM[m].acts.issueonly='صرف فقط — يخفي تاب الأصناف والرصيد ويفتح على تسجيل الصرف'; });
 const LV_PRESETS=lvPre('housing');
 function lvDetect(c,m){ c=c||[]; if(!c.length) return 'none'; const s=[...c].sort().join(); for(const [k,v] of Object.entries(lvPre(m))) if([...v].sort().join()===s) return k; return 'custom'; }
 function lvName(c,m){ c=c||[]; if(c.includes('admin')) return 'مدير'; const p=lvDetect(c,m); return {none:'—',view:'عرض',add:'إضافة',del:'حذف',ae:'إضافة وتعديل'}[p]||c.filter(a=>a!=='view').map(a=>LV_LBL[a]||a).join(' + ')||'عرض'; }
@@ -2214,6 +2221,7 @@ function mountResign(){
   [['rq','r_rq'],['rf','r_rf'],['er','r_er'],['ho','r_ho'],['cl','r_cl']].forEach(([a,c])=>document.querySelector('.'+c).hidden=!can('resign',a));
   buildResign();
   if(RS_PEND){ const k=RS_PEND; RS_PEND=null; rsGate(k); }
+  pqUI(); try{ if(!PQ.on&&localStorage.getItem('hr_pq_station')==='1') pqStation(true); }catch(e){}
 }
 
 /* ---------------- مديول: التأمينات الاجتماعية ---------------- */
@@ -3682,7 +3690,7 @@ function idListTab(ed){
   const L=idList(), E=ID.data.emps;
   return `<div class="card"><div class="tb"><h2 style="margin:0">كروت تصريح الدخول (ID)</h2><span style="flex:1"></span><button class="btn pri" id="idc_print" type="button">🖨 طباعة الكروت</button></div>
   <div class="muted" style="font-size:13px;margin-bottom:10px">${E?`✓ ${L.length} موظف — رُفع ${esc(E.at||'')} (${esc(E.file||'')}) · صور: ${L.filter(e=>ID.photos[e.k]).length}`:'ارفع شيت الموظفين (اسم الموظف · المنصب الوظيفي · القسم · رقم الهوية · Zk Emp Code · تاريخ أول عقد).'}</div>
-  <div class="idtb">${ed?`<label class="btn idup">📥 رفع شيت الموظفين<input type="file" id="idc_fx" accept=".xlsx,.xls"></label><label class="btn idup">📁 اختيار فولدر الصور (اسم الصورة = الكود أو الرقم القومي)<input type="file" id="idc_fph" webkitdirectory directory multiple></label><button class="btn" id="idc_add" type="button">+ موظف</button>`:''}${can('idcard','edit')?'<button class="btn" id="idc_pw" type="button">🔑 باسورد الإخلاء</button>':''}
+  <div class="idtb">${ed?`<label class="btn idup">📥 رفع شيت الموظفين<input type="file" id="idc_fx" accept=".xlsx,.xls"></label><label class="btn idup">📁 اختيار فولدر الصور (اسم الصورة = الكود أو الرقم القومي)<input type="file" id="idc_fph" webkitdirectory directory multiple></label><button class="btn" id="idc_add" type="button">+ موظف</button>`:''}
   <label style="font-size:13px"><input type="checkbox" id="idc_np" ${ID.noph?'checked':''}> بدون صورة فقط</label>
   <input type="search" id="idc_q" placeholder="بحث بالاسم / الكود / القسم…" value="${idE(ID.q)}"><span class="muted" id="idc_cnt" style="font-size:13px"></span></div>
   <div class="idwrap"><table class="idtbl"><thead><tr><th><input type="checkbox" id="idc_sall" title="تحديد الكل"></th><th>#</th><th>صورة</th><th>الاسم</th><th>الكود</th><th>الرقم القومي</th><th>الوظيفة</th><th>القسم</th><th>تاريخ التعيين</th><th></th></tr></thead><tbody id="idc_tb"></tbody></table></div></div>`;
@@ -6016,13 +6024,10 @@ function rsCardOpen(k){
   RS_PEND=k; location.hash='#/resign';
 }
 async function rsGate(k){
-  let pw=null, emp=null;
-  try{ pw=await BE.idGet('pw'); const em=await BE.idGet('emps'); emp=((em&&em.rows)||[]).find(x=>x.k===k)||null; }catch(er){ toast(authMsg(er),true); return; }
-  const m=ocModal(`<h3>🔒 أوراق الاستقالة والإخلاء</h3>${!emp?'<div class="lerr" style="display:block">الكارت ده مش مسجّل في مديول الـ ID.</div>':!(pw&&pw.h)?'<div class="lerr" style="display:block">لسه ماتحدّدش باسورد. حدده من مديول ID ثم «🔑 باسورد الإخلاء».</div>':`<div class="muted" style="font-size:13px;margin-bottom:8px">اكتب الباسورد لفتح أوراق الموظف.</div><input id="rg_pw" type="password" autocomplete="off" style="width:100%;padding:10px;border:1.5px solid #c3c6cf;border-radius:8px;font:inherit;box-sizing:border-box"><div class="lerr" id="rg_err"></div>`}
-   <div style="display:flex;gap:8px;margin-top:14px">${emp&&pw&&pw.h?'<button class="btn pri" id="rg_ok" type="button">فتح</button>':''}<button class="btn" data-ocx type="button">إغلاق</button></div>`,400);
-  const inp=m.querySelector('#rg_pw'); if(!inp) return; inp.focus();
-  const go=()=>{ if(idSha(pw.salt+'|'+inp.value)!==pw.h){ m.querySelector('#rg_err').textContent='الباسورد غلط'; inp.select(); return; } m.remove(); rsFill(emp); };
-  m.querySelector('#rg_ok').onclick=go; inp.addEventListener('keydown',e=>{ if(e.key==='Enter') go(); });
+  let emp=null;
+  try{ const em=await BE.idGet('emps'); emp=((em&&em.rows)||[]).find(x=>x.k===k)||null; }catch(er){ toast(authMsg(er),true); return; }
+  if(!emp){ toast('الكارت ده مش مسجّل في مديول الـ ID',true); return; }
+  rsFill(emp);
 }
 function rsFill(emp){
   const today=new Date().toLocaleDateString('en-GB',{timeZone:'Africa/Cairo'}), first=emp.t?String(emp.t).split('-').reverse().join('/'):'';
@@ -6167,6 +6172,34 @@ function admSyncSubnav(){
 }
 function admObsInit(){ if(admObs) return; admObs=new MutationObserver(()=>{ clearTimeout(admSyncT); admSyncT=setTimeout(admSyncSubnav,30); }); admObs.observe($('adm'),{subtree:true,childList:true,attributes:true,attributeFilter:['class','hidden']}); }
 
+/* ---------------- طابور الطباعة (موبايل ← كمبيوتر) ---------------- */
+const PQ={on:false,un:null,seen:new Set()}; let PQP=Promise.resolve();
+const pqSleep=ms=>new Promise(r=>setTimeout(r,ms));
+function pqUI(){ const b=$('pq_st'); if(!b) return; b.textContent=PQ.on?'🖥 محطة الطباعة: شغّالة ✓':'🖥 محطة الطباعة: إيقاف'; b.style.background=PQ.on?'#d1fae5':''; }
+function pqStop(){ if(PQ.un){ try{ PQ.un(); }catch(e){} PQ.un=null; } PQ.on=false; pqUI(); }
+function pqStation(on){
+  try{ localStorage.setItem('hr_pq_station',on?'1':''); }catch(e){}
+  pqStop(); if(!on) return; PQ.on=true;
+  PQ.un=BE.pqWatch(list=>{ list.filter(j=>j&&j.mod==='resign').sort((a,b)=>(a.at||0)-(b.at||0)).forEach(pqRun); }); pqUI();
+}
+function pqRun(j){
+  if(PQ.seen.has(j.id)) return; PQ.seen.add(j.id);
+  PQP=PQP.then(async()=>{
+    try{
+      if(CUR.mod!=='resign'){ location.hash='#/resign'; await pqSleep(900); }
+      Object.keys(ED).forEach(k=>delete ED[k]); Object.assign(ED,j.ed||{}); const o=j.opts||{};
+      [['r_cl','cl'],['r_rq','rq'],['r_rf','rf'],['r_er','er'],['r_ho','ho'],['k_dx_r','dx']].forEach(([id,k])=>{ if(o[k]!==undefined&&$(id)) $(id).checked=!!o[k]; });
+      buildResign(); await pqSleep(800); rcSave('resign',true); resetScale(); window.print(); await pqSleep(600);
+      await BE.pqDel(j.id); toast('🖨 اتطبعت أوراق «'+(j.name||'')+'»'+(j.by?' (من '+j.by+')':''));
+    }catch(e){ PQ.seen.delete(j.id); toast('تعذّر تنفيذ الطباعة: '+authMsg(e),true); }
+  });
+}
+async function pqSend(){
+  const s=rcSnap('resign'); if(!s.name){ toast('افتح بيانات موظف الأول',true); return; }
+  const o={cl:$('r_cl').checked,rq:$('r_rq').checked,rf:$('r_rf').checked,er:$('r_er').checked,ho:$('r_ho').checked,dx:$('k_dx_r').checked};
+  try{ rcSave('resign',true); await BE.pqSend({mod:'resign',ed:{...ED},opts:o,name:s.name,by:(ME&&(ME.name||ME.email))||'',at:Date.now()}); toast('اتبعت للطباعة على الكمبيوتر ✓'); }catch(e){ toast(authMsg(e),true); }
+}
+document.addEventListener('click',e=>{ const t=e.target; if(!t.closest) return; if(t.closest('#pq_send')) pqSend(); else if(t.closest('#pq_st')) pqStation(!PQ.on); });
 /* ---------------- جسر مديولات الشؤون الإدارية (سكربت منفصل) ---------------- */
 let ADMQ=Promise.resolve();
 function admWait(){ return new Promise((res,rej)=>{ let n=0; const t=setInterval(()=>{ if(window.ADM){ clearInterval(t); res(window.ADM); } else if(++n>200){ clearInterval(t); rej({message:'تعذّر تحميل مديولات الشؤون الإدارية — تأكد من الإنترنت'}); } },50); }); }
@@ -6242,7 +6275,7 @@ function route(){
 function onAuthState(profile,why){
   ME=profile||null; $('boot').hidden=true;
   if(!ME){
-    admCall('stop').catch(()=>{});
+    pqStop(); admCall('stop').catch(()=>{});
     $('shell').hidden=true; $('login').hidden=false;
     $('lg_err').textContent = why?authMsg({code:why}):(/^#\/r\//.test(location.hash)?'🔒 سجّل دخولك الأول عشان تفتح أوراق الإخلاء من كارت الـ ID':'');
     return;
@@ -7230,13 +7263,16 @@ function bfUsed(auth, itemId) {
 const bfPeriodLabel = p => p === 'month' ? 'شهرياً' : p === 'total' ? 'إجمالي' : 'يومياً';
 const bfRemaining = (auth, itemId) => Math.max(0, (Number((auth.limits || {})[itemId]) || 0) - bfUsed(auth, itemId));
 
+const bfIssueOnly = () => !!P && P.role !== 'admin' && acts_('buffet').includes('issueonly');
 window.switchBfTab = k => {
+  if (bfIssueOnly()) k = 'issue';
   if (!isAdmin() && (k === 'recv' || k === 'auth')) k = 'stock';
   bfTab = k;
   ['stock', 'issue', 'recv', 'auth'].forEach(t => { $('bf-pane-' + t).classList.toggle('hidden', t !== k); $('bf-tab-' + t).classList.toggle('active', t === k); });
   renderBuffet();
 };
 function setupBuffetUI() {
+  { const io = bfIssueOnly(); ['stock','recv','auth'].forEach(t => { const b = $('bf-tab-' + t); if (b && (io || t === 'stock')) b.classList.toggle('hidden', io); }); }
   document.querySelectorAll('#module-buffet [data-admin]').forEach(el => el.classList.toggle('hidden', !isAdmin()));
   if (!isAdmin()) $('bf-stock-card').classList.replace('lg:col-span-8', 'lg:col-span-12');
   else $('bf-stock-card').classList.replace('lg:col-span-12', 'lg:col-span-8');
@@ -7664,13 +7700,16 @@ function stUsed(auth, itemId) {
 const stPeriodLabel = p => p === 'month' ? 'شهرياً' : p === 'total' ? 'إجمالي' : 'يومياً';
 const stRemaining = (auth, itemId) => Math.max(0, (Number((auth.limits || {})[itemId]) || 0) - stUsed(auth, itemId));
 
+const stIssueOnly = () => !!P && P.role !== 'admin' && acts_('stationery').includes('issueonly');
 window.switchStTab = k => {
+  if (stIssueOnly()) k = 'issue';
   if (!isAdmin() && (k === 'recv' || k === 'auth')) k = 'stock';
   stTab = k;
   ['stock', 'issue', 'recv', 'auth'].forEach(t => { $('st-pane-' + t).classList.toggle('hidden', t !== k); $('st-tab-' + t).classList.toggle('active', t === k); });
   renderStationery();
 };
 function setupStationeryUI() {
+  { const io = stIssueOnly(); ['stock','recv','auth'].forEach(t => { const b = $('st-tab-' + t); if (b && (io || t === 'stock')) b.classList.toggle('hidden', io); }); }
   document.querySelectorAll('#module-stationery [data-admin]').forEach(el => el.classList.toggle('hidden', !isAdmin()));
   if (!isAdmin()) $('st-stock-card').classList.replace('lg:col-span-8', 'lg:col-span-12');
   else $('st-stock-card').classList.replace('lg:col-span-12', 'lg:col-span-8');
