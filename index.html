@@ -901,6 +901,12 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
               <div><label class="block font-bold mb-1">الرصيد الافتتاحي <span class="text-rose-500">*</span></label>
                 <input type="number" id="bf-item-open" required min="0" step="any" value="0" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"></div>
             </div>
+            <div><label class="block font-bold mb-1">نوع الصنف <span class="text-slate-400 font-normal">(تُطبَّق عليه سياسة الصرف)</span></label>
+              <div class="flex flex-wrap gap-x-4 gap-y-1.5 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2">
+                <label class="flex items-center gap-1.5"><input type="checkbox" id="bf-fl-drink"> مشروب</label>
+                <label class="flex items-center gap-1.5"><input type="checkbox" id="bf-fl-coffee"> قهوة</label>
+                <label class="flex items-center gap-1.5"><input type="checkbox" id="bf-fl-milk"> يحتوي لبن</label>
+                <label class="flex items-center gap-1.5"><input type="checkbox" id="bf-fl-water"> مياه معدنية</label></div></div>
             <div class="flex gap-2">
               <button type="submit" class="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl">حفظ الصنف</button>
               <button type="button" onclick="resetBfItemForm()" class="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 rounded-xl font-bold">جديد</button>
@@ -944,7 +950,7 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
             <select id="bf-issue-auth" required class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"></select></div>
           <div><label class="block font-bold mb-1">الصنف <span class="text-rose-500">*</span></label>
             <div class="flex gap-2"><select id="bf-issue-item" required class="flex-1 min-w-0 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"></select><button type="button" onclick="scanFor('bf','issue')" class="flex-none px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl whitespace-nowrap">📷 مسح</button></div>
-            <p id="bf-issue-hint" class="text-[11px] text-slate-500 mt-1"></p></div>
+            <p id="bf-issue-hint" class="text-[11px] text-slate-500 mt-1"></p><button type="button" onclick="bfPolView()" class="text-[11px] text-indigo-600 font-bold mt-1">📜 عرض سياسة الصرف</button></div>
           <div><label class="block font-bold mb-1">الكمية <span class="text-rose-500">*</span></label>
             <input type="number" id="bf-issue-qty" required min="0" step="any" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"></div>
           <div class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 flex items-center justify-between">
@@ -1017,6 +1023,18 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
 
   <!-- المخوّلون -->
   <div id="bf-pane-auth" class="hidden animate-fade-in">
+    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-6">
+      <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-4 border-b border-slate-100">
+        <h3 class="text-sm font-bold flex items-center gap-2"><i class="fa-solid fa-scale-balanced text-brand-600"></i><span>سياسة الصرف حسب الفئة (قابلة للتعديل)</span></h3>
+        <div class="flex flex-wrap gap-2 text-xs">
+          <button type="button" onclick="bfPolAddCat()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg font-bold">+ فئة</button>
+          <button type="button" onclick="bfPolReset()" class="px-3 py-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg font-bold">استرجاع الافتراضي</button>
+          <button type="button" onclick="bfPolSave()" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-bold"><i class="fa-solid fa-floppy-disk ml-1"></i> حفظ السياسة</button></div></div>
+      <div id="bf-pol-cats" class="grid grid-cols-1 xl:grid-cols-2 gap-3"></div>
+      <p class="text-[11px] text-slate-500 mt-3 leading-6">الحقل الفارغ = بلا حد. «أقصى قهوة» و«أقصى لبن» ضمن إجمالي المشروبات (مثال الإداري: 3 مشروبات، منها بحد أقصى 2 قهوة و2 فيها لبن ⇒ الثالث بدون لبن). أي موظف ممكن تعدّل له أي بند بشكل خاص من زر «تعديل».</p>
+      <details class="mt-3"><summary class="cursor-pointer font-bold text-xs">📜 نص السياسة الرسمي (يظهر لمسؤول البوفيه — عدّله بحرية)</summary>
+        <textarea id="bf-pol-text" rows="16" class="w-full mt-2 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs leading-7"></textarea></details>
+    </div>
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div class="lg:col-span-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
         <h3 class="text-sm font-bold pb-3 mb-4 border-b border-slate-100 flex items-center gap-2"><i class="fa-solid fa-user-plus text-brand-600"></i><span>إضافة موظف مخوّل بالصرف</span></h3>
@@ -1025,7 +1043,9 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
             <input type="text" id="bf-auth-name" required class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"></div>
           <div><label class="block font-bold mb-1">الوظيفة / الإدارة</label>
             <input type="text" id="bf-auth-job" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"></div>
-          <div><label class="block font-bold mb-1">فترة احتساب الحد</label>
+          <div><label class="block font-bold mb-1">الفئة (سياسة الصرف)</label>
+            <select id="bf-auth-cat" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"></select></div>
+          <div><label class="block font-bold mb-1">فترة احتساب الحد <span class="text-slate-400 font-normal">(للفئة المخصصة فقط)</span></label>
             <select id="bf-auth-period" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl">
               <option value="day">يومي (الحد يتجدد كل يوم)</option><option value="month">شهري (الحد يتجدد أول كل شهر)</option><option value="total">إجمالي (حد واحد بدون تجديد)</option></select></div>
           <button type="submit" class="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl">إضافة</button>
@@ -1033,7 +1053,12 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
         </form>
       </div>
       <div class="lg:col-span-8 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <h3 class="text-sm font-bold pb-3 mb-4 border-b border-slate-100">الموظفون المخوّلون وسياسة الصرف</h3>
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-4 border-b border-slate-100">
+          <h3 class="text-sm font-bold">الموظفون المخوّلون وسياسة الصرف</h3>
+          <div class="flex gap-2 text-xs">
+            <button type="button" onclick="bfAuthTpl()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg font-bold"><i class="fa-solid fa-download ml-1"></i> نموذج الشيت</button>
+            <button type="button" onclick="$('bf-auth-xlsx').click()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold"><i class="fa-solid fa-file-excel ml-1"></i> رفع شيت المخوّلين</button>
+            <input type="file" id="bf-auth-xlsx" accept=".xlsx,.xls,.csv" class="hidden"></div></div>
         <div class="overflow-x-auto custom-scrollbar">
           <table class="w-full text-right text-xs">
             <thead><tr class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
@@ -1266,6 +1291,34 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
 </main>
 
 <!-- نافذة تأكيد -->
+<div id="modal-bf-emp" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-3 text-xs max-h-[90vh] overflow-y-auto">
+    <h3 class="font-bold text-base">تعديل المخوّل وسياسته</h3>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="block font-bold mb-1">الاسم</label><input type="text" id="bfe-name" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"></div>
+      <div><label class="block font-bold mb-1">الوظيفة</label><input type="text" id="bfe-job" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"></div>
+    </div>
+    <div><label class="block font-bold mb-1">الفئة</label><select id="bfe-cat" onchange="bfeHint()" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"></select></div>
+    <div id="bfe-ov" class="space-y-2">
+      <p class="text-slate-500">استثناء خاص بهذا الموظف (اتركه فارغاً/افتراضي ليتبع الفئة):</p>
+      <div class="grid grid-cols-3 gap-2">
+        <div><label class="block font-bold mb-1">إجمالي المشروبات/يوم</label><input type="number" min="0" id="bfe-total" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg"></div>
+        <div><label class="block font-bold mb-1">أقصى قهوة</label><input type="number" min="0" id="bfe-coffee" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg"></div>
+        <div><label class="block font-bold mb-1">أقصى فيها لبن</label><input type="number" min="0" id="bfe-milk" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg"></div>
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        <div><label class="block font-bold mb-1">القهوة</label><select id="bfe-ac" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg"><option value="">افتراضي</option><option value="1">مسموح</option><option value="0">ممنوع</option></select></div>
+        <div><label class="block font-bold mb-1">اللبن</label><select id="bfe-am" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg"><option value="">افتراضي</option><option value="1">مسموح</option><option value="0">ممنوع</option></select></div>
+        <div><label class="block font-bold mb-1">المياه المعدنية</label><select id="bfe-aw" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg"><option value="">افتراضي</option><option value="1">مسموح</option><option value="0">ممنوع</option></select></div>
+      </div>
+    </div>
+    <p id="bfe-note" class="text-slate-500"></p>
+    <div class="flex justify-end gap-2">
+      <button type="button" onclick="$('modal-bf-emp').classList.add('hidden')" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 rounded-xl font-bold">إلغاء</button>
+      <button type="button" onclick="bfeSave()" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold">حفظ</button>
+    </div>
+  </div>
+</div>
 <div id="modal-bf-limits" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
   <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 text-xs max-h-[90vh] overflow-y-auto">
     <h3 class="font-bold text-base">الأصناف والحدود: <span id="bf-lim-name"></span></h3>
@@ -6532,7 +6585,7 @@ function startApp() {
   if (P.role === 'admin' || P.modules.includes('buffet')) {
     listen(collection(db, 'buffetItems'), d => S.bItems = d);
     listen(collection(db, 'buffetReceipts'), d => S.bRecs = d);
-    listen(collection(db, 'buffetAuth'), d => S.bAuth = d);
+    listen(collection(db, 'buffetAuth'), d => { S.bPol = d.find(x => x.id === '_policy') || null; S.bAuth = d.filter(x => x.id !== '_policy'); });
     listen(collection(db, 'buffetIssues'), d => S.bIss = d);
   }
   if (P.role === 'admin' || P.modules.includes('stationery')) {
@@ -7251,7 +7304,7 @@ const bfDate = d => d.toLocaleDateString('en-GB', { timeZone: CAIRO });
 const bfTime = d => d.toLocaleTimeString('ar-EG', { timeZone: CAIRO, hour: '2-digit', minute: '2-digit' });
 const bfDay = d => d.toLocaleDateString('en-CA', { timeZone: CAIRO });           // yyyy-mm-dd
 const bfTs = x => (x && x.ts && x.ts.toDate) ? x.ts.toDate() : (x && x.ts instanceof Date ? x.ts : new Date());
-S.bItems = []; S.bRecs = []; S.bAuth = []; S.bIss = [];
+S.bItems = []; S.bRecs = []; S.bAuth = []; S.bIss = []; S.bPol = null;
 let bfTab = 'stock', bfLimId = null;
 
 const bfSum = (arr, itemId) => arr.filter(x => x.itemId === itemId).reduce((s, x) => s + (Number(x.qty) || 0), 0);
@@ -7268,7 +7321,215 @@ function bfUsed(auth, itemId) {
   }).reduce((s, x) => s + (Number(x.qty) || 0), 0);
 }
 const bfPeriodLabel = p => p === 'month' ? 'شهرياً' : p === 'total' ? 'إجمالي' : 'يومياً';
-const bfRemaining = (auth, itemId) => Math.max(0, (Number((auth.limits || {})[itemId]) || 0) - bfUsed(auth, itemId));
+const bfRemaining = (auth, itemId) => { if (auth.cat) { const it = S.bItems.find(x => x.id === itemId); if (it && bfPolOf(auth)) return bfPolRem(auth, it); } return Math.max(0, (Number((auth.limits || {})[itemId]) || 0) - bfUsed(auth, itemId)); };
+
+
+/* ===== سياسة الصرف حسب الفئة ===== */
+const BF_RX = { coffee: /قهو|نسكافيه|نسكافية|كابتشينو|كابوتشينو|اسبريسو|إسبريسو|لاتيه|موكا|تركي|فرنساوي|coffee|nescafe/i, milk: /لبن|حليب|لاتيه|كابتشينو|كابوتشينو|ميلك|milk|latte|cappuc/i,
+  water: /مياه|مياة|ماء|مية|water/i, drink: /شاي|ينسون|نعناع|قرفة|حلبة|كركديه|عصير|مشروب|كاكاو|شيكولات|سحلب|ليمون|لمون|بيبسي|كولا|زنجبيل|جنزبيل|ساخن|قهو|نسكافيه|نسكافية|لاتيه|كابتشينو|كابوتشينو|مياه|مياة|ماء|مية|water|coffee|tea/i };
+const bfDetect = n => { n = String(n || ''); const w = BF_RX.water.test(n), c = BF_RX.coffee.test(n), m = BF_RX.milk.test(n); return { drink: w || c || m || BF_RX.drink.test(n), coffee: c, milk: m, water: w }; };
+const bfFl = it => (it && it.fl && typeof it.fl === 'object') ? it.fl : bfDetect(it && it.name);
+const BF_DEF_CATS = () => ({
+  asst:  { name: 'معاون المدير العام وضيوفه', total: null, maxCoffee: null, maxMilk: null, allowCoffee: true,  allowMilk: true,  allowWater: true },
+  mgr:   { name: 'المديرون',                  total: 3,    maxCoffee: null, maxMilk: null, allowCoffee: true,  allowMilk: true,  allowWater: false },
+  admin: { name: 'الإداريون',                 total: 3,    maxCoffee: 2,    maxMilk: 2,    allowCoffee: true,  allowMilk: true,  allowWater: false },
+  ops:   { name: 'العاملون بالتشغيل',         total: 2,    maxCoffee: null, maxMilk: null, allowCoffee: false, allowMilk: false, allowWater: false }
+});
+const BF_POL_TEXT = `سياسة صرف المشروبات بالبوفيه
+
+أولًا: معاون المدير العام وضيوفه
+- يحق لمعاون المدير العام الحصول على المشروبات دون حد أقصى طوال يوم العمل.
+- يسري الاستحقاق نفسه على ضيوف معاون المدير العام.
+- تُخصص المياه المعدنية حصريًا لمعاون المدير العام وضيوفه.
+
+ثانيًا: المديرون
+- يحق لكل مدير الحصول على عدد 3 مشروبات يوميًا.
+- يمكن اختيار أي نوع من المشروبات المتاحة بالبوفيه، دون تحديد نوع معين أو تقييد عدد المشروبات من كل نوع.
+
+ثالثًا: الإداريون
+- يحق لكل موظف إداري الحصول على عدد 3 مشروبات يوميًا، وفقًا للضوابط التالية:
+  • بحد أقصى عدد 2 قهوة يوميًا.
+  • المشروب الثالث يكون من المشروبات التي لا تحتوي على الحليب.
+
+رابعًا: العاملون بالتشغيل
+- يحق لكل عامل من العاملين بالتشغيل الحصول على عدد 2 مشروب يوميًا.
+- يشترط أن تكون المشروبات من الأنواع التي لا تحتوي على القهوة أو الحليب.
+
+خامسًا: ضوابط عامة
+1. يلتزم مسؤول البوفيه بتطبيق هذه السياسة وفقًا للفئة الوظيفية لكل موظف.
+2. لا يجوز تجاوز عدد المشروبات المحدد لكل فئة، باستثناء معاون المدير العام وضيوفه.
+3. لا يجوز صرف المياه المعدنية لأي فئة أخرى، وتُخصص حصريًا لمعاون المدير العام وضيوفه.
+4. يلتزم مسؤول البوفيه بتقديم المشروبات وفقًا للاستحقاقات المحددة، مع حسن التعامل والمحافظة على جودة الخدمة والنظافة.
+5. تتم متابعة الالتزام بهذه السياسة من قِبل الإدارة المختصة.
+
+يُعمل بهذه السياسة اعتبارًا من تاريخ اعتمادها، ويلتزم جميع العاملين ومسؤول البوفيه بتنفيذ ما ورد بها.`;
+const bfPols = () => (S.bPol && S.bPol.cats && Object.keys(S.bPol.cats).length) ? S.bPol.cats : BF_DEF_CATS();
+const bfPolText = () => (S.bPol && S.bPol.text) || BF_POL_TEXT;
+const bfLimN = v => (v === null || v === undefined || v === '' || isNaN(Number(v))) ? null : Number(v);
+function bfPolOf(a) {
+  const c = a && a.cat ? bfPols()[a.cat] : null; if (!c) return null;
+  const o = a.ov || {}, p = { ...c };
+  ['total', 'maxCoffee', 'maxMilk', 'allowCoffee', 'allowMilk', 'allowWater'].forEach(k => { if (o[k] !== undefined && o[k] !== null && o[k] !== '') p[k] = o[k]; });
+  return p;
+}
+function bfPolUse(a) {
+  const today = bfDay(new Date()); let tot = 0, cof = 0, mk = 0;
+  S.bIss.filter(x => x.authId === a.id && bfDay(bfTs(x)) === today).forEach(x => {
+    const it = S.bItems.find(i => i.id === x.itemId); if (!it) return; const f = bfFl(it); if (!f.drink) return;
+    const q = Number(x.qty) || 0; tot += q; if (f.coffee) cof += q; if (f.milk) mk += q; });
+  return { tot, cof, mk };
+}
+// null = مسموح من حيث النوع، وإلا سبب المنع
+function bfPolBlock(a, it) {
+  const p = bfPolOf(a), f = bfFl(it); if (!p) return null;
+  if (f.water && !p.allowWater) return 'المياه المعدنية مخصصة لمعاون المدير العام وضيوفه فقط';
+  if (f.coffee && p.allowCoffee === false) return 'هذه الفئة لا يُصرف لها القهوة';
+  if (f.milk && p.allowMilk === false) return 'هذه الفئة لا يُصرف لها مشروبات تحتوي على اللبن';
+  return null;
+}
+function bfPolWhy(a, it) {
+  const b = bfPolBlock(a, it); if (b) return b;
+  const p = bfPolOf(a), f = bfFl(it), u = bfPolUse(a); if (!f.drink) return '';
+  const T = bfLimN(p.total), C = bfLimN(p.maxCoffee), M = bfLimN(p.maxMilk);
+  if (T !== null && u.tot >= T) return `استنفد الموظف حدّه اليومي (${T} مشروبات)`;
+  if (f.coffee && C !== null && u.cof >= C) return `وصل للحد الأقصى من القهوة اليوم (${C})`;
+  if (f.milk && M !== null && u.mk >= M) return `وصل للحد الأقصى من المشروبات التي تحتوي لبن (${M}) — المتبقي له مشروب بدون لبن`;
+  return '';
+}
+function bfPolRem(a, it) {
+  if (bfPolBlock(a, it)) return 0;
+  const p = bfPolOf(a), f = bfFl(it); if (!f.drink) return 999;
+  const u = bfPolUse(a), T = bfLimN(p.total), C = bfLimN(p.maxCoffee), M = bfLimN(p.maxMilk); let r = Infinity;
+  if (T !== null) r = Math.min(r, T - u.tot);
+  if (f.coffee && C !== null) r = Math.min(r, C - u.cof);
+  if (f.milk && M !== null) r = Math.min(r, M - u.mk);
+  return r === Infinity ? 999 : Math.max(0, r);
+}
+const bfLim = (a, it) => a.cat && bfPolOf(a) ? (bfPolBlock(a, it) ? 0 : 1) : (Number((a.limits || {})[it.id]) || 0);
+function bfPolSummary(a) {
+  const p = bfPolOf(a); if (!p) return ''; const u = bfPolUse(a), T = bfLimN(p.total), C = bfLimN(p.maxCoffee), M = bfLimN(p.maxMilk);
+  return `الفئة: ${(bfPols()[a.cat] || {}).name} — اليوم: ${bfNum(u.tot)}${T !== null ? ' من ' + T : ' (بلا حد)'} مشروب` + (C !== null ? ` · قهوة ${bfNum(u.cof)}/${C}` : '') + (M !== null ? ` · فيها لبن ${bfNum(u.mk)}/${M}` : '');
+}
+function bfPolChips(a) {
+  const p = bfPolOf(a); if (!p) return ''; const T = bfLimN(p.total), C = bfLimN(p.maxCoffee), M = bfLimN(p.maxMilk);
+  const ch = t => `<span class="inline-block bg-sky-50 text-sky-800 rounded px-1.5 py-0.5 m-0.5">${t}</span>`;
+  return ch(T !== null ? `${T} مشروبات/يوم` : 'بلا حد') + (C !== null ? ch(`قهوة ≤ ${C}`) : '') + (M !== null ? ch(`لبن ≤ ${M}`) : '')
+    + (p.allowCoffee === false ? ch('بدون قهوة') : '') + (p.allowMilk === false ? ch('بدون لبن') : '') + (p.allowWater ? ch('مياه معدنية ✓') : '') + (a.ov && Object.keys(a.ov).length ? ch('استثناء خاص') : '');
+}
+window.bfPolView = () => {
+  const ov = scnOverlay(`<div class="scn-h"><b>📜 سياسة صرف البوفيه</b><button type="button" data-x>✕</button></div><div style="white-space:pre-wrap;line-height:1.9;font-size:13px">${esc(bfPolText())}</div>`);
+  ov.querySelector('[data-x]').onclick = () => ov.remove();
+};
+/* --- لوحة السياسة (مدير النظام) --- */
+let BF_DRAFT = null, bfPolEditing = false;
+const bfCatHtml = (id, c) => `<div class="border border-slate-200 rounded-xl p-3 space-y-2 bg-slate-50/60" data-cat="${id}">
+  <div class="flex gap-2"><input type="text" data-f="name" value="${esc(c.name || '')}" class="flex-1 px-2 py-1.5 bg-white border border-slate-300 rounded-lg font-bold">
+    <button type="button" onclick="bfPolDelCat('${id}')" class="px-2 text-rose-600 hover:bg-rose-50 rounded-lg" title="حذف الفئة"><i class="fa-solid fa-trash"></i></button></div>
+  <div class="grid grid-cols-3 gap-2">
+    <label>إجمالي/يوم<input type="number" min="0" data-f="total" value="${c.total ?? ''}" placeholder="بلا حد" class="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg"></label>
+    <label>أقصى قهوة<input type="number" min="0" data-f="maxCoffee" value="${c.maxCoffee ?? ''}" placeholder="بلا حد" class="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg"></label>
+    <label>أقصى فيها لبن<input type="number" min="0" data-f="maxMilk" value="${c.maxMilk ?? ''}" placeholder="بلا حد" class="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg"></label></div>
+  <div class="flex flex-wrap gap-x-4 gap-y-1">
+    <label class="flex items-center gap-1.5"><input type="checkbox" data-f="allowCoffee" ${c.allowCoffee !== false ? 'checked' : ''}> يُصرف له قهوة</label>
+    <label class="flex items-center gap-1.5"><input type="checkbox" data-f="allowMilk" ${c.allowMilk !== false ? 'checked' : ''}> يُصرف له مشروبات بلبن</label>
+    <label class="flex items-center gap-1.5"><input type="checkbox" data-f="allowWater" ${c.allowWater ? 'checked' : ''}> مياه معدنية</label></div></div>`;
+function bfPolRead() {
+  const cats = {}; document.querySelectorAll('#bf-pol-cats [data-cat]').forEach(box => {
+    const g = f => box.querySelector(`[data-f="${f}"]`), n = f => bfLimN(g(f).value);
+    cats[box.dataset.cat] = { name: g('name').value.trim() || 'فئة', total: n('total'), maxCoffee: n('maxCoffee'), maxMilk: n('maxMilk'), allowCoffee: g('allowCoffee').checked, allowMilk: g('allowMilk').checked, allowWater: g('allowWater').checked }; });
+  return cats;
+}
+function renderBfPol(force) {
+  const box = $('bf-pol-cats'); if (!box) return;
+  if (bfPolEditing && !force) return;
+  const cats = BF_DRAFT || bfPols();
+  box.innerHTML = Object.entries(cats).map(([id, c]) => bfCatHtml(id, c)).join('');
+  $('bf-pol-text').value = bfPolText();
+  box.oninput = $('bf-pol-text').oninput = () => { bfPolEditing = true; };
+}
+window.bfPolAddCat = () => { BF_DRAFT = bfPolRead(); BF_DRAFT['c' + Date.now()] = { name: 'فئة جديدة', total: 3, maxCoffee: null, maxMilk: null, allowCoffee: true, allowMilk: true, allowWater: false }; bfPolEditing = true; renderBfPol(true); };
+window.bfPolDelCat = id => {
+  if (S.bAuth.some(a => a.cat === id)) return toast('في موظفين على الفئة دي — انقلهم لفئة تانية الأول', 'warning');
+  BF_DRAFT = bfPolRead(); delete BF_DRAFT[id]; bfPolEditing = true; renderBfPol(true);
+};
+window.bfPolReset = () => askConfirm('استرجاع الافتراضي', 'هترجع الفئات والنص لسياسة الصرف المعتمدة الأصلية (لا يؤثر على الموظفين). متابعة؟', () => { BF_DRAFT = BF_DEF_CATS(); $('bf-pol-text').value = BF_POL_TEXT; bfPolEditing = true; renderBfPol(true); $('bf-pol-text').value = BF_POL_TEXT; toast('اضغط «حفظ السياسة» للتثبيت', 'info'); });
+window.bfPolSave = async () => {
+  if (!isAdmin()) return; const cats = bfPolRead();
+  if (!Object.keys(cats).length) return toast('لازم تفضل فئة واحدة على الأقل', 'warning');
+  try {
+    await setDoc(doc(db, 'buffetAuth', '_policy'), { isPolicy: true, name: '_policy', cats, text: $('bf-pol-text').value, createdAt: Date.now() });
+    BF_DRAFT = null; bfPolEditing = false; toast('تم حفظ سياسة الصرف', 'success'); renderBfPol(true);
+  } catch (err) { toast(errMsg(err), 'error'); }
+};
+function bfCatOptions(sel, withCustom) {
+  const cats = bfPols(); return Object.entries(cats).map(([id, c]) => `<option value="${id}" ${id === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join('') + (withCustom ? `<option value="" ${sel === '' ? 'selected' : ''}>مخصص (حدود يدوية لكل صنف)</option>` : '');
+}
+let BFE_ID = null;
+window.bfeHint = () => {
+  const cat = $('bfe-cat').value; $('bfe-ov').classList.toggle('hidden', !cat);
+  const c = bfPols()[cat]; $('bfe-note').textContent = cat && c ? `الافتراضي للفئة: ${bfLimN(c.total) === null ? 'بلا حد' : c.total + ' مشروبات'}${bfLimN(c.maxCoffee) !== null ? ' · قهوة ≤ ' + c.maxCoffee : ''}${bfLimN(c.maxMilk) !== null ? ' · لبن ≤ ' + c.maxMilk : ''}` : 'فئة مخصصة: حدد الأصناف والحدود من زر «الأصناف والحدود».';
+};
+window.bfEditEmp = id => {
+  const a = S.bAuth.find(x => x.id === id); if (!a) return; BFE_ID = id;
+  $('bfe-name').value = a.name; $('bfe-job').value = a.job || ''; $('bfe-cat').innerHTML = bfCatOptions(a.cat || '', true);
+  const o = a.ov || {}; $('bfe-total').value = o.total ?? ''; $('bfe-coffee').value = o.maxCoffee ?? ''; $('bfe-milk').value = o.maxMilk ?? '';
+  const tri = v => v === true || v === 1 ? '1' : v === false || v === 0 ? '0' : '';
+  $('bfe-ac').value = tri(o.allowCoffee); $('bfe-am').value = tri(o.allowMilk); $('bfe-aw').value = tri(o.allowWater);
+  bfeHint(); $('modal-bf-emp').classList.remove('hidden');
+};
+window.bfeSave = async () => {
+  const a = S.bAuth.find(x => x.id === BFE_ID); if (!a) return; const name = $('bfe-name').value.trim(); if (!name) return toast('الاسم مطلوب', 'warning');
+  if (S.bAuth.some(x => x.id !== a.id && bfNorm(x.name) === bfNorm(name))) return toast('الاسم موجود لموظف آخر', 'warning');
+  const cat = $('bfe-cat').value, ov = {}, n = id => bfLimN($(id).value), tri = id => $(id).value === '' ? undefined : $(id).value === '1';
+  if (cat) { const t = n('bfe-total'), c = n('bfe-coffee'), m = n('bfe-milk'); if (t !== null) ov.total = t; if (c !== null) ov.maxCoffee = c; if (m !== null) ov.maxMilk = m;
+    [['allowCoffee', 'bfe-ac'], ['allowMilk', 'bfe-am'], ['allowWater', 'bfe-aw']].forEach(([k, id]) => { const v = tri(id); if (v !== undefined) ov[k] = v; }); }
+  try {
+    const d = { name, job: $('bfe-job').value.trim(), period: cat ? 'day' : (a.period || 'day'), limits: cat ? {} : (a.limits || {}), createdAt: a.createdAt || Date.now() };
+    if (cat) { d.cat = cat; if (Object.keys(ov).length) d.ov = ov; }
+    await setDoc(doc(db, 'buffetAuth', a.id), d); toast('تم الحفظ', 'success'); $('modal-bf-emp').classList.add('hidden');
+  } catch (err) { toast(errMsg(err), 'error'); }
+};
+/* --- رفع شيت المخوّلين --- */
+window.bfAuthTpl = () => {
+  const ws = XLSX.utils.aoa_to_sheet([['الاسم', 'الوظيفة', 'الفئة'], ['أحمد محمد', 'مدير الإنتاج', 'مدير'], ['منى علي', 'محاسب', 'إداري'], ['محمود سعيد', 'عامل تعبئة', 'تشغيل'], ['ضيوف معاون المدير العام', '', 'معاون المدير']]);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'المخوّلون'); XLSX.writeFile(wb, 'نموذج_مخوّلي_البوفيه.xlsx');
+};
+function bfCatFromText(t) {
+  const s = bfNorm(t); if (!s) return null; const cats = bfPols();
+  for (const [id, c] of Object.entries(cats)) if (bfNorm(c.name) === s) return id;
+  for (const [id, c] of Object.entries(cats)) if (bfNorm(c.name).includes(s) || s.includes(bfNorm(c.name))) return id;
+  const al = [['asst', /معاون|ضيف|ضيوف/], ['mgr', /مدير|رئيس|مسؤول|مسئول/], ['admin', /اداري|اداره|ادارى|موظف|محاسب|سكرتير/], ['ops', /تشغيل|عامل|عمال|انتاج|مصنع|فني/]];
+  for (const [id, rx] of al) if (rx.test(s) && cats[id]) return id; return null;
+}
+$('bf-auth-xlsx').addEventListener('change', async e => {
+  const file = e.target.files[0]; e.target.value = ''; if (!file || !isAdmin()) return;
+  try {
+    const wb = XLSX.read(new Uint8Array(await file.arrayBuffer()), { type: 'array' });
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: null });
+    const hi = rows.findIndex(r => r && r.some(c => /اسم/.test(String(c || ''))));
+    if (hi < 0) return toast('ما لقيتش عمود "الاسم" في أول صفوف الشيت', 'error');
+    const head = rows[hi].map(c => String(c || ''));
+    const cN = head.findIndex(h => /اسم/.test(h)), cJ = head.findIndex(h => /وظيف|ادار|إدار|قسم/.test(h) && !/فئ|فئة/.test(h)), cC = head.findIndex(h => /فئ|نوع|تصنيف|سياس/.test(h));
+    if (cC < 0) return toast('ما لقيتش عمود "الفئة" (معاون المدير / مدير / إداري / تشغيل)', 'error');
+    const list = []; let unk = 0;
+    for (let i = hi + 1; i < rows.length; i++) {
+      const r = rows[i] || []; const name = String(r[cN] ?? '').trim(); if (!name) continue;
+      const cat = bfCatFromText(String(r[cC] ?? '')); if (!cat) unk++;
+      list.push({ name, job: cJ >= 0 ? String(r[cJ] ?? '').trim() : '', cat: cat || '' });
+    }
+    if (!list.length) return toast('الشيت مفيهوش أسماء', 'warning');
+    let add = 0, upd = 0; const ops = [];
+    list.forEach(v => {
+      const ex = S.bAuth.find(x => bfNorm(x.name) === bfNorm(v.name));
+      if (ex) { upd++; ops.push(b => b.set(doc(db, 'buffetAuth', ex.id), v.cat ? { name: ex.name, job: v.job || ex.job || '', period: 'day', limits: {}, cat: v.cat, ...(ex.cat === v.cat && ex.ov ? { ov: ex.ov } : {}), createdAt: ex.createdAt || Date.now() } : { ...ex, id: undefined, job: v.job || ex.job || '' })); }
+      else { add++; ops.push(b => b.set(doc(collection(db, 'buffetAuth')), v.cat ? { name: v.name, job: v.job, period: 'day', limits: {}, cat: v.cat, createdAt: Date.now() } : { name: v.name, job: v.job, period: 'day', limits: {}, createdAt: Date.now() })); }
+    });
+    askConfirm('رفع المخوّلين', `سيتم إضافة ${add} موظف جديد وتحديث فئة ${upd} موظف موجود.${unk ? ' ⚠ ' + unk + ' صف فئته غير مفهومة (هيتضاف كفئة مخصصة بدون أصناف — عدّلها بعد الرفع).' : ''} متابعة؟`, async () => {
+      try { for (let i = 0; i < ops.length; i += 400) { const b = writeBatch(db); ops.slice(i, i + 400).forEach(f => f(b)); await b.commit(); } toast(`تم: ${add} جديد، ${upd} محدّث`, 'success'); }
+      catch (err) { toast(errMsg(err), 'error'); }
+    });
+  } catch (err) { toast('تعذر قراءة الملف: ' + errMsg(err), 'error'); }
+});
 
 const bfIssueOnly = () => !!P && P.role !== 'admin' && acts_('buffet').includes('issueonly');
 window.switchBfTab = k => {
@@ -7301,7 +7562,7 @@ function renderBfStock() {
   $('bf-stock-body').innerHTML = rows.map(it => {
     const bal = bfBalance(it);
     return `<tr class="hover:bg-slate-50">
-      <td class="p-2.5 font-bold">${esc(it.name)}</td><td class="p-2.5 text-slate-500">${esc(it.unit || '-')}</td>
+      <td class="p-2.5 font-bold">${esc(it.name)}${(f => (f.water ? ' <span class="text-[9px] bg-sky-100 text-sky-700 rounded px-1">مياه</span>' : '') + (f.coffee ? ' <span class="text-[9px] bg-amber-100 text-amber-800 rounded px-1">قهوة</span>' : '') + (f.milk ? ' <span class="text-[9px] bg-slate-200 text-slate-700 rounded px-1">لبن</span>' : '') + (f.drink && !f.water && !f.coffee && !f.milk ? ' <span class="text-[9px] bg-emerald-100 text-emerald-700 rounded px-1">مشروب</span>' : ''))(bfFl(it))}</td><td class="p-2.5 text-slate-500">${esc(it.unit || '-')}</td>
       <td class="p-2.5">${bfNum(it.opening)}</td><td class="p-2.5 text-emerald-700">${bfNum(bfSum(S.bRecs, it.id))}</td><td class="p-2.5 text-rose-700">${bfNum(bfSum(S.bIss, it.id))}</td>
       <td class="p-2.5 font-bold ${bal <= 0 ? 'text-rose-600' : ''}">${bfNum(bal)}</td>
       ${admin ? `<td class="p-2.5 text-center whitespace-nowrap">
@@ -7312,7 +7573,7 @@ function renderBfStock() {
 /* ===== ماسح QR / باركود ===== */
 const SCN = {
   st: { items: () => S.sItems, coll: 'stationeryItems', bal: it => stBalance(it), num: n => stNum(n), norm: s => stNorm(s), auth: () => S.sAuth, rem: (a, id) => stRemaining(a, id), per: p => stPeriodLabel(p), day: () => stDay(new Date()) },
-  bf: { items: () => S.bItems, coll: 'buffetItems', bal: it => bfBalance(it), num: n => bfNum(n), norm: s => bfNorm(s), auth: () => S.bAuth, rem: (a, id) => bfRemaining(a, id), per: p => bfPeriodLabel(p), day: () => bfDay(new Date()) }
+  bf: { items: () => S.bItems, coll: 'buffetItems', bal: it => bfBalance(it), num: n => bfNum(n), norm: s => bfNorm(s), auth: () => S.bAuth, lim: (a, it) => bfLim(a, it), rem: (a, id) => bfRemaining(a, id), per: p => bfPeriodLabel(p), day: () => bfDay(new Date()) }
 };
 (function () { const st = document.createElement('style'); st.textContent = `
 .scn-ov{position:fixed;inset:0;background:rgba(15,23,42,.7);z-index:100000;display:flex;align-items:center;justify-content:center;padding:12px;direction:rtl;font-family:inherit}
@@ -7394,7 +7655,7 @@ function scnQty(pre, mode, it) {
   const c = SCN[pre]; const auth = mode === 'issue' ? c.auth().find(a => a.id === $(pre + '-issue-auth').value) : null;
   let max = Infinity, info = `الرصيد الحالي: <b>${c.num(c.bal(it))}</b> ${esc(it.unit || '')}`;
   if (mode === 'issue') {
-    const lim = Number((auth.limits || {})[it.id]) || 0; if (!(lim > 0)) return toast('الصنف ده مش مصرّح لهذا الموظف', 'error');
+    const lim = c.lim ? c.lim(auth, it) : (Number((auth.limits || {})[it.id]) || 0); if (!(lim > 0)) return toast((pre === 'bf' && auth.cat && bfPolBlock(auth, it)) || 'الصنف ده مش مصرّح لهذا الموظف', 'error');
     const rem = c.rem(auth, it.id); max = Math.min(rem, c.bal(it)); info += `<br>المتاح لـ <b>${esc(auth.name)}</b>: <b>${c.num(rem)}</b> (${c.per(auth.period)})`;
     if (!(max > 0)) return toast('مفيش كمية متاحة من الصنف ده للموظف (الحد أو الرصيد خلص)', 'error');
   }
@@ -7429,10 +7690,11 @@ window.scanFor = (pre, mode) => {
 };
 
 $('bf-stock-search').addEventListener('input', renderBfStock);
-window.resetBfItemForm = () => { $('bf-item-form').reset(); $('bf-item-id').value = ''; $('bf-item-open').value = 0; $('bf-item-form-title').textContent = 'إضافة صنف'; };
+$('bf-item-name').addEventListener('input', () => { if ($('bf-item-id').value) return; const f = bfDetect($('bf-item-name').value); ['drink','coffee','milk','water'].forEach(k => $('bf-fl-' + k).checked = f[k]); });
+window.resetBfItemForm = () => { $('bf-item-form').reset(); ['drink','coffee','milk','water'].forEach(k => $('bf-fl-' + k).checked = false); $('bf-item-id').value = ''; $('bf-item-open').value = 0; $('bf-item-form-title').textContent = 'إضافة صنف'; };
 window.editBfItem = id => {
   const it = S.bItems.find(x => x.id === id); if (!it) return;
-  $('bf-item-id').value = it.id; $('bf-item-name').value = it.name; $('bf-item-unit').value = it.unit || ''; $('bf-item-open').value = it.opening; $('bf-item-code').value = it.code || '';
+  $('bf-item-id').value = it.id; $('bf-item-name').value = it.name; $('bf-item-unit').value = it.unit || ''; $('bf-item-open').value = it.opening; $('bf-item-code').value = it.code || ''; { const f = bfFl(it); ['drink','coffee','milk','water'].forEach(k => $('bf-fl-' + k).checked = !!f[k]); }
   $('bf-item-form-title').textContent = 'تعديل صنف'; window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 $('bf-item-form').addEventListener('submit', async e => {
@@ -7444,7 +7706,7 @@ $('bf-item-form').addEventListener('submit', async e => {
   { const cd = ($('bf-item-code').value || '').trim(); if (cd && S.bItems.some(x => x.id !== id && x.code && bfNorm(x.code) === bfNorm(cd))) return toast('الكود ده مربوط بصنف تاني', 'warning'); }
   try {
     const ref = id ? doc(db, 'buffetItems', id) : doc(collection(db, 'buffetItems'));
-    await setDoc(ref, { name, code: ($('bf-item-code').value || '').trim(), unit: $('bf-item-unit').value.trim(), opening, createdAt: id ? (S.bItems.find(x => x.id === id) || {}).createdAt || Date.now() : Date.now() });
+    await setDoc(ref, { name, code: ($('bf-item-code').value || '').trim(), unit: $('bf-item-unit').value.trim(), opening, fl: { drink: $('bf-fl-drink').checked || $('bf-fl-coffee').checked || $('bf-fl-milk').checked || $('bf-fl-water').checked, coffee: $('bf-fl-coffee').checked, milk: $('bf-fl-milk').checked, water: $('bf-fl-water').checked }, createdAt: id ? (S.bItems.find(x => x.id === id) || {}).createdAt || Date.now() : Date.now() });
     toast(id ? 'تم تعديل الصنف' : 'تمت إضافة الصنف', 'success'); window.resetBfItemForm();
   } catch (err) { toast(errMsg(err), 'error'); }
 });
@@ -7488,7 +7750,7 @@ $('bf-xlsx').addEventListener('change', async e => {
     let add = 0, upd = 0; const ops = [];
     parsed.forEach((v, k) => {
       const ex = S.bItems.find(x => bfNorm(x.name) === k);
-      if (ex) { upd++; ops.push(b => b.set(doc(db, 'buffetItems', ex.id), { code: ex.code || '', name: ex.name, unit: v.unit || ex.unit || '', opening: v.opening, createdAt: ex.createdAt || Date.now() })); }
+      if (ex) { upd++; ops.push(b => b.set(doc(db, 'buffetItems', ex.id), { ...(ex.fl ? { fl: ex.fl } : {}), code: ex.code || '', name: ex.name, unit: v.unit || ex.unit || '', opening: v.opening, createdAt: ex.createdAt || Date.now() })); }
       else { add++; ops.push(b => b.set(doc(collection(db, 'buffetItems')), { name: v.name, unit: v.unit, opening: v.opening, createdAt: Date.now() })); }
     });
     askConfirm('رفع الأصناف', `سيتم إضافة ${add} صنف جديد وتحديث الرصيد الافتتاحي لـ ${upd} صنف موجود. متابعة؟`, async () => {
@@ -7541,7 +7803,7 @@ function refreshBfIssueItems() {
   const auth = S.bAuth.find(a => a.id === $('bf-issue-auth').value);
   const sel = $('bf-issue-item'), cur = sel.value;
   if (!auth) { sel.innerHTML = `<option value="">-- اختر الموظف أولاً --</option>`; $('bf-issue-hint').textContent = ''; return; }
-  const allowed = bfSortedItems().filter(it => Number((auth.limits || {})[it.id]) > 0);
+  const allowed = bfSortedItems().filter(it => bfLim(auth, it) > 0);
   sel.innerHTML = allowed.length ? `<option value="">-- اختر الصنف --</option>` + allowed.map(it => `<option value="${it.id}">${esc(it.name)}</option>`).join('')
     : `<option value="">لا توجد أصناف مصرّح بها لهذا الموظف</option>`;
   sel.value = allowed.some(i => i.id === cur) ? cur : '';
@@ -7549,6 +7811,11 @@ function refreshBfIssueItems() {
 }
 function updateBfHint() {
   const auth = S.bAuth.find(a => a.id === $('bf-issue-auth').value), it = S.bItems.find(x => x.id === $('bf-issue-item').value);
+  if (auth && auth.cat && bfPolOf(auth)) {
+    const r = it ? bfPolRem(auth, it) : null, why = it ? bfPolWhy(auth, it) : '';
+    $('bf-issue-hint').textContent = bfPolSummary(auth) + (it ? (why ? ' — ⛔ ' + why : ` — المتاح من هذا الصنف: ${r >= 999 ? 'بلا حد' : bfNum(r)} — رصيد البوفيه: ${bfNum(bfBalance(it))} ${it.unit || ''}`) : '');
+    return;
+  }
   $('bf-issue-hint').textContent = (auth && it)
     ? `المتاح لهذا الموظف: ${bfNum(bfRemaining(auth, it.id))} من حد ${bfNum(auth.limits[it.id])} (${bfPeriodLabel(auth.period)}) — رصيد البوفيه: ${bfNum(bfBalance(it))} ${it.unit || ''}` : '';
 }
@@ -7563,7 +7830,7 @@ $('bf-issue-form').addEventListener('submit', async e => {
   if (!file) return toast('المرفق مطلوب لأي عملية صرف', 'warning');
   if (file.size > MAX_DOC) return toast('المرفق أكبر من 5 ميجابايت', 'warning');
   const rem = bfRemaining(auth, it.id);
-  if (qty > rem) return toast(`الكمية أكبر من المسموح لهذا الموظف. المتبقي له: ${bfNum(rem)} (${bfPeriodLabel(auth.period)})`, 'error');
+  if (qty > rem) return toast((auth.cat && bfPolOf(auth) && bfPolWhy(auth, it)) ? '⛔ ' + bfPolWhy(auth, it) : `الكمية أكبر من المسموح لهذا الموظف. المتبقي له: ${bfNum(rem)} (${bfPeriodLabel(auth.period)})`, 'error');
   if (qty > bfBalance(it)) return toast(`الكمية أكبر من رصيد البوفيه (${bfNum(bfBalance(it))})`, 'error');
   const btn = $('bf-issue-btn'); btn.disabled = true; const label = btn.innerHTML; btn.textContent = 'جارٍ الرفع...';
   try {
@@ -7629,12 +7896,15 @@ window.deleteBfRecv = id => askConfirm('حذف وارد', 'سيتم حذف ال�
 
 /* --- المخوّلون وسياسة الصرف (مدير النظام) --- */
 function renderBfAuth() {
+  renderBfPol(); { const s = $('bf-auth-cat'); if (s && document.activeElement !== s) { const cur = s.value; s.innerHTML = bfCatOptions(cur || 'admin', true); } }
   $('bf-auth-body').innerHTML = [...S.bAuth].sort((a, b) => a.name.localeCompare(b.name, 'ar')).map(a => {
-    const chips = Object.entries(a.limits || {}).map(([iid, max]) => { const it = S.bItems.find(x => x.id === iid); return it && max > 0 ? `<span class="inline-block bg-sky-50 text-sky-800 rounded px-1.5 py-0.5 m-0.5">${esc(it.name)}: ${bfNum(max)}</span>` : ''; }).join('')
+    const chips0 = a.cat && bfPolOf(a) ? bfPolChips(a) : '';
+    const chips = chips0 || Object.entries(a.limits || {}).map(([iid, max]) => { const it = S.bItems.find(x => x.id === iid); return it && max > 0 ? `<span class="inline-block bg-sky-50 text-sky-800 rounded px-1.5 py-0.5 m-0.5">${esc(it.name)}: ${bfNum(max)}</span>` : ''; }).join('')
       || '<span class="text-rose-500">لم تُحدد أصناف</span>';
     return `<tr class="hover:bg-slate-50"><td class="p-2.5 font-bold">${esc(a.name)}<span class="block text-[10px] text-slate-400 font-normal">${esc(a.job || '')}</span></td>
-      <td class="p-2.5">${bfPeriodLabel(a.period)}</td><td class="p-2.5 text-[11px]">${chips}</td>
-      <td class="p-2.5 text-center whitespace-nowrap"><button onclick="openBfLimits('${a.id}')" class="px-2 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded font-bold text-[10px]"><i class="fa-solid fa-sliders"></i> الأصناف والحدود</button>
+      <td class="p-2.5">${a.cat && bfPols()[a.cat] ? `<b>${esc(bfPols()[a.cat].name)}</b>` : bfPeriodLabel(a.period) + ' <span class="text-[10px] text-slate-400">(مخصص)</span>'}</td><td class="p-2.5 text-[11px]">${chips}</td>
+      <td class="p-2.5 text-center whitespace-nowrap"><button onclick="bfEditEmp('${a.id}')" class="px-2 py-1 bg-sky-50 text-sky-700 hover:bg-sky-100 rounded font-bold text-[10px]"><i class="fa-solid fa-pen"></i> تعديل</button>
+      ${a.cat ? '' : `<button onclick="openBfLimits('${a.id}')" class="px-2 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded font-bold text-[10px]"><i class="fa-solid fa-sliders"></i> الأصناف والحدود</button>`}
       <button onclick="deleteBfAuth('${a.id}')" class="px-2 py-1 text-rose-600 hover:bg-rose-50 rounded text-[10px]"><i class="fa-solid fa-trash"></i></button></td></tr>`;
   }).join('') || `<tr><td colspan="4" class="p-6 text-center text-slate-400">لم تتم إضافة موظفين مخوّلين</td></tr>`;
 }
@@ -7644,8 +7914,9 @@ $('bf-auth-form').addEventListener('submit', async e => {
   if (S.bAuth.some(a => bfNorm(a.name) === bfNorm(name))) return toast('الموظف مضاف بالفعل', 'warning');
   try {
     const ref = doc(collection(db, 'buffetAuth'));
-    await setDoc(ref, { name, job: $('bf-auth-job').value.trim(), period: $('bf-auth-period').value, limits: {}, createdAt: Date.now() });
-    $('bf-auth-form').reset(); toast('تمت الإضافة، حدد له الأصناف والحدود', 'success'); setTimeout(() => window.openBfLimits(ref.id), 400);
+    const cat = $('bf-auth-cat').value;
+    await setDoc(ref, cat ? { name, job: $('bf-auth-job').value.trim(), period: 'day', limits: {}, cat, createdAt: Date.now() } : { name, job: $('bf-auth-job').value.trim(), period: $('bf-auth-period').value, limits: {}, createdAt: Date.now() });
+    $('bf-auth-form').reset(); $('bf-auth-cat').value = cat; if (cat) toast('تمت الإضافة وفق سياسة الفئة', 'success'); else { toast('تمت الإضافة، حدد له الأصناف والحدود', 'success'); setTimeout(() => window.openBfLimits(ref.id), 400); }
   } catch (err) { toast(errMsg(err), 'error'); }
 });
 window.openBfLimits = id => {

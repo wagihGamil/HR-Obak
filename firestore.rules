@@ -155,7 +155,8 @@ service cloud.firestore {
                         && request.resource.data.qty is number
                         && request.resource.data.qty > 0
                         && exists(/databases/$(database)/documents/buffetAuth/$(request.resource.data.authId))
-                        && get(/databases/$(database)/documents/buffetAuth/$(request.resource.data.authId)).data.limits[request.resource.data.itemId] >= request.resource.data.qty);
+                        && (get(/databases/$(database)/documents/buffetAuth/$(request.resource.data.authId)).data.get('cat', '') != ''
+                            || get(/databases/$(database)/documents/buffetAuth/$(request.resource.data.authId)).data.limits[request.resource.data.itemId] >= request.resource.data.qty));
       allow update: if canA('buffet','edit');
       allow delete: if canA('buffet','delete');
       match /chunks/{c} {
