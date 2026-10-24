@@ -6492,7 +6492,14 @@ function startApp() {
   unsubs.push(onSnapshot(doc(db, 'users', P.uid), snap => {
     if (!snap.exists()) return;
     const n = normHrUser({ id: P.uid, ...snap.data() });
-    if (n.role !== P.role || JSON.stringify(n.modules) !== JSON.stringify(P.modules) || JSON.stringify(n.access || {}) !== JSON.stringify(P.access || {})) location.reload();
+    const cv = o => JSON.stringify(Object.keys(o || {}).sort().map(k => [k, [...(o[k] || [])].sort()]));
+    const same = n.role === P.role && JSON.stringify([...(n.modules || [])].sort()) === JSON.stringify([...(P.modules || [])].sort()) && cv(n.access) === cv(P.access);
+    if (!same) {
+      let last = 0; try { last = Number(sessionStorage.getItem('adm_rl') || 0); } catch (e) { }
+      const why = { role: [n.role, P.role], modules: [n.modules, P.modules], access: [n.access || {}, P.access || {}] };
+      console.warn('تغيّرت الصلاحيات:', why);
+      if (Date.now() - last > 60000) { try { sessionStorage.setItem('adm_rl', String(Date.now())); sessionStorage.setItem('adm_rl_why', JSON.stringify(why)); } catch (e) { } location.reload(); }
+    }
   }));
 
   if (P.role === 'admin') {
