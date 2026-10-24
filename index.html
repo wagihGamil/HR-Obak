@@ -6163,7 +6163,7 @@ async function rcModal(mod){
   draw(); m.querySelector('#rc_q').oninput=draw;
   m.querySelector('#rc_tb').onclick=async e=>{ const b=e.target.closest('button'); if(!b) return; const id=b.dataset.o||b.dataset.p||b.dataset.d, r=list.find(x=>x.id===id); if(!r) return;
     if(b.dataset.d){ if(!can(mod,'delete')) return; if(!confirm(`حذف «${r.name}» من السجل؟`)) return; try{ await BE.rcDel(RC_COL[mod],id); list=list.filter(x=>x.id!==id); if(RC.cur===id) RC.cur=null; draw(); toast('تم الحذف'); }catch(er){ toast(authMsg(er),true); } return; }
-    m.remove(); rcLoad(mod,r); toast('تم فتح «'+r.name+'»'); if(b.dataset.p){ setTimeout(()=>{ resetScale(); window.print(); },400); } };
+    m.remove(); rcLoad(mod,r); toast('تم فتح «'+r.name+'»'); if(b.dataset.p){ setTimeout(()=>{ if(mod==='hiring' && !hrCheck()) return; resetScale(); window.print(); },400); } };
 }
 async function rcNew(mod){ const s=rcSnap(mod); if(rcKey(mod,s)) await rcSave(mod,true); rcClear(mod); toast('موظف جديد — السجل اتحفظ'); }
 function rcUI(mod){ document.querySelectorAll(`#pn_${mod} [data-rc="save"],#pn_${mod} [data-rc="new"]`).forEach(b=>b.hidden=!(can(mod,'add')||can(mod,'edit'))); }
@@ -6173,6 +6173,16 @@ function rcClick(t){
 }
 /* حفظ تلقائي عند أي طباعة (زر الطباعة أو Ctrl+P) */
 let RC_LAST=0;
+function hrCheck(){
+  const F=[['in_name','الاسم رباعي'],['in_nid','الرقم القومي'],['in_addr','العنوان'],['in_dept','الإدارة'],['in_job','الوظيفة'],['in_code','كود الموظف'],['in_start','تاريخ مباشرة العمل']];
+  if(!document.getElementById('hrbad_css')){ const s=document.createElement('style'); s.id='hrbad_css'; s.textContent='.fld.hrbad input:not([type=file]){border-color:#d64545!important;background:#fff3f3!important}.fld.hrbad>label:first-child{color:#d64545}'; document.head.appendChild(s); }
+  const bad=[]; document.querySelectorAll('.fld.hrbad').forEach(x=>x.classList.remove('hrbad'));
+  F.forEach(([id,l])=>{ const el=document.getElementById(id); let v=el?String(el.value||'').trim():''; let ok=!!v; if(id==='in_nid') ok=/^\d{14}$/.test(v);
+    if(!ok){ bad.push(id==='in_nid'&&v?'الرقم القومي (لازم 14 رقم)':l); if(el&&el.closest('.fld')) el.closest('.fld').classList.add('hrbad'); } });
+  if(!(HP&&HP.u)){ bad.push('صورة الموظف'); const f=document.getElementById('in_photo'); if(f&&f.closest('.fld')) f.closest('.fld').classList.add('hrbad'); }
+  if(bad.length){ alert('⛔ لا يمكن الطباعة — بيانات ناقصة:\n• '+bad.join('\n• ')); const x=document.querySelector('.fld.hrbad input'); if(x&&x.type!=='file') x.focus(); return false; }
+  return true;
+}
 window.addEventListener('beforeprint',()=>{ if((CUR.mod==='hiring'||CUR.mod==='resign')&&Date.now()-RC_LAST>1500){ RC_LAST=Date.now(); rcSave(CUR.mod,true); } });
 /* ================= الإشعارات (Brevo عبر وسيط Cloudflare) ================= */
 const NT={cfg:null};
@@ -6356,7 +6366,7 @@ document.addEventListener('click',e=>{
   if(t.closest('#u_out')){ $('umd').hidden=true; BE.logout(); }
   if(t.closest('#appsBtn')) location.hash='#/';
   const pb=t.closest('.pbtn'); if(pb){
-    if(CUR.mod==='hiring'){ const bad=[]; if(!V.name) bad.push('الاسم'); if(V.nid.length!==14) bad.push('الرقم القومي (14 رقم)'); if(bad.length && !confirm('ناقص: '+bad.join('، ')+'\nتكمل الطباعة كده؟')) return; }
+    if(CUR.mod==='hiring' && !hrCheck()) return;
     if(CUR.mod==='insurance'){ if(INS.busy){ toast('استنى لحد ما يخلص تجهيز المرفقات',true); return; } if(!insTargets().length && !confirm('لسه ماختارتش موظف — هتتطبع الاستمارة فاضية. تكمل؟')) return; }
     if((CUR.mod==='hiring'||CUR.mod==='resign')&&Date.now()-RC_LAST>1500){ RC_LAST=Date.now(); rcSave(CUR.mod,true); } resetScale(); setTimeout(()=>window.print(),50);
   }
