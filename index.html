@@ -2121,6 +2121,7 @@ const PERM = {
   tasks:{label:'المهام',acts:{view:'دخول المديول (المهام المسندة له)'}},
   forms:{label:'نماذج العمل',acts:{'*':'كل النماذج (حتى اللي تتضاف بعدين)'}},
   links:{label:'لينكات هامة',acts:{view:'عرض اللينكات',edit:'إضافة وتعديل وحذف اللينكات'}},
+  leavechk:{label:'فحص الإجازات',acts:{view:'دخول المديول (رفع شيتات الإجازات والعقود وفحص السياسة)'}},
   deduct:{label:'فحص الاستقطاعات',acts:{view:'دخول المديول (رفع ملفات ومطابقة الخصومات)'}},
   orgchart:{label:'الهيكل التنظيمي',acts:{view:'عرض الهيكل وخطة التعيينات وطباعتها',edit:'رفع الشيتات وتعديل الهيكل والمراحل'}},
   idcard:{label:'ID',acts:{view:'عرض وطباعة كروت الدخول',edit:'رفع الشيت وتعديل البيانات والصور والظهر'}}
@@ -2149,6 +2150,7 @@ const ICONS={
   tasks:'<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M8 4v-1M16 4v-1M8 11l2 2 4-4M8 17h8"/></svg>',
   forms:'<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/><circle cx="7" cy="8" r=".6"/><circle cx="7" cy="12" r=".6"/><circle cx="7" cy="16" r=".6"/></svg>',
   links:'<svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
+  leavechk:'<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/><path d="M9 15l2 2 4-4"/></svg>',
   deduct:'<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h4"/><path d="M14 16l1.6 1.6L19 14"/></svg>',
   orgchart:'<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="4" rx="1"/><rect x="3" y="17" width="6" height="4" rx="1"/><rect x="15" y="17" width="6" height="4" rx="1"/><path d="M12 7v5M6 17v-5h12v5"/></svg>',
   idcard:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6 16c.5-2 5.5-2 6 0M14 10h4M14 13h3"/></svg>'
@@ -2165,6 +2167,7 @@ const MODS={
   tasks:{title:'المهام',color:'linear-gradient(135deg,#d35cc0,#8a2f7c)',subs:null,adm:true},
   forms:{title:'نماذج العمل',color:'linear-gradient(135deg,#f2b705,#b88300)',subs:null},
   links:{title:'لينكات هامة',color:'linear-gradient(135deg,#1aa39a,#0b6b65)',subs:null},
+  leavechk:{title:'فحص الإجازات',color:'linear-gradient(135deg,#2f8f83,#1b5a52)',subs:null},
   deduct:{title:'فحص الاستقطاعات',color:'linear-gradient(135deg,#6b7a90,#38465c)',subs:null},
   orgchart:{title:'الهيكل التنظيمي',color:'linear-gradient(135deg,#2f9e6f,#1f5fa8)',subs:null},
   idcard:{title:'ID',color:'linear-gradient(135deg,#e53935,#8e24aa)',subs:null},
@@ -3061,6 +3064,88 @@ $('exp').onclick=async()=>{
 }
 window.dcBind=function(){ bind(); if(DED&&LEV){ for(const [id,f] of [['d1',DED],['d2',LEV],['d3',ATT]]) if(f) mark(id,'تم رفع الملف'); run(); } };
 })();
+
+
+/* ===== فحص الإجازات ===== */
+const LK={emp:null,lv:null,rows:[],res:[]};
+function lkNorm(s){return String(s||'').replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ').trim();}
+function lkDate(v){ if(v instanceof Date) return v; if(typeof v==='number'&&window.XLSX){ const o=XLSX.SSF.parse_date_code(v); return o?new Date(o.y,o.m-1,o.d):null; }
+  if(!v) return null; const s=String(v).trim(); let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+  m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/); if(m) return new Date(+m[3],+m[2]-1,+m[1]); const d=new Date(s); return isNaN(d)?null:d; }
+const lkFmt=d=>d?`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`:'';
+const lkR=n=>Math.round(n*1000)/1000;
+async function lkRead(file){ await loadXLSX(); const wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array',cellDates:true}); return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null,raw:true}); }
+function lkCol(row,rx){ return Object.keys(row).find(k=>rx.test(k)); }
+function mountLeaveChk(){ setLayout({view:true}); $('view').innerHTML=`<div class="card" id="dcx">
+<h2>فحص الإجازات</h2>
+<p class="dc-sub">ارفع شيت الإجازات (hr.leave) وشيت العقود (تاريخ التعيين والراتب). المعالجة كلها داخل جهازك. بيتحسب لكل موظف: الإجازات المدفوعة والغير مدفوعة المعتمدة، ويتراجع على سياسة الحد الأقصى وفترة الـ 6 شهور.</p>
+<div class="dc-drops" style="grid-template-columns:repeat(2,1fr)">
+ <label class="dc-drop" id="lk_d1"><input type="file" accept=".xlsx,.xls,.csv"><b>1) إجازات الموظفين خلال الشهر</b><span>hr.leave — اضغط أو اسحب الملف</span></label>
+ <label class="dc-drop" id="lk_d2"><input type="file" accept=".xlsx,.xls,.csv"><b>2) تاريخ التعيين والراتب</b><span>hr.contract (تاريخ البداية + أجر العقد)</span></label>
+</div>
+<div class="dc-set">
+ <b>إعدادات السياسة:</b>
+ <label>تاريخ الفصل بين التعيينات <input type="date" id="lk_cut" value="2026-04-01"></label>
+ <label>حد المعيّنين قبله (يوم) <input type="number" step="0.25" id="lk_old" value="1.75"></label>
+ <label>حد المعيّنين بعده (يوم) <input type="number" step="0.25" id="lk_new" value="1.25"></label>
+ <label>مدة المنع من الإجازة المدفوعة (شهر) <input type="number" id="lk_mon" value="6"></label>
+ <label>قسمة الراتب على <input type="number" id="lk_div" value="30"></label>
+ <label>الحالات المحتسبة <select id="lk_st"><option value="ok">المعتمدة فقط</option><option value="okp">المعتمدة + بانتظار الموافقة</option></select></label>
+ <label>كلمة الإجازة المدفوعة <input type="text" id="lk_pk" value="المدفوعة"></label>
+ <label>كلمة الغير مدفوعة <input type="text" id="lk_uk" value="Unpaid"></label>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px"><button class="btn pri" id="lk_run" type="button">↻ احتساب</button><button class="btn" id="lk_exp" type="button">تصدير إلى Excel</button><span class="dc-calc" id="lk_msg">ارفع الملفين.</span></div>
+<div id="lk_res" style="margin-top:14px"></div></div>`;
+  const R=()=>$('lk_run').click();
+  [['lk_d1','lv'],['lk_d2','emp']].forEach(([id,k])=>{ const lab=$(id), inp=lab.querySelector('input');
+    const take=async f=>{ if(!f) return; try{ LK[k]=await lkRead(f); lab.classList.add('dc-ok'); lab.querySelector('span').textContent=f.name+' — '+LK[k].length+' صف'; if(LK.lv&&LK.emp) lkRun(); }catch(e){ $('lk_msg').textContent='تعذر قراءة الملف: '+(e.message||e); } };
+    inp.onchange=()=>take(inp.files[0]); lab.ondragover=e=>{e.preventDefault();lab.classList.add('dc-over');}; lab.ondragleave=()=>lab.classList.remove('dc-over'); lab.ondrop=e=>{e.preventDefault();lab.classList.remove('dc-over');take(e.dataTransfer.files[0]);}; });
+  $('lk_run').onclick=lkRun; $('lk_exp').onclick=lkExport;
+  if(LK.lv&&LK.emp) lkRun();
+}
+function lkRun(){
+  const msg=$('lk_msg'); if(!LK.lv||!LK.emp){ msg.textContent='ارفع الملفين.'; return; }
+  const E0=LK.emp[0]||{}, L0=LK.lv[0]||{};
+  const eN=lkCol(E0,/الموظف|الاسم|employee|name/i), eD=lkCol(E0,/تاريخ البداية|بداية|start/i), eS=lkCol(E0,/أجر|اجر|راتب|wage|salary/i), eC=lkCol(E0,/^code$|كود/i);
+  const lN=lkCol(L0,/^الموظف|employee/i), lT=lkCol(L0,/نوع الإجازة|نوع الاجازة|type/i), lS=lkCol(L0,/تاريخ البداية|date from|start/i), lE=lkCol(L0,/تاريخ الانتهاء|date to|end/i), lD=lkCol(L0,/المدة بالأيام|days/i), lSt=lkCol(L0,/^الحالة|state|status/i), lF=lkCol(L0,/First Date Contract/i);
+  const miss=[]; if(!eN)miss.push('اسم الموظف (شيت العقود)'); if(!eD)miss.push('تاريخ البداية (العقود)'); if(!eS)miss.push('أجر العقد'); if(!lN)miss.push('الموظف (الإجازات)'); if(!lT)miss.push('نوع الإجازة'); if(!lD)miss.push('المدة بالأيام');
+  if(miss.length){ msg.textContent='⛔ أعمدة ناقصة: '+miss.join('، '); return; }
+  const cut=lkDate($('lk_cut').value), oldM=+$('lk_old').value, newM=+$('lk_new').value, mon=+$('lk_mon').value||6, div=+$('lk_div').value||30, okp=$('lk_st').value==='okp';
+  const pk=lkNorm($('lk_pk').value), uk=lkNorm($('lk_uk').value).toLowerCase();
+  const emps=new Map(); LK.emp.forEach(r=>{ const n=lkNorm(r[eN]); if(!n) return; const d=lkDate(r[eD]); const sal=Number(r[eS])||0; const o=emps.get(n);
+    if(!o||(d&&(!o.hire||d<o.hire))) emps.set(n,{name:String(r[eN]).trim(),code:eC?r[eC]:'',hire:d,sal:o&&o.sal>sal?o.sal:sal}); else if(sal>o.sal) o.sal=sal; });
+  const per=new Map(), nomatch=new Set(); let skipped=0;
+  LK.lv.forEach(r=>{ const n=lkNorm(r[lN]); if(!n) return; const st=lkNorm(lSt?r[lSt]:'تمت الموافقة'); const approved=/تمت الموافقه/.test(st), pend=/بانتظار|الموافقه الثانيه/.test(st);
+    if(!(approved||(okp&&pend))){ skipped++; return; }
+    const t=lkNorm(r[lT]); const paid=pk&&t.includes(pk), unp=uk&&t.toLowerCase().includes(uk); if(!paid&&!unp) return;
+    const days=Number(r[lD])||0; const s=lkDate(r[lS]);
+    let p=per.get(n); if(!p){ p={name:String(r[lN]).trim(),paid:0,unp:0,early:0,items:[],fd:lF?lkDate(r[lF]):null}; per.set(n,p); }
+    if(paid) p.paid+=days; else p.unp+=days; p.items.push({paid:!!paid,days,from:s,approved,type:String(r[lT]||'')}); if(!emps.has(n)) nomatch.add(p.name); });
+  const out=[];
+  per.forEach((p,n)=>{ const e=emps.get(n); const hire=(e&&e.hire)||p.fd||null; const sal=e?e.sal:0; const lim=hire&&cut?(hire>=cut?newM:oldM):null; const issues=[];
+    let earlyDays=0; if(hire){ const lim6=new Date(hire); lim6.setMonth(lim6.getMonth()+mon); p.items.forEach(i=>{ if(i.paid&&i.from&&i.from<lim6) earlyDays+=i.days; });
+      if(earlyDays>0) issues.push({k:'six',t:`إجازة مدفوعة قبل إكمال ${mon} شهور (${lkR(earlyDays)} يوم — يكتمل في ${lkFmt(lim6)})`}); }
+    if(lim!==null&&p.paid>lim+1e-9) issues.push({k:'max',t:`تجاوز الحد (${lkR(p.paid)} من ${lim} يوم) بزيادة ${lkR(p.paid-lim)}`});
+    if(!hire) issues.push({k:'nohire',t:'تاريخ التعيين غير موجود'}); if(!e) issues.push({k:'noemp',t:'غير موجود في شيت العقود'}); else if(!sal) issues.push({k:'nosal',t:'الراتب غير موجود'});
+    const day=sal/div; out.push({name:p.name,code:e?e.code:'',hire,sal,lim,paid:lkR(p.paid),unp:lkR(p.unp),val:Math.round(day*p.unp*100)/100,issues,early:lkR(earlyDays)}); });
+  out.sort((a,b)=>(b.issues.length-a.issues.length)||(b.val-a.val)); LK.res=out;
+  const viol=out.filter(r=>r.issues.some(i=>i.k==='max'||i.k==='six')), tot=out.reduce((s,r)=>s+r.val,0);
+  msg.textContent=`تم الاحتساب — ${out.length} موظف عنده إجازات${skipped?` (تجاهل ${skipped} طلب غير معتمد)`:''}`;
+  const box=(l,v,c)=>`<div style="flex:1;min-width:170px;border:1px solid #dde2ea;border-radius:10px;padding:10px 12px;background:#fff"><div style="font-size:12px;color:#667085">${l}</div><div style="font-size:20px;font-weight:700;color:${c||'#1f2a44'}">${v}</div></div>`;
+  const fl=Object.entries({all:'الكل',viol:'المخالفين فقط',unp:'عليهم إجازة غير مدفوعة'}).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+  $('lk_res').innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">${box('موظفين لديهم إجازات',out.length)}${box('مخالفون للسياسة',viol.length,viol.length?'#c62828':'#1b7a3d')}${box('إجمالي الغير مدفوعة (يوم)',lkR(out.reduce((s,r)=>s+r.unp,0)))}${box('إجمالي قيمة الغير مدفوعة (جنيه)',tot.toLocaleString('en-US',{maximumFractionDigits:2}),'#a15c00')}</div>
+  ${nomatch.size?`<div class="dc-msg" style="display:block">⚠ ${nomatch.size} اسم في شيت الإجازات غير موجود في شيت العقود (الراتب = صفر): ${[...nomatch].slice(0,8).join('، ')}${nomatch.size>8?'…':''}</div>`:''}
+  <div class="dc-bar" style="display:flex;gap:8px;margin-bottom:8px"><input type="search" id="lk_q" placeholder="بحث باسم الموظف…" style="flex:1"><select id="lk_f">${fl}</select></div>
+  <div class="dc-tw"><table><thead><tr><th>الموظف</th><th>الكود</th><th>تاريخ التعيين</th><th>الراتب</th><th>الحد</th><th>مدفوعة</th><th>غير مدفوعة</th><th>قيمة الغير مدفوعة</th><th>الملاحظات</th></tr></thead><tbody id="lk_tb"></tbody></table></div>`;
+  $('lk_q').oninput=lkDraw; $('lk_f').onchange=lkDraw; lkDraw();
+}
+function lkDraw(){ const q=lkNorm($('lk_q').value), f=$('lk_f').value;
+  const rows=LK.res.filter(r=>(!q||lkNorm(r.name).includes(q))&&(f==='all'||(f==='viol'&&r.issues.some(i=>i.k==='max'||i.k==='six'))||(f==='unp'&&r.unp>0)));
+  $('lk_tb').innerHTML=rows.map(r=>{ const bad=r.issues.some(i=>i.k==='max'||i.k==='six');
+    return `<tr style="${bad?'background:#fdecec':''}"><td><b>${esc(r.name)}</b></td><td>${esc(r.code||'')}</td><td>${lkFmt(r.hire)}</td><td>${r.sal?r.sal.toLocaleString('en-US'):'—'}</td><td>${r.lim===null?'—':r.lim}</td><td style="${r.lim!==null&&r.paid>r.lim?'color:#c62828;font-weight:700':''}">${r.paid}</td><td>${r.unp}</td><td><b>${r.val?r.val.toLocaleString('en-US',{maximumFractionDigits:2}):0}</b></td><td style="font-size:12px;color:${bad?'#c62828':'#a15c00'}">${r.issues.map(i=>esc(i.t)).join('<br>')||'<span style="color:#1b7a3d">سليم ✓</span>'}</td></tr>`; }).join('')||'<tr><td colspan="9" style="text-align:center;color:#667085">لا نتائج</td></tr>'; }
+async function lkExport(){ if(!LK.res.length) return toast('احتسب الأول',true); await loadXLSX();
+  const rows=LK.res.map(r=>({'الموظف':r.name,'الكود':r.code||'','تاريخ التعيين':lkFmt(r.hire),'الراتب':r.sal,'الحد المسموح':r.lim===null?'':r.lim,'أيام مدفوعة':r.paid,'أيام غير مدفوعة':r.unp,'قيمة الغير مدفوعة':r.val,'مخالفة':r.issues.some(i=>i.k==='max'||i.k==='six')?'نعم':'لا','الملاحظات':r.issues.map(i=>i.t).join(' | ')}));
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'فحص الإجازات'); XLSX.writeFile(wb,'فحص_الاجازات.xlsx'); }
 
 function mountDeduct(){ setLayout({view:true}); $('view').innerHTML=`<div class="card" id="dcx">
 <h2>فحص الاستقطاعات</h2>
@@ -6309,7 +6394,7 @@ document.addEventListener('click',e=>{ const a=e.target.closest&&e.target.closes
 document.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const a=e.target.closest&&e.target.closest('#pwaTile'); if(a){ e.preventDefault(); pwaInstall(); } } });
 
 /* ---------------- الموجّه / الشاشة الرئيسية ---------------- */
-const HOME_ORDER=['hiring','insurance','resign','housing','cars','tasks','forms','links','deduct','orgchart','idcard','users','buffet','stationery'];
+const HOME_ORDER=['hiring','insurance','resign','housing','cars','tasks','forms','links','deduct','leavechk','orgchart','idcard','users','buffet','stationery'];
 function showHome(){
   CUR={mod:null,sub:null}; $('mod').hidden=true; $('adm').hidden=true; $('home').hidden=false; $('subnav').innerHTML=''; $('modTitle').textContent='أوباك — الموارد البشرية والشؤون الإدارية';
   const apps=HOME_ORDER.filter(k=>MODS[k]&&canMod(k));
@@ -6326,7 +6411,7 @@ function openModule(m,sub){
   $('adm').hidden=true; $('mod').hidden=false;
   const subs=MODS[m].subs?MODS[m].subs.filter(s=>can(m,s[2])):[];
   $('subnav').innerHTML=subs.map(s=>`<a data-sub="${s[0]}" href="#/${m}/${s[0]}">${s[1]}</a>`).join('');
-  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='users') mountUsers(); else if(m==='forms') mountForms(); else if(m==='links') mountLinks(); else if(m==='deduct') mountDeduct(); else if(m==='orgchart') mountOrg(); else if(m==='idcard') mountID();
+  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='users') mountUsers(); else if(m==='forms') mountForms(); else if(m==='links') mountLinks(); else if(m==='deduct') mountDeduct(); else if(m==='leavechk') mountLeaveChk(); else if(m==='orgchart') mountOrg(); else if(m==='idcard') mountID();
   window.scrollTo(0,0);
 }
 function route(){
