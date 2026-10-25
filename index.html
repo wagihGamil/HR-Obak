@@ -1283,6 +1283,7 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
           <select id="tk-src" data-admin class="px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs">
             <option value="all">كل المصادر</option><option value="task">مهامي</option><option value="req">طلبات المشرفين</option><option value="gcal">تقويم جوجل</option></select>
           <input type="text" id="tk-search" placeholder="بحث..." class="px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs w-32">
+          <button type="button" onclick="printTasks()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold"><i class="fa-solid fa-print"></i> طباعة</button>
         </div>
       </div>
       <div id="tk-list" class="space-y-2"></div>
@@ -8462,6 +8463,7 @@ function setupTasksUI() {
   $('tk-list').parentElement.classList.toggle('lg:col-span-8', adm); $('tk-list').parentElement.classList.toggle('lg:col-span-12', !adm);
   if (!adm) $('tk-gcal-btn').classList.add('hidden');
 }
+let TK_ROWS = [];
 function renderTasks() {
   if (!P || currentModule !== 'tasks') return;
   if (isAdmin()) { renderTkWho(); if (!$('tk-id').value) renderTkAssignees(); }
@@ -8474,6 +8476,7 @@ function renderTasks() {
   const rows = all.filter(x => (f === 'all' || (f === 'open' && !x.done) || (f === 'late' && x.late) || (f === 'done' && x.done))
     && (src === 'all' || x.kind === src) && tkWhoOk(x) && (!q || (x.title + ' ' + x.notes).toLowerCase().includes(q)))
     .sort((a, b) => (a.done - b.done) || (a.due || '9999').localeCompare(b.due || '9999') || (a.time || '').localeCompare(b.time || ''));
+  TK_ROWS = rows;
   $('tk-list').innerHTML = rows.map(x => {
     const dueCls = x.late ? 'bg-rose-100 text-rose-700' : x.today ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600';
     const check = x.kind === 'task' || x.kind === 'gcal'
@@ -8503,6 +8506,22 @@ function renderTasks() {
   }).join('') || `<p class="p-8 text-center text-slate-400 text-xs">لا توجد مهام</p>`;
 }
 ['tk-filter', 'tk-src'].forEach(id => $(id).addEventListener('change', renderTasks));
+window.printTasks = function () {
+  const rows = TK_ROWS; if (!rows.length) { toast('لا توجد مهام للطباعة', 'error'); return; }
+  const fl = $('tk-filter'), today = new Date().toLocaleDateString('ar-EG');
+  const st = x => x.kind === 'req' ? (x.done ? x.status : 'بانتظار الاعتماد') : x.done ? 'منتهية' : x.late ? 'متأخرة' : x.today ? 'اليوم' : 'مفتوحة';
+  const src = x => x.kind === 'req' ? 'طلب مشرف' : x.kind === 'gcal' ? 'تقويم جوجل' : (isAdmin() && (x.assignees || []).length ? x.assignees.map(tkUserName).join('، ') : 'مهمة');
+  const body = rows.map((x, i) => `<tr class="${x.late && !x.done ? 'late' : ''}"><td>${i + 1}</td><td class="t">${esc(x.title)}${x.notes ? `<div class="n">${esc(x.notes)}</div>` : ''}</td><td>${esc(src(x))}</td><td>${esc(x.due || '-')}${x.time ? ' ' + esc(x.time) : ''}</td><td>${esc(st(x))}</td></tr>`).join('');
+  const css = `@page{size:A4 portrait;margin:8mm}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}body{direction:rtl;font-family:"Segoe UI",Tahoma,Arial,sans-serif;color:#1b1b1f}
+  .wrap{width:733px}.tp{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #d71920;padding-bottom:4px;margin-bottom:6px}.tp h1{margin:0;font-size:16px}.tp span{font-size:11px;color:#555}
+  table{width:100%;border-collapse:collapse;font-size:11px}th{background:#1f2a44;color:#fff;padding:4px 6px;text-align:right}td{border:1px solid #cbd5e1;padding:3px 6px;vertical-align:top}td.t{font-weight:700}.n{font-weight:400;color:#555;font-size:10px}tr.late td{background:#fdecec}tr{break-inside:avoid}th:first-child,td:first-child{width:26px;text-align:center}`;
+  const fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;left:-10000px;top:0;width:733px;height:1062px;border:0;visibility:hidden';
+  fr.srcdoc = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>قائمة المهام</title><style>${css}</style></head><body><div class="wrap" id="w"><div class="tp"><h1>قائمة المهام — ${esc(fl.options[fl.selectedIndex].text)}</h1><span>${rows.length} مهمة — ${today}</span></div><table><thead><tr><th>#</th><th>المهمة</th><th>المسؤول / المصدر</th><th>الاستحقاق</th><th>الحالة</th></tr></thead><tbody>${body}</tbody></table></div></body></html>`;
+  fr.onload = () => { const d = fr.contentDocument, w = d.getElementById('w'); let s = 1;
+    for (let i = 0; i < 8; i++) { w.style.zoom = s; w.style.width = (733 / s) + 'px'; const hh = w.getBoundingClientRect().height; if (hh <= 1050) break; s = Math.max(0.3, s * 1040 / hh); }
+    setTimeout(() => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) { toast('تعذر فتح الطباعة', 'error'); } setTimeout(() => fr.remove(), 60000); }, 300); };
+  document.body.appendChild(fr);
+};
 $('tk-search').addEventListener('input', renderTasks); $('tk-who').addEventListener('change', renderTasks);
 window.resetTaskForm = () => { $('tk-form').reset(); $('tk-id').value = ''; if (isAdmin()) renderTkAssignees([]); $('tk-due').value = tkToday(); $('tk-form-title').textContent = 'إضافة مهمة'; };
 window.editTask = id => {
