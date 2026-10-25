@@ -2121,8 +2121,7 @@ const PERM = {
   tasks:{label:'المهام',acts:{view:'دخول المديول (المهام المسندة له)'}},
   forms:{label:'نماذج العمل',acts:{'*':'كل النماذج (حتى اللي تتضاف بعدين)'}},
   links:{label:'لينكات هامة',acts:{view:'عرض اللينكات',edit:'إضافة وتعديل وحذف اللينكات'}},
-  leavechk:{label:'فحص الإجازات',acts:{view:'دخول المديول (رفع شيتات الإجازات والعقود وفحص السياسة)'}},
-  deduct:{label:'فحص الاستقطاعات',acts:{view:'دخول المديول (رفع ملفات ومطابقة الخصومات)'}},
+  payrev:{label:'مراجع المرتبات',acts:{view:'دخول المديول (فحص الاستقطاعات والإجازات ومطابقة المؤثرات)'}},
   orgchart:{label:'الهيكل التنظيمي',acts:{view:'عرض الهيكل وخطة التعيينات وطباعتها',edit:'رفع الشيتات وتعديل الهيكل والمراحل'}},
   idcard:{label:'ID',acts:{view:'عرض وطباعة كروت الدخول',edit:'رفع الشيت وتعديل البيانات والصور والظهر'}}
 };
@@ -2150,8 +2149,7 @@ const ICONS={
   tasks:'<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M8 4v-1M16 4v-1M8 11l2 2 4-4M8 17h8"/></svg>',
   forms:'<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/><circle cx="7" cy="8" r=".6"/><circle cx="7" cy="12" r=".6"/><circle cx="7" cy="16" r=".6"/></svg>',
   links:'<svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
-  leavechk:'<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/><path d="M9 15l2 2 4-4"/></svg>',
-  deduct:'<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h4"/><path d="M14 16l1.6 1.6L19 14"/></svg>',
+  payrev:'<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/><path d="M9 15l2 2 4-4"/></svg>',
   orgchart:'<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="4" rx="1"/><rect x="3" y="17" width="6" height="4" rx="1"/><rect x="15" y="17" width="6" height="4" rx="1"/><path d="M12 7v5M6 17v-5h12v5"/></svg>',
   idcard:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6 16c.5-2 5.5-2 6 0M14 10h4M14 13h3"/></svg>'
 };
@@ -2167,8 +2165,7 @@ const MODS={
   tasks:{title:'المهام',color:'linear-gradient(135deg,#d35cc0,#8a2f7c)',subs:null,adm:true},
   forms:{title:'نماذج العمل',color:'linear-gradient(135deg,#f2b705,#b88300)',subs:null},
   links:{title:'لينكات هامة',color:'linear-gradient(135deg,#1aa39a,#0b6b65)',subs:null},
-  leavechk:{title:'فحص الإجازات',color:'linear-gradient(135deg,#2f8f83,#1b5a52)',subs:null},
-  deduct:{title:'فحص الاستقطاعات',color:'linear-gradient(135deg,#6b7a90,#38465c)',subs:null},
+  payrev:{title:'مراجع المرتبات',color:'linear-gradient(135deg,#2f8f83,#1b5a52)',subs:null},
   orgchart:{title:'الهيكل التنظيمي',color:'linear-gradient(135deg,#2f9e6f,#1f5fa8)',subs:null},
   idcard:{title:'ID',color:'linear-gradient(135deg,#e53935,#8e24aa)',subs:null},
   users:{title:'إدارة المستخدمين',color:'linear-gradient(135deg,#27ae60,#17703c)',subs:null,admin:true}
@@ -3146,6 +3143,73 @@ function lkDraw(){ const q=lkNorm($('lk_q').value), f=$('lk_f').value;
 async function lkExport(){ if(!LK.res.length) return toast('احتسب الأول',true); await loadXLSX();
   const rows=LK.res.map(r=>({'الموظف':r.name,'الكود':r.code||'','تاريخ التعيين':lkFmt(r.hire),'الراتب':r.sal,'الحد المسموح':r.lim===null?'':r.lim,'أيام مدفوعة':r.paid,'أيام غير مدفوعة':r.unp,'قيمة الغير مدفوعة':r.val,'مخالفة':r.issues.some(i=>i.k==='max'||i.k==='six')?'نعم':'لا','الملاحظات':r.issues.map(i=>i.t).join(' | ')}));
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'فحص الإجازات'); XLSX.writeFile(wb,'فحص_الاجازات.xlsx'); }
+
+
+/* ===== مراجع المرتبات ===== */
+let PRT='ded';
+const FX={emp:null,sl:null,ot:null,res:null};
+function fxDefPeriod(){ const t=new Date(), e=new Date(t.getFullYear(),t.getMonth()+(t.getDate()>=20?0:-1),20), s=new Date(e.getFullYear(),e.getMonth()-1,21); const f=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; return [f(s),f(e)]; }
+function mountFx(){ setLayout({view:true}); const [ps,pe]=fxDefPeriod();
+  $('view').innerHTML=`<div class="card" id="dcx">
+<h2>مطابقة المؤثرات</h2>
+<p class="dc-sub">ارفع ثلاث شيتات: الموظفين (مع تاريخ التعيين)، والموظفين اللي اتكريت لهم مرتبات، والموظفين اللي لهم إضافي. البرنامج يبلّغك بأي موظف متعيّن خلال فترة المرتبات ولم يُكرَّر له مرتب أو إضافي. الموظف المتعيّن بعد نهاية الفترة لا يظهر.</p>
+<div class="dc-drops">
+ <label class="dc-drop" id="fx_d1"><input type="file" accept=".xlsx,.xls,.csv"><b>1) الموظفون وتاريخ التعيين</b><span>hr.employee — اسم الموظف + كود + تاريخ أول عقد</span></label>
+ <label class="dc-drop" id="fx_d2"><input type="file" accept=".xlsx,.xls,.csv"><b>2) المرتبات المكرَّرة</b><span>hr.payslip — الكود + الموظف</span></label>
+ <label class="dc-drop" id="fx_d3"><input type="file" accept=".xlsx,.xls,.csv"><b>3) الإضافي</b><span>hr.overtime.request — Employee</span></label>
+</div>
+<div class="dc-set"><b>فترة المرتبات:</b>
+ <label>من تاريخ <input type="date" id="fx_from" value="${ps}"></label>
+ <label>إلى تاريخ <input type="date" id="fx_to" value="${pe}"></label>
+ <span>(أي موظف تاريخ تعيينه بعد «إلى تاريخ» مش هيتحسب عليه نقص مرتب أو إضافي)</span></div>
+<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px"><button class="btn pri" id="fx_run" type="button">↻ مطابقة</button><button class="btn" id="fx_exp" type="button">تصدير إلى Excel</button><span class="dc-calc" id="fx_msg">ارفع الشيتات الثلاثة.</span></div>
+<div id="fx_res" style="margin-top:14px"></div></div>`;
+  [['fx_d1','emp'],['fx_d2','sl'],['fx_d3','ot']].forEach(([id,k])=>{ const lab=$(id), inp=lab.querySelector('input');
+    if(FX[k]){ lab.classList.add('dc-ok'); lab.querySelector('span').textContent='تم الرفع — '+FX[k].length+' صف'; }
+    const take=async f=>{ if(!f) return; try{ FX[k]=await lkRead(f); lab.classList.add('dc-ok'); lab.querySelector('span').textContent=f.name+' — '+FX[k].length+' صف'; if(FX.emp&&FX.sl&&FX.ot) fxRun(); }catch(e){ $('fx_msg').textContent='تعذر قراءة الملف: '+(e.message||e); } };
+    inp.onchange=()=>take(inp.files[0]); lab.ondragover=e=>{e.preventDefault();lab.classList.add('dc-over');}; lab.ondragleave=()=>lab.classList.remove('dc-over'); lab.ondrop=e=>{e.preventDefault();lab.classList.remove('dc-over');take(e.dataTransfer.files[0]);}; });
+  $('fx_run').onclick=fxRun; $('fx_exp').onclick=fxExport; $('fx_from').onchange=$('fx_to').onchange=()=>{ if(FX.emp&&FX.sl&&FX.ot) fxRun(); };
+  if(FX.emp&&FX.sl&&FX.ot) fxRun();
+}
+function fxRun(){ const msg=$('fx_msg'); if(!FX.emp||!FX.sl||!FX.ot){ msg.textContent='ارفع الشيتات الثلاثة (الناقص: '+[!FX.emp&&'الموظفين',!FX.sl&&'المرتبات',!FX.ot&&'الإضافي'].filter(Boolean).join('، ')+')'; return; }
+  const E0=FX.emp[0]||{}, S0=FX.sl[0]||{}, O0=FX.ot[0]||{};
+  const eN=lkCol(E0,/اسم الموظف|^الموظف|^employee|^name/i), eC=lkCol(E0,/zk|كود|code/i), eH=lkCol(E0,/تاريخ أول عقد|first contract|تاريخ التعيين|تاريخ البداية/i), eD=lkCol(E0,/القسم|department/i), eJ=lkCol(E0,/المنصب|job/i);
+  const sN=lkCol(S0,/^الموظف|^employee/i), sC=lkCol(S0,/^code$|كود/i), oN=lkCol(O0,/^employee$|^الموظف/i);
+  const miss=[]; if(!eN)miss.push('اسم الموظف (شيت الموظفين)'); if(!eH)miss.push('تاريخ أول عقد (شيت الموظفين)'); if(!sN)miss.push('الموظف (شيت المرتبات)'); if(!oN)miss.push('Employee (شيت الإضافي)');
+  if(miss.length){ msg.textContent='⛔ أعمدة ناقصة: '+miss.join('، '); return; }
+  const from=lkDate($('fx_from').value), to=lkDate($('fx_to').value); if(!from||!to){ msg.textContent='حدد فترة المرتبات'; return; } const toEnd=new Date(to.getFullYear(),to.getMonth(),to.getDate(),23,59,59);
+  const cd=v=>String(v==null?'':v).trim();
+  const slC=new Set(), slN=new Set(); FX.sl.forEach(r=>{ if(sC&&cd(r[sC])) slC.add(cd(r[sC])); const n=lkNorm(r[sN]); if(n) slN.add(n); });
+  const otN=new Map(); FX.ot.forEach(r=>{ const n=lkNorm(r[oN]); if(!n) return; const o=otN.get(n)||{h:0,a:0}; const hc=lkCol(r,/Total Overtime Hours/i), ac=lkCol(r,/Total Overtime Amount/i); o.h+=Number(r[hc])||0; o.a+=Number(r[ac])||0; otN.set(n,o); });
+  const emps=[], empN=new Set(), empC=new Set(); let later=0;
+  FX.emp.forEach(r=>{ const n=lkNorm(r[eN]); if(!n) return; const code=eC?cd(r[eC]):''; empN.add(n); if(code) empC.add(code); const hire=lkDate(r[eH]);
+    if(hire&&hire>toEnd){ later++; return; }
+    const hasSl=(code&&slC.has(code))||slN.has(n), ot=otN.get(n);
+    emps.push({name:String(r[eN]).trim(),code,dept:eD?r[eD]:'',job:eJ?r[eJ]:'',hire,noHire:!hire,newInPeriod:!!(hire&&hire>=from),noSl:!hasSl,noOt:!ot,otH:ot?ot.h:0,otA:ot?ot.a:0}); });
+  const exSl=[]; FX.sl.forEach(r=>{ const n=lkNorm(r[sN]), c=sC?cd(r[sC]):''; if(n&&!empN.has(n)&&!(c&&empC.has(c))) exSl.push(String(r[sN]).trim()); });
+  const exOt=[...otN.keys()].filter(n=>!empN.has(n));
+  emps.sort((a,b)=>((b.noSl?2:0)+(b.noOt?1:0))-((a.noSl?2:0)+(a.noOt?1:0))); FX.res={emps,exSl,exOt,later,from,to};
+  msg.textContent=`تمت المطابقة — ${emps.length} موظف ضمن الفترة${later?` (استُبعد ${later} متعيّن بعد ${lkFmt(to)})`:''}`;
+  const nSl=emps.filter(e=>e.noSl).length, nOt=emps.filter(e=>e.noOt).length;
+  const box=(l,v,c)=>`<div style="flex:1;min-width:170px;border:1px solid #dde2ea;border-radius:10px;padding:10px 12px;background:#fff"><div style="font-size:12px;color:#667085">${l}</div><div style="font-size:20px;font-weight:700;color:${c||'#1f2a44'}">${v}</div></div>`;
+  $('fx_res').innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">${box('موظفون ضمن الفترة',emps.length)}${box('لم يُكرَّر لهم مرتب',nSl,nSl?'#c62828':'#1b7a3d')}${box('ليس لهم إضافي',nOt,'#a15c00')}${box('في المرتبات وليسوا في الموظفين',exSl.length,exSl.length?'#c62828':'#1b7a3d')}</div>
+  ${exSl.length?`<div class="dc-msg" style="display:block">⚠ في شيت المرتبات ولا يوجد في شيت الموظفين: ${exSl.slice(0,10).map(esc).join('، ')}${exSl.length>10?'…':''}</div>`:''}
+  ${exOt.length?`<div class="dc-msg" style="display:block">⚠ في شيت الإضافي ولا يوجد في شيت الموظفين: ${exOt.slice(0,10).join('، ')}${exOt.length>10?'…':''}</div>`:''}
+  <div class="dc-bar" style="display:flex;gap:8px;margin-bottom:8px"><input type="search" id="fx_q" placeholder="بحث باسم الموظف…" style="flex:1"><select id="fx_f"><option value="bad">المشاكل فقط (بدون مرتب أو إضافي)</option><option value="sl">بدون مرتب</option><option value="ot">بدون إضافي</option><option value="all">الكل</option></select></div>
+  <div class="dc-tw"><table><thead><tr><th>الموظف</th><th>الكود</th><th>القسم</th><th>الوظيفة</th><th>تاريخ التعيين</th><th>المرتب</th><th>الإضافي</th></tr></thead><tbody id="fx_tb"></tbody></table></div>`;
+  $('fx_q').oninput=fxDraw; $('fx_f').onchange=fxDraw; fxDraw(); }
+function fxDraw(){ if(!FX.res) return; const q=lkNorm($('fx_q').value), f=$('fx_f').value;
+  const rows=FX.res.emps.filter(e=>(!q||lkNorm(e.name).includes(q))&&(f==='all'||(f==='bad'&&(e.noSl||e.noOt))||(f==='sl'&&e.noSl)||(f==='ot'&&e.noOt)));
+  $('fx_tb').innerHTML=rows.map(e=>`<tr style="${e.noSl?'background:#fdecec':''}"><td><b>${esc(e.name)}</b>${e.newInPeriod?' <span style="font-size:11px;color:#1b5a52">(تعيين جديد)</span>':''}</td><td>${esc(e.code)}</td><td style="font-size:12px">${esc(e.dept||'')}</td><td style="font-size:12px">${esc(e.job||'')}</td><td>${e.noHire?'<span style="color:#a15c00">غير موجود</span>':lkFmt(e.hire)}</td><td>${e.noSl?'<b style="color:#c62828">⛔ لم يُكرَّر له مرتب</b>':'<span style="color:#1b7a3d">✓</span>'}</td><td>${e.noOt?'<span style="color:#a15c00">لا يوجد</span>':`✓ ${lkR(e.otH)} ساعة`}</td></tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:#667085">لا نتائج</td></tr>'; }
+async function fxExport(){ if(!FX.res) return toast('اعمل المطابقة الأول',true); await loadXLSX(); const R=FX.res;
+  const rows=R.emps.map(e=>({'الموظف':e.name,'الكود':e.code,'القسم':e.dept||'','الوظيفة':e.job||'','تاريخ التعيين':lkFmt(e.hire),'المرتب':e.noSl?'لم يُكرَّر':'تم','الإضافي':e.noOt?'لا يوجد':'يوجد','ساعات الإضافي':lkR(e.otH)}));
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'مطابقة المؤثرات');
+  if(R.exSl.length||R.exOt.length) XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([...R.exSl.map(n=>({'الاسم':n,'ملاحظة':'في المرتبات وليس في الموظفين'})),...R.exOt.map(n=>({'الاسم':n,'ملاحظة':'في الإضافي وليس في الموظفين'}))]),'غير مطابق');
+  XLSX.writeFile(wb,'مطابقة_المؤثرات.xlsx'); }
+function mountPayRev(sub){ if(['ded','lv','fx'].includes(sub)) PRT=sub; else if(location.hash.replace(/^#\/?/,'')==='payrev'&&!['ded','lv','fx'].includes(PRT)) PRT='ded';
+  prDraw(); }
+function prDraw(){ if(PRT==='lv') mountLeaveChk(); else if(PRT==='fx') mountFx(); else mountDeduct();
+  hdrTabs([{k:'ded',t:'فحص الاستقطاعات',on:PRT==='ded'},{k:'lv',t:'فحص الإجازات',on:PRT==='lv'},{k:'fx',t:'مطابقة المؤثرات',on:PRT==='fx'}],k=>{ PRT=k; prDraw(); }); }
 
 function mountDeduct(){ setLayout({view:true}); $('view').innerHTML=`<div class="card" id="dcx">
 <h2>فحص الاستقطاعات</h2>
@@ -6394,7 +6458,7 @@ document.addEventListener('click',e=>{ const a=e.target.closest&&e.target.closes
 document.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const a=e.target.closest&&e.target.closest('#pwaTile'); if(a){ e.preventDefault(); pwaInstall(); } } });
 
 /* ---------------- الموجّه / الشاشة الرئيسية ---------------- */
-const HOME_ORDER=['hiring','insurance','resign','housing','cars','tasks','forms','links','deduct','leavechk','orgchart','idcard','users','buffet','stationery'];
+const HOME_ORDER=['hiring','insurance','resign','housing','cars','tasks','forms','links','payrev','orgchart','idcard','users','buffet','stationery'];
 function showHome(){
   CUR={mod:null,sub:null}; $('mod').hidden=true; $('adm').hidden=true; $('home').hidden=false; $('subnav').innerHTML=''; $('modTitle').textContent='أوباك — الموارد البشرية والشؤون الإدارية';
   const apps=HOME_ORDER.filter(k=>MODS[k]&&canMod(k));
@@ -6411,7 +6475,7 @@ function openModule(m,sub){
   $('adm').hidden=true; $('mod').hidden=false;
   const subs=MODS[m].subs?MODS[m].subs.filter(s=>can(m,s[2])):[];
   $('subnav').innerHTML=subs.map(s=>`<a data-sub="${s[0]}" href="#/${m}/${s[0]}">${s[1]}</a>`).join('');
-  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='users') mountUsers(); else if(m==='forms') mountForms(); else if(m==='links') mountLinks(); else if(m==='deduct') mountDeduct(); else if(m==='leavechk') mountLeaveChk(); else if(m==='orgchart') mountOrg(); else if(m==='idcard') mountID();
+  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='users') mountUsers(); else if(m==='forms') mountForms(); else if(m==='links') mountLinks(); else if(m==='payrev') mountPayRev(sub); else if(m==='orgchart') mountOrg(); else if(m==='idcard') mountID();
   window.scrollTo(0,0);
 }
 function route(){
@@ -6421,7 +6485,7 @@ function route(){
 
 /* ---------------- الدخول ---------------- */
 function onAuthState(profile,why){
-  ME=profile||null; $('boot').hidden=true;
+  ME=profile||null; if(ME&&ME.access&&!ME.access.payrev&&(ME.access.deduct||ME.access.leavechk)) ME.access={...ME.access,payrev:['view']}; $('boot').hidden=true;
   if(!ME){
     pqStop(); admCall('stop').catch(()=>{});
     $('shell').hidden=true; $('login').hidden=false;
