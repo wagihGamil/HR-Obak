@@ -102,7 +102,7 @@ service cloud.firestore {
 
     // ===== خطوط سير نقل الموظفين =====
     match /carsData/{id} {
-      allow read:  if isAdmin() || hasModule('cars');
+      allow read:  if isAdmin() || hasModule('cars') || ((id == 'stations' || id == 'employees') && anyA('hiring'));
       allow create: if canA('cars','add');
       allow update: if canA('cars','edit');
       allow delete: if canA('cars','delete');
