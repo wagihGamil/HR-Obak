@@ -3971,10 +3971,35 @@ function idPrintModal(keys){
   const sel=keys||[...ID.sel]; const hasSel=sel.length>0;
   const m=ocModal(`<h3>طباعة الكروت</h3><div style="display:grid;gap:10px;margin-top:6px">
    <div><b>الكروت:</b><br><label><input type="radio" name="ip_s" value="all" ${hasSel?'':'checked'}> كل الموظفين (${L.length})</label> &nbsp; <label><input type="radio" name="ip_s" value="sel" ${hasSel?'checked':'disabled'}> المحدد (${sel.length})</label></div>
-   <div><b>الطباعة:</b><br><label><input type="radio" name="ip_m" value="fb" checked> الأوجه الأمامية ثم صفحة ظهر واحدة في الآخر</label><br><label><input type="radio" name="ip_m" value="fi"> وجه وظهر لكل موظف (متتابعين)</label><br><label><input type="radio" name="ip_m" value="f"> الأوجه الأمامية فقط</label><br><label><input type="radio" name="ip_m" value="b"> الظهر فقط (كارت واحد)</label></div>
+   <div><b>الطباعة:</b><br><label><input type="radio" name="ip_m" value="cr" checked> <b>المقاس الحقيقي 8.5 × 5.4 سم</b> — صفحة وش وبعدها صفحة ظهر (اطبع على الوجهين، قلب على الحافة الطويلة)</label><br><label><input type="radio" name="ip_m" value="fb"> الأوجه الأمامية ثم صفحة ظهر واحدة في الآخر</label><br><label><input type="radio" name="ip_m" value="fi"> وجه وظهر لكل موظف (متتابعين)</label><br><label><input type="radio" name="ip_m" value="f"> الأوجه الأمامية فقط</label><br><label><input type="radio" name="ip_m" value="b"> الظهر فقط (كارت واحد)</label></div>
    <div><b>عدد الكروت في الصفحة (A4 أفقي):</b> <select id="ip_n"><option value="1">1 — حجم كبير</option><option value="2">2</option><option value="4" selected>4</option><option value="6">6</option></select></div></div>
    <div style="display:flex;gap:8px;margin-top:14px"><button class="btn pri" id="ip_go" type="button">طباعة</button><button class="btn" data-ocx type="button">إلغاء</button></div>`,520);
-  m.querySelector('#ip_go').onclick=()=>{ const v=n=>(m.querySelector(`input[name=${n}]:checked`)||{}).value; const useSel=v('ip_s')==='sel'; m.remove(); idPrint({keys:useSel?sel:L.map(e=>e.k),mode:v('ip_m'),per:+m.querySelector('#ip_n').value||4}); };
+  m.querySelector('#ip_go').onclick=()=>{ const v=n=>(m.querySelector(`input[name=${n}]:checked`)||{}).value; const useSel=v('ip_s')==='sel'; const ks=useSel?sel:L.map(e=>e.k), md=v('ip_m'), pr=+m.querySelector('#ip_n').value||4; m.remove(); if(md==='cr') idPrintCard(ks); else idPrint({keys:ks,mode:md,per:pr}); };
+}
+
+/* ===== طباعة الكارت بالمقاس الحقيقي 8.5×5.4 سم (وجهين) ===== */
+function idPrintCard(keys){
+  const c=idCfg(), L=idList(), by=new Map(L.map(e=>[e.k,e])), es=keys.map(k=>by.get(k)).filter(Boolean);
+  if(!es.length){ toast('لا يوجد كروت للطباعة',true); return; }
+  const K=(85*96/25.4)/1280, W=85*96/25.4, H=54*96/25.4, bk=idBack(c);
+  const cell=html=>html?`<div class="cd"><div class="ci" style="zoom:${K.toFixed(6)}">${html.replace('<div class="idk">','<div class="idk cr">')}</div></div>`:'<div class="cd e"></div>';
+  let pages='';
+  for(let i=0;i<es.length;i+=10){ const ch=es.slice(i,i+10), fr=ch.map(e=>idFront(e,c)); while(fr.length%2) fr.push(null);
+    pages+=`<div class="pg"><div class="gd">${fr.map(x=>cell(x)).join('')}</div></div>`;
+    const bs=fr.map(x=>x?bk:null), mir=[]; for(let j=0;j<bs.length;j+=2) mir.push(bs[j+1],bs[j]);
+    pages+=`<div class="pg"><div class="gd">${mir.map(x=>cell(x)).join('')}</div></div>`; }
+  const css=`@page{size:A4 portrait;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .pg{width:210mm;height:296mm;break-after:page;page-break-after:always;overflow:hidden;padding-top:9mm}.pg:last-child{break-after:auto;page-break-after:auto}
+  .gd{display:grid;grid-template-columns:85mm 85mm;grid-auto-rows:54mm;gap:2mm;justify-content:center;direction:ltr}
+  .cd{width:85mm;height:54mm;overflow:hidden;position:relative;outline:.2mm solid #9a9a9a;direction:ltr}.cd.e{outline:0}
+  .ci{width:1280px;height:${(54/85*1280).toFixed(2)}px;position:absolute;left:0;top:0}
+  .idk.cr{height:${(54/85*1280).toFixed(2)}px}.idk.cr>.kA:not(.kBar){margin-top:${((54/85*1280-720)/2).toFixed(1)}px}${ID_CSS}
+  .idk.cr{height:${(54/85*1280).toFixed(2)}px}`;
+  const fr=document.createElement('iframe'); fr.style.cssText='position:fixed;left:-10000px;top:0;width:794px;height:1123px;border:0;visibility:hidden';
+  fr.srcdoc=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>كروت ID</title><style>${css}</style></head><body>${pages}</body></html>`;
+  fr.onload=()=>{ const d=fr.contentDocument; idFit(d); window.__idPrinted=d.querySelectorAll('.pg').length;
+    setTimeout(()=>{ try{ fr.contentWindow.focus(); fr.contentWindow.print(); }catch(e){ toast('تعذر فتح الطباعة',true); } setTimeout(()=>fr.remove(),60000); },400); };
+  document.body.appendChild(fr);
 }
 function idPrint(o){
   const c=idCfg(), L=idList(), by=new Map(L.map(e=>[e.k,e])), es=o.keys.map(k=>by.get(k)).filter(Boolean), cards=[];
@@ -6332,7 +6357,7 @@ async function hrPrintId(){
     ID.data.emps=E; try{ const c=await BE.idGet('cfg'); if(c) ID.data.cfg=c; }catch(e){}
     try{ const ph=await BE.idGet('ph_'+r.k); if(ph&&ph.u) ID.photos[r.k]=ph.u; }catch(e){}
     if(HP.u||HP.prev) ID.photos[r.k]=HP.u||HP.prev;
-    idPrint({keys:[r.k],mode:'fi',per:2});
+    idPrintCard([r.k]);
   }catch(e){ toast(authMsg(e),true); }
 }
 
