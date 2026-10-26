@@ -247,8 +247,8 @@ service cloud.firestore {
     // ===== الهيكل التنظيمي (مخطط / موظفون / مراحل التعيين) =====
     // القراءة لمن عنده can('orgchart','view') والكتابة لمن عنده can('orgchart','edit') أو المدير.
     match /orgChart/{id} {
-      allow read:  if can('orgchart','view');
-      allow write: if wr('orgchart');
+      allow read:  if can('orgchart','view') || ((id == 'planned' || id == 'emps' || id == 'set') && anyA('hiring'));
+      allow write: if wr('orgchart') || (id == 'emps' && canA('hiring','add'));
     }
 
     // ===== ID (كروت تصريح الدخول: الموظفون + الظهر + الصور) =====

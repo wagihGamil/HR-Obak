@@ -1820,6 +1820,7 @@ const LocalBackend = {
   async deleteLink(id){ LS.set('demo_links',LS.get('demo_links',[]).filter(f=>f.id!==id)); },
   async ocAll(){ return JSON.parse(JSON.stringify(LS.get('demo_oc',{}))); },
   async ocSet(id,data){ const o=LS.get('demo_oc',{}); o[id]=JSON.parse(JSON.stringify(data)); LS.set('demo_oc',o); },
+  async ocGet(id){ const o=LS.get('demo_oc',{}); return o[id]?JSON.parse(JSON.stringify(o[id])):null; },
   async idAll(){ return JSON.parse(JSON.stringify(LS.get('demo_id',{}))); },
   async idSet(id,data){ const o=LS.get('demo_id',{}); o[id]=JSON.parse(JSON.stringify(data)); LS.set('demo_id',o); },
   async idDel(id){ const o=LS.get('demo_id',{}); delete o[id]; LS.set('demo_id',o); },
@@ -1922,6 +1923,7 @@ const FirebaseBackend = {
   async deleteLink(id){ const {Fs}=this.S; await Fs.deleteDoc(Fs.doc(this.db,'workLinks',id)); },
   async ocAll(){ const {Fs}=this.S; const s=await Fs.getDocs(Fs.collection(this.db,'orgChart')); const o={}; s.docs.forEach(d=>{ o[d.id]=d.data(); }); return o; },
   async ocSet(id,data){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(this.db,'orgChart',id),data); },
+  async ocGet(id){ const {Fs}=this.S; const d=await Fs.getDoc(Fs.doc(this.db,'orgChart',id)); return d.exists()?d.data():null; },
   async idAll(){ const {Fs}=this.S; const s=await Fs.getDocs(Fs.collection(this.db,'idCards')); const o={}; s.docs.forEach(d=>{ o[d.id]=d.data(); }); return o; },
   async idSet(id,data){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(this.db,'idCards',id),data); },
   async idDel(id){ const {Fs}=this.S; await Fs.deleteDoc(Fs.doc(this.db,'idCards',id)); },
@@ -2254,7 +2256,7 @@ function buildHiring(){
   renderSheets(out,'cnt_h',dx);
 }
 function mountHiring(){
-  setLayout({panel:'pn_hiring',sheets:true}); rcUI('hiring');
+  setLayout({panel:'pn_hiring',sheets:true}); rcUI('hiring'); hjInit();
   [['acks','o_ak'],['kin','o_kn'],['contract','o_ct'],['policy','o_po']].forEach(([a,c])=>document.querySelector('.'+c).hidden=!can('hiring',a));
   buildHiring();
 }
@@ -6238,6 +6240,40 @@ function rsFill(emp){
   Object.assign(ED,{name:emp.n||'',nid:emp.nid||'',code:emp.code||'',dept:emp.d||'',job:emp.j||'',first,last:today,date:today});
   buildResign(); toast(`اتفتحت أوراق «${emp.n}» — آخر يوم عمل: ${today}`); window.scrollTo(0,0);
 }
+
+/* ===== اختيار الإدارة/الوظيفة من الهيكل المخطط + الإضافة للهيكل الحالي ===== */
+const HJ={ready:null,rows:[],cc:null,cur:null};
+function hjLoad(force){ if(HJ.ready&&!force) return HJ.ready; HJ.ready=(async()=>{ try{
+  const [p,e,s]=await Promise.all([BE.ocGet('planned').catch(()=>null),BE.ocGet('emps').catch(()=>null),BE.ocGet('set').catch(()=>null)]);
+  HJ.rows=(p&&p.rows)||[]; HJ.cc=null;
+  try{ const keep=OC.data; OC.data={planned:p,emps:e,plan:{phases:[]},set:s||{map:{}}}; if(!OC.data.set.map) OC.data.set.map={}; HJ.cc=ocCalc(); OC.data=keep; }catch(x){ HJ.cc=null; }
+}catch(e){ HJ.rows=[]; } })(); return HJ.ready; }
+function hjPop(){ let el=document.getElementById('hjpop'); if(!el){ el=document.createElement('div'); el.id='hjpop'; el.style.cssText='position:absolute;z-index:60;top:100%;right:0;left:0;max-height:270px;overflow:auto;background:#fff;border:1.5px solid #9aa3b5;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);display:none'; } return el; }
+function hjHide(){ const el=document.getElementById('hjpop'); if(el) el.style.display='none'; }
+async function hjShow(id){ const inp=$(id); await hjLoad(); const el=hjPop(), box=inp.closest('.fld'); if(!box) return; if(el.parentNode!==box){ box.style.position='relative'; box.appendChild(el); }
+  const q=ocN(inp.value), toks=q.split(' ').filter(Boolean);
+  let rows=HJ.rows.filter(r=>{ const t=ocN(r.job+' '+r.dept); return toks.every(w=>t.includes(w)); }).slice(0,80);
+  if(!HJ.rows.length){ el.innerHTML='<div style="padding:8px 12px;color:#667085;font-size:12.5px">لا توجد وظائف في الهيكل المخطط (أو لا توجد صلاحية قراءة) — اكتب يدويًا</div>'; el.style.display='block'; return; }
+  el.innerHTML=rows.map(r=>{ const rem=HJ.cc?HJ.cc.rem(r):null; return `<div class="hj-i" data-id="${esc(r.id)}" style="padding:7px 12px;cursor:pointer;border-bottom:1px solid #eef0f4;display:flex;justify-content:space-between;gap:10px;align-items:center"><span><b style="font-size:13.5px">${esc(r.job)}</b><br><span style="font-size:11.5px;color:#667085">${esc(r.dept)}</span></span>${rem===null?'':`<span style="font-size:11px;font-weight:700;border-radius:99px;padding:1px 9px;white-space:nowrap;${rem>0?'background:#e6f5ea;color:#1b7a3d':'background:#fdecec;color:#c62828'}">${rem>0?'متاح '+rem:'مكتمل'}</span>`}</div>`; }).join('')||'<div style="padding:8px 12px;color:#667085;font-size:12.5px">لا توجد نتيجة — تقدر تكتب القيمة يدويًا</div>';
+  el.style.display='block'; }
+function hjInit(){ ['in_dept','in_job'].forEach(id=>{ const el=$(id); if(!el||el.dataset.hj) return; el.dataset.hj='1'; el.setAttribute('autocomplete','off'); el.placeholder='اكتب للبحث في الهيكل المخطط أو اختر من القائمة';
+    el.addEventListener('input',()=>hjShow(id)); el.addEventListener('focus',()=>hjShow(id)); el.addEventListener('keydown',e=>{ if(e.key==='Escape') hjHide(); }); });
+  if(!window.__hjDoc){ window.__hjDoc=1;
+    document.addEventListener('mousedown',e=>{ const it=e.target.closest&&e.target.closest('.hj-i'); if(it){ e.preventDefault(); const r=HJ.rows.find(x=>x.id===it.dataset.id); if(r){ $('in_job').value=r.job; $('in_dept').value=r.dept; onHInput(); } hjHide(); return; }
+      if(!(e.target.closest&&e.target.closest('#in_dept,#in_job,#hjpop'))) hjHide(); }); }
+  hjLoad(true); }
+async function ocFromHiring(s){ try{
+  if(!can('hiring','add')) return; const name=rcNm(s.name), job=rcNm(s.job), dept=rcNm(s.dept); if(!name||(!job&&!dept)) return;
+  const [P,E0]=await Promise.all([BE.ocGet('planned').catch(()=>null),BE.ocGet('emps').catch(()=>null)]);
+  const E=E0||{rows:[],at:new Date().toISOString().slice(0,10),file:'من أوراق التعيين'}; if(!E.rows) E.rows=[];
+  const pr=((P&&P.rows)||[]).find(r=>ocN(r.dept)===ocN(dept)&&ocN(r.job)===ocN(job));
+  const d=pr?pr.dept:dept, j=pr?pr.job:job, t=/^\d{2}\/\d{2}\/\d{4}$/.test(s.start||'')?s.start.split('/').reverse().join('-'):'';
+  let r=E.rows.find(x=>ocN(x.n)===ocN(name)), isNew=!r; if(!r){ r={n:name,d:'',j:'',t:''}; E.rows.push(r); }
+  const old=JSON.stringify(r); r.n=name; r.d=d; r.j=j; if(t) r.t=t;
+  if(isNew||JSON.stringify(r)!==old){ await BE.ocSet('emps',E); if(OC.data.emps) OC.data.emps=E; HJ.ready=null;
+    toast(isNew?(pr?`اتضاف «${name}» في الهيكل التنظيمي الحالي ✓`:`اتضاف «${name}» في الهيكل الحالي (الوظيفة/الإدارة خارج المخطط)`):`اتحدّث «${name}» في الهيكل التنظيمي الحالي ✓`); }
+}catch(e){ console.warn('ocFromHiring',e); } }
+
 async function idFromHiring(s){
   try{
     const name=rcNm(s.name); if(!name) return;
@@ -6281,7 +6317,7 @@ async function rcSave(mod,silent){
   if(!(can(mod,'add')||can(mod,'edit'))){ if(!silent) toast('مفيش صلاحية حفظ في السجل',true); return false; }
   const s=rcSnap(mod), key=rcKey(mod,s); if(!key){ if(!silent) toast('اكتب اسم الموظف الأول',true); return false; }
   s.updatedAt=new Date().toISOString(); s.by=(ME&&(ME.email||ME.name))||'';
-  try{ await BE.rcSet(RC_COL[mod],key,s); RC.cur=key; if(mod==='hiring') idFromHiring(s); if(!silent) toast('تم الحفظ في السجل ✓'); return true; }
+  try{ await BE.rcSet(RC_COL[mod],key,s); RC.cur=key; if(mod==='hiring'){ idFromHiring(s); ocFromHiring(s); } if(!silent) toast('تم الحفظ في السجل ✓'); return true; }
   catch(e){ if(!silent) toast(authMsg(e),true); return false; }
 }
 function rcClear(mod){
