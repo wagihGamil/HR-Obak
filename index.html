@@ -434,7 +434,8 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
           <label class="o_po">نسخ سياسة الدوام <input type="number" id="c_po" min="0" max="9" value="1"></label>
           <label title="يضيف ورقة فاضية بعد أي مستند عدد صفحاته فردي، علشان كل مستند يبدأ على ورقة جديدة"><input type="checkbox" id="k_dx" checked> طباعة وش وظهر</label>
           <button class="btn" type="button" data-rc="new" title="يحفظ الحالي في السجل ويفتح استمارة فاضية">+ موظف جديد</button><button class="btn" type="button" data-rc="save">💾 حفظ في السجل</button><button class="btn" type="button" data-rc="open">📋 السجل</button><span class="sp"></span><span class="cnt" id="cnt_h"></span>
-          <button class="pbtn" type="button">طباعة كل الأوراق</button>
+          <button class="pbtn" type="button">طباعة أوراق التعيين</button>
+          <button class="pbtn" type="button" id="h_idprint" style="background:#1f2a44;box-shadow:0 2px 0 #0f1626">🪪 طباعة الايدي</button>
         </div>
         <div class="note">الخانات الفاضية (التواريخ، المرتب، الإمضاءات…) بتتسيب فاضية للتعبئة بخط اليد. اضغط على المربعات في «إيصال استلام مسوغات التعيين» علشان تعلّم على الأوراق اللي المرشح سلّمها. اختار «وش وظهر» في نافذة الطباعة نفسها لو الطابعة بتدعمها.</div>
       </div>
@@ -6318,6 +6319,23 @@ async function rtHouse(){
     catch(e){ er.textContent=authMsg(e)||String(e.message||e); q('#hs_ok').disabled=false; } };
 }
 
+
+async function hrPrintId(){
+  if(!hrCheck()) return;
+  try{
+    const s=rcSnap('hiring'); s.updatedAt=new Date().toISOString();
+    if(can('hiring','add')||can('hiring','edit')){ if(await rcSave('hiring',true)){} }
+    const name=rcNm(s.name), code=String(s.code||'').trim(), nid=String(s.nid||'').replace(/\D/g,'');
+    let E=null, r=null;
+    for(let i=0;i<8&&!r;i++){ if(i) await new Promise(x=>setTimeout(x,600)); E=await BE.idGet('emps'); if(E&&E.rows) r=E.rows.find(x=>(code&&String(x.code||'')===code)||(nid&&String(x.nid||'')===nid))||E.rows.find(x=>ocN(x.n)===ocN(name)); }
+    if(!r){ toast('الموظف لسه ماتضافش في مديول الـ ID — احفظه في السجل الأول',true); return; }
+    ID.data.emps=E; try{ const c=await BE.idGet('cfg'); if(c) ID.data.cfg=c; }catch(e){}
+    try{ const ph=await BE.idGet('ph_'+r.k); if(ph&&ph.u) ID.photos[r.k]=ph.u; }catch(e){}
+    if(HP.u||HP.prev) ID.photos[r.k]=HP.u||HP.prev;
+    idPrint({keys:[r.k],mode:'fi',per:2});
+  }catch(e){ toast(authMsg(e),true); }
+}
+
 async function idFromHiring(s){
   try{
     const name=rcNm(s.name); if(!name) return;
@@ -6409,7 +6427,7 @@ function hrCheck(){
   const bad=[]; document.querySelectorAll('.fld.hrbad').forEach(x=>x.classList.remove('hrbad'));
   F.forEach(([id,l])=>{ const el=document.getElementById(id); let v=el?String(el.value||'').trim():''; let ok=!!v; if(id==='in_nid') ok=/^\d{14}$/.test(v);
     if(!ok){ bad.push(id==='in_nid'&&v?'الرقم القومي (لازم 14 رقم)':l); if(el&&el.closest('.fld')) el.closest('.fld').classList.add('hrbad'); } });
-  if(!(HP&&HP.u)){ bad.push('صورة الموظف'); const f=document.getElementById('in_photo'); if(f&&f.closest('.fld')) f.closest('.fld').classList.add('hrbad'); }
+  if(!(HP&&(HP.u||HP.prev))){ bad.push('صورة الموظف'); const f=document.getElementById('in_photo'); if(f&&f.closest('.fld')) f.closest('.fld').classList.add('hrbad'); }
   if(bad.length){ alert('⛔ لا يمكن الطباعة — بيانات ناقصة:\n• '+bad.join('\n• ')); const x=document.querySelector('.fld.hrbad input'); if(x&&x.type!=='file') x.focus(); return false; }
   return true;
 }
@@ -6595,6 +6613,7 @@ document.addEventListener('click',e=>{
   if(t.closest('#userBtn')) $('umd').hidden=!$('umd').hidden;
   if(t.closest('#u_out')){ $('umd').hidden=true; BE.logout(); }
   if(t.closest('#appsBtn')) location.hash='#/';
+  if(t.closest('#h_idprint')){ hrPrintId(); return; }
   const pb=t.closest('.pbtn'); if(pb){
     if(CUR.mod==='hiring' && !hrCheck()) return;
     if(CUR.mod==='insurance'){ if(INS.busy){ toast('استنى لحد ما يخلص تجهيز المرفقات',true); return; } if(!insTargets().length && !confirm('لسه ماختارتش موظف — هتتطبع الاستمارة فاضية. تكمل؟')) return; }
