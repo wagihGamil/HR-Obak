@@ -3388,17 +3388,30 @@ const ocIso=v=>{ if(v instanceof Date&&!isNaN(v)){ const x=new Date(v.getTime()+
 async function ocUploadPlanned(file){
   const m=await ocReadSheet(file); let hi=m.findIndex(r=>r.some(c=>ocN(c).includes('وظيف')||ocN(c).includes('منصب')));
   if(hi<0) throw new Error('مش لاقي عمود «الوظيفة» في الشيت');
-  const ix=ocFindCols(m[hi],{d:['الاداره','القسم','اداره'],j:['الوظيف','المنصب'],c:['العدد','عدد']});
+  const ix=ocFindCols(m[hi],{d:['الاداره','القسم','اداره'],j:['الوظيف','المنصب'],c:['العدد','عدد'],p:['تتبع','يتبع'],l:['قيادي']});
   if(ix.d<0||ix.j<0||ix.c<0) throw new Error('الشيت لازم فيه أعمدة: الإدارة (أو القسم) · الوظيفة · العدد');
   const old=new Map(((OC.data.planned&&OC.data.planned.rows)||[]).map(r=>[ocN(r.dept)+'|'+ocN(r.job),r]));
   const seen=new Map(), rows=[];
   m.slice(hi+1).forEach(r=>{ const d=String(r[ix.d]||'').trim(), j=String(r[ix.j]||'').trim(), c=parseFloat(r[ix.c]);
     if(!d||!j||isNaN(c)||ocN(d)==='الاجمالي'||ocN(d)==='اجمالي') return;
     let id=ocN(d)+'|'+ocN(j); const k=(seen.get(id)||0)+1; seen.set(id,k); const key=id; if(k>1) id+='#'+k;
-    const o=old.get(key); rows.push({id,dept:d,job:j,count:c,parent:(o&&k===1&&o.parent)||'',lead:o&&k===1?!!o.lead:ocLead(j)}); });
+    const o=old.get(key), pv=ix.p>=0?String(r[ix.p]||'').trim():null, lv=ix.l>=0?ocN(r[ix.l]):null;
+    rows.push({id,dept:d,job:j,count:c,parent:ix.p>=0?'':((o&&k===1&&o.parent)||''),_p:pv,lead:ix.l>=0?(lv==='نعم'||lv==='1'||lv==='yes'):(o&&k===1?!!o.lead:ocLead(j))}); });
   if(!rows.length) throw new Error('مفيش صفوف صالحة في الشيت');
+  if(ix.p>=0){ const byKey=new Map(); rows.forEach(r=>{ const kk=ocN(r.dept)+'|'+ocN(r.job); if(!byKey.has(kk)) byKey.set(kk,r.id); });
+    rows.forEach(r=>{ const pv=r._p; delete r._p; if(!pv) return; const parts=pv.split('|').map(x=>x.trim()); let pid=null;
+      if(parts.length>=2) pid=byKey.get(ocN(parts[0])+'|'+ocN(parts.slice(1).join('|'))); else { const jn=ocN(parts[0]); const c=rows.filter(x=>ocN(x.job)===jn&&x.id!==r.id); pid=(c.find(x=>x.dept===r.dept)||c[0]||{}).id; }
+      if(pid&&pid!==r.id) r.parent=pid; });
+    rows.forEach(r=>{ const seen=new Set([r.id]); let c=r; while(c&&c.parent){ if(seen.has(c.parent)){ r.parent=''; break; } seen.add(c.parent); c=rows.find(x=>x.id===c.parent); } }); }
   OC.data.planned={rows,at:new Date().toISOString().slice(0,10),file:file.name};
   await BE.ocSet('planned',OC.data.planned);
+}
+async function ocExportPlanned(){
+  const rows=(OC.data.planned&&OC.data.planned.rows)||[]; if(!rows.length){ toast('مفيش هيكل مخطط للتصدير',true); return; }
+  await loadXLSX(); const by=new Map(rows.map(r=>[r.id,r]));
+  const data=rows.map(r=>{ const pr=r.parent?by.get(r.parent):null; return {'الإدارة':r.dept,'الوظيفة':r.job,'العدد':+r.count||0,'تتبع':pr?pr.dept+' | '+pr.job:'','قيادي':r.lead?'نعم':'لا'}; });
+  const ws=XLSX.utils.json_to_sheet(data,{header:['الإدارة','الوظيفة','العدد','تتبع','قيادي']}); ws['!cols']=[{wch:28},{wch:30},{wch:8},{wch:48},{wch:8}]; ws['!views']=[{rightToLeft:true}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'الهيكل المخطط'); XLSX.writeFile(wb,'الهيكل_المخطط_'+new Date().toISOString().slice(0,10)+'.xlsx'); toast('تم تصدير الهيكل المخطط ✓');
 }
 async function ocUploadEmps(file){
   const m=await ocReadSheet(file); let hi=m.findIndex(r=>r.some(c=>ocN(c).includes('الموظف')||ocN(c).includes('اسم')));
@@ -3467,10 +3480,10 @@ function renderOrg(){
 function ocChartTab(ed,pOk,eOk,upl,S){
   const C=OC.C, v=OC.view;
   let h=`<div class="ocup">${upl('p','g','① شيت الهيكل المخطط (أعداد الموظفين المخطط لهم)','الأعمدة: الإدارة · الوظيفة · العدد'+(ed?' — اضغط لاختيار الملف':''),'oc_fp',pOk)}${upl('e','b','② شيت الموظفين الحاليين','الأعمدة: اسم الموظف · القسم · المنصب الوظيفي'+(ed?' — اضغط لاختيار الملف':''),'oc_fe',eOk)}</div>`;
-  if(C.E.length&&C.P.length&&(S.unm>0||C.manualMapped.length)) h+=`<div class="ocwarn"><span>${ocNum(S.unm)} موظف مش مربوطين بوظيفة في الخطة (بيظهروا في الهيكل الحالي كوظائف «خارج الخطة» ومش بيتخصموا من المتبقي).</span>${can('orgchart','edit')?'<button class="btn sm" id="oc_map" type="button">ربط الوظائف يدويًا</button>':''}</div>`;
+  if(C.E.length&&C.P.length&&(S.unm>0||C.manualMapped.length)) h+=`<div class="ocwarn"><span>${ocNum(S.unm)} موظف مش مربوطين بوظيفة في الخطة (بيظهروا في الهيكل الحالي كوظائف «خارج الخطة» ومش بيتخصموا من المتبقي).</span>${can('orgchart','edit')?'<button class="btn sm" data-ocmap2 type="button">ربط الوظائف يدويًا</button>':''}</div>`;
   h+=`<div class="ocbar"><div class="ocseg"><button type="button" data-ocv="p" class="${v==='p'?'on':''}">المخطط</button><button type="button" data-ocv="a" class="${v==='a'?'on':''}">الحالي</button><button type="button" data-ocv="ab" class="${v==='ab'?'on':''}">الاتنين فوق بعض</button></div>
    <label style="display:inline-flex;gap:6px;align-items:center;font-size:13.5px"><input type="checkbox" id="oc_names" ${OC.names?'checked':''}> إظهار أسماء الموظفين في الكروت</label>
-   ${can('orgchart','add')?'<button class="btn sm" id="oc_adddept" type="button">+ إدارة جديدة</button>':''}<button class="btn sm" id="oc_zoom" type="button">${OC.fit?'حجم حقيقي':'ملاءمة العرض'}</button><span class="muted" style="font-size:12.5px">${ed?'اسحب أي وظيفة وسيبها على وظيفة تانية (تبقى تابعة لها) أو على إدارة (تبقى مستوى أول فيها). زر + على الوظيفة يضيف وظيفة تحتها، والضغط على الوظيفة يفتح تعديلها.':'اضغط على أي وظيفة لعرض تفاصيلها.'}</span></div>`;
+   ${can('orgchart','add')?'<button class="btn sm" id="oc_adddept" type="button">+ إدارة جديدة</button>':''}<button class="btn sm" id="oc_exp" type="button">⬇ تصدير الهيكل المخطط</button>${C.E.length&&C.P.length?`<button class="btn sm" id="oc_map" type="button">🔗 ربط المخطط بالحالي</button>`:''}<button class="btn sm" id="oc_zoom" type="button">${OC.fit?'حجم حقيقي':'ملاءمة العرض'}</button><span class="muted" style="font-size:12.5px">${ed?'اسحب أي وظيفة وسيبها على وظيفة تانية (تبقى تابعة لها) أو على إدارة (تبقى مستوى أول فيها). زر + على الوظيفة يضيف وظيفة تحتها، والضغط على الوظيفة يفتح تعديلها.':'اضغط على أي وظيفة لعرض تفاصيلها.'}</span></div>`;
   const parts=[]; if(v==='p'||v==='ab') parts.push(ocChart('p',{int:true,dnd:can('orgchart','edit'),addb:can('orgchart','add'),wr:ed})); if(v==='a'||v==='ab') parts.push(ocChart('a',{int:true,dnd:can('orgchart','edit'),addb:can('orgchart','add'),wr:ed,names:OC.names}));
   h+=`<div class="ocscroll" id="oc_scroll">${parts.map(p=>`<div class="ocwrap" style="margin:8px">${p}</div>`).join('')}</div>`;
   return h;
@@ -3553,87 +3566,69 @@ function ocJobModal(id){
 }
 function ocMapModal(){
   const C=OC.C, ed=canW('orgchart'), draft={...(OC.data.set.map||{})};
-  if(!document.getElementById('mgcss')){ const st=document.createElement('style'); st.id='mgcss'; st.textContent=`
+  if(!document.getElementById('mgcss2')){ const st=document.createElement('style'); st.id='mgcss2'; st.textContent=`
 .mgov{position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9000;display:flex;align-items:center;justify-content:center;padding:10px}
-.mgbox{background:#f8fafc;border-radius:14px;width:min(1180px,100%);height:min(92vh,100%);display:flex;flex-direction:column;overflow:hidden;direction:rtl}
+.mgbox{background:#f8fafc;border-radius:14px;width:min(1100px,100%);height:min(92vh,100%);display:flex;flex-direction:column;overflow:hidden;direction:rtl}
 .mgtop{padding:12px 16px;background:#fff;border-bottom:1px solid #e2e8f0;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
 .mgtop h3{margin:0;font-size:16px;color:#1f3864}.mgtop small{color:#64748b;font-size:12px;flex-basis:100%}
-.mgtop input[type=search]{border:1px solid #cbd5e1;border-radius:8px;padding:5px 10px;font:inherit;font-size:13px;width:170px}
-.mgsc{flex:1;overflow:auto;position:relative}
-.mgcv{position:relative;display:flex;justify-content:space-between;gap:20px;padding:16px 20px 40px;min-height:100%}
-.mgcol{width:330px;flex:none;display:flex;flex-direction:column;gap:6px;position:relative;z-index:2}
-.mgmid{flex:1;min-width:160px}
-.mgsv{position:absolute;left:0;top:0;z-index:1;overflow:visible}
-.mgdh{font-weight:800;font-size:12.5px;color:#475569;margin:10px 2px 2px;padding-bottom:2px;border-bottom:2px solid #cbd5e1}
-.mgcolh{font-weight:800;font-size:14px;padding:6px 10px;border-radius:8px;color:#fff;position:sticky;top:0;z-index:3}
-.mgn{position:relative;display:flex;align-items:center;gap:8px;background:#fff;border:1.5px solid #cbd5e1;border-radius:9px;padding:6px 12px;font-size:13px;min-height:36px}
-.mgn.c{border-inline-start:5px solid #1f5fa8;padding-left:26px}.mgn.p{border-inline-start:5px solid #2f9e6f;padding-right:26px}
-.mgn.o{border-inline-start:5px solid #e08a1e;background:#fff7ed;padding-right:26px}
-.mgn .mgt{flex:1;min-width:0;line-height:1.35}.mgn small{display:block;color:#64748b;font-size:11px}
-.mgq{background:#eef2f7;border-radius:6px;padding:0 7px;font-size:11.5px;font-weight:700;flex:none}.mgq.full{background:#d1fae5;color:#065f46}.mgq.over{background:#fee2e2;color:#991b1b}
-.mgh{position:absolute;top:50%;width:18px;height:18px;margin-top:-9px;border-radius:50%;background:#fff;border:3px solid #1f5fa8;z-index:3;touch-action:none}
-.mgn.c .mgh{left:-10px;cursor:crosshair}.mgn.c .mgh:hover{background:#1f5fa8}.mgn.c.lk .mgh{background:#1f5fa8}
-.mgn.p .mgh{right:-10px;border-color:#2f9e6f;pointer-events:none}.mgn.p.lk .mgh{background:#2f9e6f}.mgn.o .mgh{border-color:#e08a1e}.mgn.o.lk .mgh{background:#e08a1e}
-.mgn.p.hot{outline:3px solid #f0c24b;outline-offset:2px;background:#fffbeb}
-.mgl{fill:none;stroke-width:2.5;pointer-events:none}.mgl.m{stroke:#2f9e6f}.mgl.a{stroke:#94a3b8;stroke-dasharray:6 5}.mgl.o{stroke:#e08a1e}.mgl.t{stroke:#f0a500;stroke-dasharray:3 4}
-.mghit{fill:none;stroke:transparent;stroke-width:16;cursor:pointer;pointer-events:stroke}.mghit:hover+.mgl{stroke-width:4.5;stroke:#dc2626}
+.mgtop input[type=search]{border:1px solid #cbd5e1;border-radius:8px;padding:5px 10px;font:inherit;font-size:13px;width:200px}
+.mgsc{flex:1;overflow:auto;padding:6px 16px 30px}
+.mgdh{font-weight:800;font-size:13px;color:#fff;background:#475569;margin:14px 0 6px;padding:5px 12px;border-radius:8px}
+.mgr{display:grid;grid-template-columns:minmax(210px,34%) 1fr;gap:10px;align-items:start;background:#fff;border:1.5px solid #cbd5e1;border-inline-start:5px solid #2f9e6f;border-radius:9px;padding:8px 12px;margin-bottom:6px}
+.mgr.o{border-inline-start-color:#e08a1e;background:#fff7ed}
+.mgr .pj{font-weight:700;font-size:13.5px;line-height:1.4}.mgr .pj small{display:block;font-weight:400;color:#64748b;font-size:11.5px}
+.mgq{background:#eef2f7;border-radius:6px;padding:0 7px;font-size:11.5px;font-weight:700;margin-inline-start:6px}.mgq.full{background:#d1fae5;color:#065f46}.mgq.over{background:#fee2e2;color:#991b1b}
+.mgc{display:flex;flex-wrap:wrap;gap:5px;align-items:center;position:relative}
+.mgchip{display:inline-flex;gap:6px;align-items:center;border-radius:99px;padding:2px 4px 2px 10px;font-size:12px;background:#e0ecfa;color:#15335c}
+.mgchip.a{background:#eef2f7;color:#475569}.mgchip.m{background:#d9f2e6;color:#14532d}.mgchip.o{background:#ffe9cc;color:#7c4a03}
+.mgchip button{border:0;background:rgba(0,0,0,.12);border-radius:50%;width:18px;height:18px;line-height:16px;cursor:pointer;font-size:12px;padding:0}
+.mgi{border:1.5px dashed #94a3b8;border-radius:8px;padding:4px 10px;font:inherit;font-size:12.5px;min-width:200px;flex:1;background:#fafcff}
+.mgpop{position:absolute;top:100%;right:0;left:0;z-index:30;max-height:240px;overflow:auto;background:#fff;border:1.5px solid #94a3b8;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);margin-top:3px}
+.mgpop div{padding:6px 12px;cursor:pointer;border-bottom:1px solid #eef0f4;font-size:13px}.mgpop div:hover{background:#eef5ff}.mgpop small{display:block;color:#64748b;font-size:11px}
 .mgft{padding:10px 16px;background:#fff;border-top:1px solid #e2e8f0;display:flex;gap:8px;align-items:center}
-@media(max-width:820px){.mgcol{width:250px}.mgmid{min-width:70px}}`; document.head.appendChild(st); }
+@media(max-width:700px){.mgr{grid-template-columns:1fr}}`; document.head.appendChild(st); }
   const keyInfo=new Map(); C.E.forEach(e=>{ const k=ocN(e.d)+'|'+ocN(e.j); const u=keyInfo.get(k)||keyInfo.set(k,{key:k,d:e.d,j:e.j,n:0}).get(k); u.n++; });
   const auto=new Map(); C.byP.forEach((l,pid)=>l.forEach(e=>{ const k=ocN(e.d)+'|'+ocN(e.j); if(!(k in (OC.data.set.map||{}))) auto.set(k,pid); }));
   const eff=k=>{ const v=draft[k]; if(v===undefined){ const a=auto.get(k); return a?{pid:a,t:'a'}:null; } if(v==='out') return {pid:'out',t:'o'}; if(v&&C.byId.has(v)) return {pid:v,t:'m'}; return null; };
-  const cur=[...keyInfo.values()].sort((a,b)=>a.d.localeCompare(b.d,'ar')||a.j.localeCompare(b.j,'ar'));
-  const grp=(arr,dk)=>{ let h='',last=null; arr.forEach(x=>{ const d=dk(x); if(d!==last){ h+=`<div class="mgdh" data-gd="${esc(ocN(d))}">${esc(d)}</div>`; last=d; } h+=x.html; }); return h; };
-  const L=grp(cur.map(u=>({d:u.d,html:`<div class="mgn c" data-k="${esc(u.key)}" data-s="${esc(ocN(u.d+' '+u.j))}"><div class="mgt"><b>${esc(u.j)}</b></div><span class="mgq">${ocNum(u.n)}</span><i class="mgh s" data-k="${esc(u.key)}"></i></div>`})),x=>x.d);
-  const R=grp(C.P.map(r=>({d:r.dept,html:`<div class="mgn p" data-pid="${esc(r.id)}" data-cnt="${+r.count||0}" data-s="${esc(ocN(r.dept+' '+r.job))}"><div class="mgt"><b>${esc(r.job)}</b></div><span class="mgq"></span><i class="mgh"></i></div>`})),x=>x.d);
+  const keys=[...keyInfo.values()].sort((a,b)=>a.d.localeCompare(b.d,'ar')||a.j.localeCompare(b.j,'ar'));
+  const label=r=>r?r.dept+' — '+r.job:'';
+  const rowHtml=(pid,r)=>{ const lk=keys.filter(u=>{ const e=eff(u.key); return e&&e.pid===pid; }), c=lk.reduce((s,u)=>s+u.n,0), pl=r?(+r.count||0):0;
+    const chips=lk.map(u=>{ const e=eff(u.key); return `<span class="mgchip ${e.t}" title="${e.t==='a'?'ربط تلقائي':'ربط يدوي'}">${esc(u.j)} <small style="opacity:.7">(${esc(ocTop(u.d))} · ${ocNum(u.n)})</small>${ed?`<button type="button" data-rm="${esc(u.key)}" title="فصل">×</button>`:''}</span>`; }).join('');
+    const bc=pid==='out'?(c?`<span class="mgq">${c}</span>`:''):`<span class="mgq ${c>pl?'over':(c===pl&&pl>0?'full':'')}">${c} / ${pl}</span>`;
+    return `<div class="mgr ${pid==='out'?'o':''}" data-pid="${esc(pid)}" data-s="${esc(r?ocN(r.dept+' '+r.job):'')}" data-lk="${lk.length}"><div class="pj">${pid==='out'?'خارج الخطة<small>وظائف حالية مش هتتحسب في المخطط</small>':esc(r.job)+bc}</div>
+      <div class="mgc">${chips}${ed?`<input type="search" class="mgi" placeholder="${pid==='out'?'ابحث عن وظيفة حالية لاستبعادها…':'ابحث عن الوظيفة الحالية المقابلة واخترها…'}" autocomplete="off">`:''}${pid==='out'&&bc?'':''}</div></div>`; };
+  let body='', last=null; C.P.forEach(r=>{ if(r.dept!==last){ body+=`<div class="mgdh" data-gd="1">${esc(r.dept)}</div>`; last=r.dept; } body+=rowHtml(r.id,r); });
+  body+=`<div class="mgdh" data-gd="1" style="background:#e08a1e">خارج الخطة</div>`+rowHtml('out',null);
   const m=document.createElement('div'); m.className='mgov'; m.id='ocmap';
-  m.innerHTML=`<div class="mgbox"><div class="mgtop"><h3>🔗 ربط الهيكل الحالي بالمخطط</h3>
-   <input type="search" id="mg_sl" placeholder="بحث في الوظائف الحالية…"><input type="search" id="mg_sr" placeholder="بحث في الوظائف المخططة…">
-   <label style="font-size:13px"><input type="checkbox" id="mg_un"> غير المربوطة فقط</label><span id="mg_st" style="font-size:12.5px;color:#475569;margin-inline-start:auto"></span>
-   <small>${ed?'اسحب من النقطة الزرقاء ● بجنب الوظيفة الحالية وسيبها على الوظيفة المخططة المقابلة. اضغط على الخط لفصله. الخط المتقطع الرمادي = ربط تلقائي، الأخضر = ربط يدوي، البرتقالي = خارج الخطة.':'عرض فقط — محتاج صلاحية تعديل للربط.'}</small></div>
-   <div class="mgsc" id="mgsc"><div class="mgcv" id="mgcv"><svg class="mgsv" id="mgsv"></svg>
-    <div class="mgcol" id="mgL"><div class="mgcolh" style="background:#1f5fa8">الهيكل الحالي (من شيت الموظفين)</div>${L}</div><div class="mgmid"></div>
-    <div class="mgcol" id="mgR"><div class="mgcolh" style="background:#2f9e6f">الهيكل المخطط</div><div class="mgn o" data-pid="out"><div class="mgt"><b>خارج الخطة</b><small>مش هتتحسب في المخطط</small></div><span class="mgq"></span><i class="mgh"></i></div>${R}</div></div></div>
+  m.innerHTML=`<div class="mgbox"><div class="mgtop"><h3>🔗 ربط الهيكل المخطط بالحالي</h3>
+   <input type="search" id="mg_sr" placeholder="بحث في الوظائف المخططة…">
+   <label style="font-size:13px"><input type="checkbox" id="mg_un"> المخططة بدون ربط فقط</label><span id="mg_st" style="font-size:12.5px;color:#475569;margin-inline-start:auto"></span>
+   <small>${ed?'قصاد كل وظيفة مخططة: اكتب في الحقل اسم الوظيفة أو القسم الحالي واختر الوظيفة المقابلة (ممكن أكتر من وظيفة حالية لنفس المخططة). اضغط × لفصل الربط. الرمادي = ربط تلقائي، الأخضر = ربط يدوي.':'عرض فقط — محتاج صلاحية تعديل للربط.'}</small></div>
+   <div class="mgsc" id="mgsc">${body}</div>
    <div class="mgft"><div class="lerr" id="mp_err" style="flex:1"></div>${ed?'<button class="btn pri" id="mg_save" type="button">حفظ وإعادة الحساب</button>':''}<button class="btn" id="mg_x" type="button">${ed?'إلغاء':'إغلاق'}</button></div></div>`;
   document.body.appendChild(m);
-  const q=s=>m.querySelector(s), qa=s=>[...m.querySelectorAll(s)], cv=q('#mgcv'), sv=q('#mgsv'), sc=q('#mgsc');
-  const shown=el=>el.offsetParent!==null, ctr=(el,r0)=>{ const r=el.getBoundingClientRect(); return {x:r.left+r.width/2-r0.left,y:r.top+r.height/2-r0.top}; };
-  const bez=(a,b)=>{ const cx=(a.x+b.x)/2; return `M${a.x} ${a.y} C${cx} ${a.y},${cx} ${b.y},${b.x} ${b.y}`; };
-  let drag=null, tmp=null;
-  function draw(){
-    const r0=cv.getBoundingClientRect(); sv.setAttribute('width',cv.offsetWidth); sv.setAttribute('height',cv.offsetHeight);
-    const per=new Map(); let linked=0, tot=0; let h='';
-    qa('.mgn.c').forEach(n=>{ const k=n.dataset.k, e=eff(k), u=keyInfo.get(k); tot++; n.classList.toggle('lk',!!e); if(!e) return; linked++; per.set(e.pid,(per.get(e.pid)||0)+u.n);
-      const t=q(`.mgn[data-pid="${CSS.escape(e.pid)}"]`); if(!t||!shown(n)||!shown(t)) return; const d=bez(ctr(n.querySelector('.mgh'),r0),ctr(t.querySelector('.mgh'),r0));
-      h+=`<g data-k="${esc(k)}"><path class="mghit" d="${d}"></path><path class="mgl ${e.t}" d="${d}"></path></g>`; });
-    qa('.mgn[data-pid]').forEach(n=>{ const pid=n.dataset.pid, c=per.get(pid)||0; n.classList.toggle('lk',c>0); const b=n.querySelector('.mgq'), pl=+n.dataset.cnt||0;
-      b.textContent=pid==='out'?(c||''):(c+' / '+pl); b.className='mgq'+(pid!=='out'?(c>pl?' over':(c===pl&&pl>0?' full':'')):''); });
-    sv.innerHTML=h+(tmp?`<path class="mgl t" d="${tmp}"></path>`:'');
-    q('#mg_st').textContent=`مربوط ${ocNum(linked)} من ${ocNum(tot)} وظيفة حالية`;
-  }
-  function filt(){ const a=ocN(q('#mg_sl').value), b=ocN(q('#mg_sr').value), un=q('#mg_un').checked;
-    qa('.mgn.c').forEach(n=>{ n.style.display=((!a||n.dataset.s.includes(a))&&(!un||!eff(n.dataset.k)))?'':'none'; });
-    qa('.mgn.p').forEach(n=>{ n.style.display=(!b||n.dataset.s.includes(b))?'':'none'; });
-    ['#mgL','#mgR'].forEach(s=>{ const col=q(s); [...col.querySelectorAll('.mgdh')].forEach(h=>{ let nx=h.nextElementSibling, any=false; while(nx&&!nx.classList.contains('mgdh')){ if(nx.style.display!=='none') any=true; nx=nx.nextElementSibling; } h.style.display=any?'':'none'; }); });
-    draw(); }
-  q('#mg_sl').oninput=q('#mg_sr').oninput=q('#mg_un').onchange=filt;
-  const close=()=>{ m.remove(); window.removeEventListener('resize',draw); };
-  q('#mg_x').onclick=close; window.addEventListener('resize',draw);
-  m.addEventListener('keydown',e=>{ if(e.key==='Escape') close(); });
+  const q=s=>m.querySelector(s), qa=s=>[...m.querySelectorAll(s)], sc=q('#mgsc');
+  const pop=document.createElement('div'); pop.className='mgpop'; pop.style.display='none';
+  function status(){ const un=keys.filter(u=>!eff(u.key)).length; q('#mg_st').textContent=`مربوط ${ocNum(keys.length-un)} من ${ocNum(keys.length)} وظيفة حالية`+(un?` — بدون ربط: ${un}`:''); }
+  function redraw(pid){ const old=q(`.mgr[data-pid="${CSS.escape(pid)}"]`); if(!old) return; const r=C.byId.get(pid)||null, t=document.createElement('div'); t.innerHTML=rowHtml(pid,r); old.replaceWith(t.firstElementChild); status(); filt(); }
+  function refreshAll(){ qa('.mgr').forEach(n=>redraw(n.dataset.pid)); }
+  function filt(){ const b=ocN(q('#mg_sr').value), un=q('#mg_un').checked;
+    qa('.mgr').forEach(n=>{ const pid=n.dataset.pid; n.style.display=(pid==='out'||((!b||n.dataset.s.includes(b))&&(!un||n.dataset.lk==='0')))?'':'none'; });
+    qa('.mgdh').forEach(h=>{ let nx=h.nextElementSibling, any=false; while(nx&&!nx.classList.contains('mgdh')){ if(nx.style.display!=='none') any=true; nx=nx.nextElementSibling; } h.style.display=any?'':'none'; }); }
+  q('#mg_sr').oninput=q('#mg_un').onchange=filt; const close=()=>m.remove(); q('#mg_x').onclick=close; m.addEventListener('keydown',e=>{ if(e.key==='Escape') close(); });
   if(ed){
-    sv.addEventListener('click',e=>{ const g=e.target.closest('g[data-k]'); if(!g) return; const k=g.dataset.k; if(auto.has(k)) draft[k]=''; else delete draft[k]; filt(); });
-    let cx=0, cy=0, iv=null;
-    cv.addEventListener('pointerdown',e=>{ const h=e.target.closest('.mgh.s'); if(!h) return; e.preventDefault(); drag=h.dataset.k; try{ h.setPointerCapture(e.pointerId); }catch(er){}
-      cx=e.clientX; cy=e.clientY; iv=setInterval(()=>{ const r=sc.getBoundingClientRect(); if(cy<r.top+50) sc.scrollTop-=14; else if(cy>r.bottom-50) sc.scrollTop+=14; mv(); },30); mv(); });
-    function mv(){ if(!drag) return; const r0=cv.getBoundingClientRect(), n=q(`.mgn.c[data-k="${CSS.escape(drag)}"]`); const a=ctr(n.querySelector('.mgh'),r0); tmp=bez(a,{x:cx-r0.left,y:cy-r0.top});
-      qa('.mgn.p.hot').forEach(x=>x.classList.remove('hot')); const t=document.elementFromPoint(cx,cy), p=t&&t.closest&&t.closest('.mgn.p,.mgn.o'); if(p&&m.contains(p)) p.classList.add('hot'); draw(); }
-    cv.addEventListener('pointermove',e=>{ if(!drag) return; cx=e.clientX; cy=e.clientY; mv(); });
-    const up=e=>{ if(!drag) return; clearInterval(iv); const t=document.elementFromPoint(e.clientX,e.clientY), p=t&&t.closest&&t.closest('.mgn[data-pid]'); const k=drag; drag=null; tmp=null; qa('.mgn.hot').forEach(x=>x.classList.remove('hot'));
-      if(p&&m.contains(p)) draft[k]=p.dataset.pid; filt(); };
-    cv.addEventListener('pointerup',up); cv.addEventListener('pointercancel',()=>{ clearInterval(iv); drag=null; tmp=null; draw(); });
+    const show=inp=>{ const row=inp.closest('.mgr'), pid=row.dataset.pid, toks=ocN(inp.value).split(' ').filter(Boolean), cell=inp.parentNode;
+      const list=keys.filter(u=>{ const e=eff(u.key); if(e&&e.pid===pid) return false; const t=ocN(u.d+' '+u.j); return toks.every(w=>t.includes(w)); }).slice(0,60);
+      pop.innerHTML=list.map(u=>{ const e=eff(u.key), at=e?(e.pid==='out'?'خارج الخطة':label(C.byId.get(e.pid))):''; return `<div data-k="${esc(u.key)}"><b>${esc(u.j)}</b> <span style="color:#1f5fa8;font-weight:700">(${ocNum(u.n)})</span><small>${esc(u.d)}${at?' — حاليًا مربوط بـ: '+esc(at):' — غير مربوط'}</small></div>`; }).join('')||'<div style="cursor:default;color:#667085">لا توجد وظيفة حالية مطابقة</div>';
+      pop.dataset.pid=pid; cell.appendChild(pop); pop.style.display='block'; };
+    sc.addEventListener('input',e=>{ if(e.target.classList.contains('mgi')) show(e.target); });
+    sc.addEventListener('focusin',e=>{ if(e.target.classList.contains('mgi')) show(e.target); });
+    m.addEventListener('mousedown',e=>{ const it=e.target.closest('.mgpop div[data-k]'); if(it){ e.preventDefault(); const pid=pop.dataset.pid, k=it.dataset.k, prev=eff(k); if(pid==='out') draft[k]='out'; else draft[k]=pid; pop.style.display='none'; document.body.appendChild(pop); redraw(pid); if(prev&&prev.pid!==pid) redraw(prev.pid); return; }
+      if(!e.target.closest('.mgi,.mgpop')){ pop.style.display='none'; } });
+    sc.addEventListener('click',e=>{ const b=e.target.closest('button[data-rm]'); if(!b) return; const k=b.dataset.rm, e0=eff(k), pid=e0&&e0.pid; if(auto.has(k)) draft[k]=''; else delete draft[k]; if(pid){ redraw(pid); } const e1=eff(k); if(e1&&e1.pid!==pid) redraw(e1.pid); });
     q('#mg_save').onclick=async()=>{ OC.data.set.map=draft; try{ await BE.ocSet('set',OC.data.set); close(); toast('تم الحفظ ✓'); renderOrg(); }catch(er){ q('#mp_err').textContent=authMsg(er); } };
   }
-  setTimeout(draw,30); setTimeout(draw,300);
+  status();
 }
 
 /* ----- الطباعة (A4 عرضي داخل إطار مخفي) ----- */
@@ -3781,6 +3776,8 @@ function orgClick(t){
   const v=t.closest('[data-ocv]'); if(v){ OC.view=v.dataset.ocv; renderOrg(); return true; }
   if(t.closest('#oc_zoom')){ OC.fit=!OC.fit; renderOrg(); return true; }
   if(t.closest('#oc_print')){ ocPrintModal(); return true; }
+  if(t.closest('[data-ocmap2]')){ ocMapModal(); return true; }
+  if(t.closest('#oc_exp')){ ocExportPlanned(); return true; }
   if(t.closest('#oc_map')){ ocMapModal(); return true; }
   if(t.closest('#oc_newph')){ ocPhaseModal(null); return true; }
   const pe=t.closest('[data-ocph]'); if(pe){ ocPhaseModal(pe.dataset.ocph); return true; }
