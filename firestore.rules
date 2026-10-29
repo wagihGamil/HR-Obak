@@ -262,6 +262,18 @@ service cloud.firestore {
       allow read, create, update, delete: if anyA('resign');
     }
 
+    // ===== حساب عمالة خارجية =====
+    match /extLaborContractors/{id} {
+      allow read:   if anyA('extlabor');
+      allow create, update, delete: if canA('extlabor','edit');
+    }
+    match /extLaborDays/{id} {
+      allow read:   if anyA('extlabor');
+      allow create: if canA('extlabor','add');
+      allow update: if canA('extlabor','edit');
+      allow delete: if canA('extlabor','delete');
+    }
+
     // ===== سجل أوراق التعيين والاستقالة =====
     match /hiringRecords/{id} {
       allow read:   if anyA('hiring');
