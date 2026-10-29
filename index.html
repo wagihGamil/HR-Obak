@@ -3224,7 +3224,8 @@ function prDraw(){ if(PRT==='lv') mountLeaveChk(); else if(PRT==='fx') mountFx()
 
 
 /* ===== حساب عمالة خارجية ===== */
-const EL={cons:[],days:[],tab:'days',con:'',from:'',to:'',edit:null};
+const EL={cons:[],days:[],tab:'days',con:'',from:'',to:'',edit:null,sh:''};
+const EL_SH={day:'صباحية',eve:'مسائية',night:'ليلية'}, elSh=s=>EL_SH[s]||'—';
 const elMin=t=>{ const m=String(t||'').match(/^(\d{1,2}):(\d{2})/); return m?(+m[1])*60+(+m[2]):null; };
 const elR=n=>Math.round((+n||0)*100)/100, elM=n=>elR(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2});
 const elDate=s=>{ const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[3]}/${m[2]}/${m[1]}`:''; };
@@ -3233,8 +3234,9 @@ function elCalc(d,c){ const w=+c.wage||0, hrs=+c.hours||8, n=Math.max(1,+d.worke
   if(d.absent) return {late:0,early:0,gross:0,ded:0,net:0,absent:true,n};
   const si=elMin(d.sIn), so=elMin(d.sOut), ai=elMin(d.aIn); let ao=elMin(d.aOut);
   let late=0, early=0;
-  if(si!==null&&ai!==null) late=Math.max(0,ai-si);
-  if(so!==null&&si!==null&&ao!==null){ let S=so; if(S<si) S+=1440; if(ao<(ai!==null?ai:si)) ao+=1440; early=Math.max(0,S-ao); }
+  let ai2=ai; if(si!==null&&ai2!==null&&si-ai2>720) ai2+=1440;
+  if(si!==null&&ai2!==null) late=Math.max(0,ai2-si);
+  if(so!==null&&si!==null&&ao!==null){ let S=so; if(S<si) S+=1440; if(ao<(ai2!==null?ai2:si)) ao+=1440; early=Math.max(0,S-ao); }
   const gross=w*n, ded=Math.min(gross,(late+early)*rate*n); return {late,early,gross,ded,net:gross-ded,absent:false,n}; }
 async function mountExtLabor(){
   setLayout({view:true}); $('view').innerHTML='<div class="card muted">جارٍ التحميل…</div>';
@@ -3259,12 +3261,12 @@ function elCfgHtml(){ const e=EL.cons.find(x=>x.id===EL.edit)||{};
   <div class="muted" style="font-size:12.5px;margin-bottom:8px">دقيقة التأخير أو الخروج المبكر = قيمة اليومية ÷ (ساعات اليومية × 60). مواعيد الحضور والانصراف الافتراضية بتتعبّى تلقائي عند إضافة يوم جديد للمقاول.</div>
   <div class="elt"><table><thead><tr><th>المقاول</th><th>قيمة اليومية</th><th>ساعات اليومية</th><th>قيمة الدقيقة</th><th>الحضور</th><th>الانصراف</th><th></th></tr></thead><tbody>${EL.cons.map(c=>`<tr><td><b>${esc(c.name)}</b></td><td>${elM(c.wage)}</td><td>${c.hours||8}</td><td>${(c.wage/((c.hours||8)*60)).toFixed(3)}</td><td>${esc(c.sIn||'—')}</td><td>${esc(c.sOut||'—')}</td><td style="white-space:nowrap"><button class="btn sm" data-elce="${esc(c.id)}" type="button">تعديل</button> <button class="btn sm" data-elcd="${esc(c.id)}" type="button">حذف</button></td></tr>`).join('')||'<tr><td colspan="7" class="muted">لا يوجد مقاولين — أضف أول مقاول من فوق</td></tr>'}</tbody></table></div>`; }
 function elRows(){ const cs=new Map(EL.cons.map(c=>[c.id,c]));
-  return EL.days.filter(d=>cs.has(d.con)&&(!EL.con||d.con===EL.con)&&(!EL.from||d.date>=EL.from)&&(!EL.to||d.date<=EL.to)).sort((a,b)=>a.date.localeCompare(b.date)||String(cs.get(a.con).name).localeCompare(String(cs.get(b.con).name),'ar')).map(d=>({d,c:cs.get(d.con),r:elCalc(d,cs.get(d.con))})); }
+  return EL.days.filter(d=>cs.has(d.con)&&(!EL.con||d.con===EL.con)&&(!EL.sh||(d.shift||'day')===EL.sh)&&(!EL.from||d.date>=EL.from)&&(!EL.to||d.date<=EL.to)).sort((a,b)=>a.date.localeCompare(b.date)||String(cs.get(a.con).name).localeCompare(String(cs.get(b.con).name),'ar')).map(d=>({d,c:cs.get(d.con),r:elCalc(d,cs.get(d.con))})); }
 function elDaysHtml(){ const canAdd=can('extlabor','add'), e=EL.days.find(x=>x.id===EL.edit)||null, cOpts=sel=>EL.cons.map(c=>`<option value="${esc(c.id)}" ${sel===c.id?'selected':''}>${esc(c.name)}</option>`).join('');
   if(!EL.cons.length) return `<h2>حساب عمالة خارجية</h2><div class="muted">لسه مفيش مقاولين. ${can('extlabor','edit')?'روح لتابة «التهيئة» وأضف المقاول وقيمة يوميته الأول.':'اطلب من المسؤول إضافة المقاولين من التهيئة.'}</div>`;
   const form=(canAdd||(e&&can('extlabor','edit')))?`<div style="border:1.5px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px;background:#fafbfe"><b>${e?'تعديل يوم':'إضافة يوم عمل'}</b>
    <div class="elg" style="margin-top:8px"><div><label>المقاول</label><select id="eld_c">${cOpts(e?e.con:(EL.con||EL.cons[0].id))}</select></div><div><label>تاريخ يوم العمل</label><input type="date" id="eld_d" value="${esc(e?e.date:new Date().toISOString().slice(0,10))}"></div>
-   <div><label>موعد الحضور المفروض</label><input type="time" id="eld_si" value="${esc(e?e.sIn:'')}"></div><div><label>موعد الانصراف المفروض</label><input type="time" id="eld_so" value="${esc(e?e.sOut:'')}"></div>
+   <div><label>الوردية</label><select id="eld_sh"><option value="day" ${(!e||e.shift==='day'||!e.shift)?'selected':''}>صباحية</option><option value="eve" ${e&&e.shift==='eve'?'selected':''}>مسائية</option><option value="night" ${e&&e.shift==='night'?'selected':''}>ليلية</option></select></div><div><label>موعد الحضور المفروض</label><input type="time" id="eld_si" value="${esc(e?e.sIn:'')}"></div><div><label>موعد الانصراف المفروض</label><input type="time" id="eld_so" value="${esc(e?e.sOut:'')}"></div>
    <div><label>الحضور الفعلي</label><input type="time" id="eld_ai" value="${esc(e?e.aIn:'')}"></div><div><label>الانصراف الفعلي</label><input type="time" id="eld_ao" value="${esc(e?e.aOut:'')}"></div>
    <div><label>عدد العمال</label><input type="number" min="1" id="eld_n" value="${e?e.workers||1:1}"></div><div><label>ملاحظات</label><input id="eld_t" value="${esc(e?e.note||'':'')}"></div>
    <div><label><input type="checkbox" id="eld_ab" style="width:auto" ${e&&e.absent?'checked':''}> غياب (لا يُحتسب)</label></div>
@@ -3272,12 +3274,12 @@ function elDaysHtml(){ const canAdd=can('extlabor','add'), e=EL.days.find(x=>x.i
    <div class="muted" style="font-size:12.5px">الحضور/الانصراف الفعلي لو اتساب فاضي بيتحسب اليوم كامل بدون خصم.</div></div>`:'';
   const rows=elRows(); const tot=rows.reduce((s,x)=>({days:s.days+(x.r.absent?0:1),ab:s.ab+(x.r.absent?1:0),gross:s.gross+x.r.gross,ded:s.ded+x.r.ded,net:s.net+x.r.net,late:s.late+x.r.late,early:s.early+x.r.early}),{days:0,ab:0,gross:0,ded:0,net:0,late:0,early:0});
   return `<h2>حساب عمالة خارجية</h2>${form}
-   <div class="elg"><div><label>المقاول</label><select id="elf_c"><option value="">كل المقاولين</option>${cOpts(EL.con)}</select></div><div><label>من تاريخ</label><input type="date" id="elf_f" value="${esc(EL.from)}"></div><div><label>إلى تاريخ</label><input type="date" id="elf_t" value="${esc(EL.to)}"></div>
+   <div class="elg"><div><label>المقاول</label><select id="elf_c"><option value="">كل المقاولين</option>${cOpts(EL.con)}</select></div><div><label>الوردية</label><select id="elf_s"><option value="">كل الورديات</option><option value="day" ${EL.sh==='day'?'selected':''}>صباحية</option><option value="eve" ${EL.sh==='eve'?'selected':''}>مسائية</option><option value="night" ${EL.sh==='night'?'selected':''}>ليلية</option></select></div><div><label>من تاريخ</label><input type="date" id="elf_f" value="${esc(EL.from)}"></div><div><label>إلى تاريخ</label><input type="date" id="elf_t" value="${esc(EL.to)}"></div>
    <div style="display:flex;gap:6px"><button class="btn" id="el_xl" type="button">تصدير Excel</button><button class="btn" id="el_pr" type="button">🖨 طباعة</button></div></div>
    <div class="elst"><div><b>${tot.days}</b><span>أيام عمل${tot.ab?` (+${tot.ab} غياب)`:''}</span></div><div><b>${elM(tot.gross)}</b><span>إجمالي اليوميات</span></div><div><b class="bad">${elM(tot.ded)}</b><span>خصم تأخير/خروج مبكر (${tot.late+tot.early} دقيقة)</span></div><div style="background:#e6f5ea;color:#1b7a3d"><b>${elM(tot.net)}</b><span>الصافي المستحق</span></div></div>
-   <div class="elt"><table><thead><tr><th>التاريخ</th><th>المقاول</th><th>العمال</th><th>مفروض (حضور–انصراف)</th><th>فعلي (حضور–انصراف)</th><th>تأخير د</th><th>خروج مبكر د</th><th>اليومية</th><th>الخصم</th><th>الصافي</th><th></th></tr></thead><tbody>
-   ${rows.map(({d,c,r})=>`<tr class="${r.absent?'ab':''}"><td>${elDate(d.date)}<br><small class="muted">${elDay(d.date)}</small></td><td><b>${esc(c.name)}</b>${d.note?`<br><small class="muted">${esc(d.note)}</small>`:''}</td><td>${r.n}</td><td>${esc(d.sIn||'—')} – ${esc(d.sOut||'—')}</td><td>${r.absent?'<span class="bad">غياب</span>':esc(d.aIn||'—')+' – '+esc(d.aOut||'—')}</td><td class="${r.late?'bad':''}">${r.late||'—'}</td><td class="${r.early?'bad':''}">${r.early||'—'}</td><td>${elM(r.gross)}</td><td class="${r.ded?'bad':''}">${r.ded?elM(r.ded):'—'}</td><td><b>${elM(r.net)}</b></td><td style="white-space:nowrap">${can('extlabor','edit')?`<button class="btn sm" data-elde="${esc(d.id)}" type="button">تعديل</button> `:''}${can('extlabor','delete')?`<button class="btn sm" data-eldd="${esc(d.id)}" type="button">حذف</button>`:''}</td></tr>`).join('')||'<tr><td colspan="11" class="muted">لا توجد أيام في الفترة المختارة</td></tr>'}
-   ${rows.length?`<tr class="tot"><td colspan="5">الإجمالي</td><td>${tot.late}</td><td>${tot.early}</td><td>${elM(tot.gross)}</td><td>${elM(tot.ded)}</td><td>${elM(tot.net)}</td><td></td></tr>`:''}</tbody></table></div>`; }
+   <div class="elt"><table><thead><tr><th>التاريخ</th><th>المقاول</th><th>الوردية</th><th>العمال</th><th>مفروض (حضور–انصراف)</th><th>فعلي (حضور–انصراف)</th><th>تأخير د</th><th>خروج مبكر د</th><th>اليومية</th><th>الخصم</th><th>الصافي</th><th></th></tr></thead><tbody>
+   ${rows.map(({d,c,r})=>`<tr class="${r.absent?'ab':''}"><td>${elDate(d.date)}<br><small class="muted">${elDay(d.date)}</small></td><td><b>${esc(c.name)}</b>${d.note?`<br><small class="muted">${esc(d.note)}</small>`:''}</td><td>${elSh(d.shift||'day')}</td><td>${r.n}</td><td>${esc(d.sIn||'—')} – ${esc(d.sOut||'—')}</td><td>${r.absent?'<span class="bad">غياب</span>':esc(d.aIn||'—')+' – '+esc(d.aOut||'—')}</td><td class="${r.late?'bad':''}">${r.late||'—'}</td><td class="${r.early?'bad':''}">${r.early||'—'}</td><td>${elM(r.gross)}</td><td class="${r.ded?'bad':''}">${r.ded?elM(r.ded):'—'}</td><td><b>${elM(r.net)}</b></td><td style="white-space:nowrap">${can('extlabor','edit')?`<button class="btn sm" data-elde="${esc(d.id)}" type="button">تعديل</button> `:''}${can('extlabor','delete')?`<button class="btn sm" data-eldd="${esc(d.id)}" type="button">حذف</button>`:''}</td></tr>`).join('')||'<tr><td colspan="12" class="muted">لا توجد أيام في الفترة المختارة</td></tr>'}
+   ${rows.length?`<tr class="tot"><td colspan="6">الإجمالي</td><td>${tot.late}</td><td>${tot.early}</td><td>${elM(tot.gross)}</td><td>${elM(tot.ded)}</td><td>${elM(tot.net)}</td><td></td></tr>`:''}</tbody></table></div>`; }
 function elBind(){ const q=id=>$(id);
   if(EL.tab==='cfg'){
     if(q('elc_save')) q('elc_save').onclick=async()=>{ const name=q('elc_n').value.trim(), wage=parseFloat(q('elc_w').value), hours=parseFloat(q('elc_h').value)||8; if(!name||!(wage>=0)||isNaN(wage)){ toast('اكتب اسم المقاول وقيمة اليومية',true); return; }
@@ -3287,10 +3289,10 @@ function elBind(){ const q=id=>$(id);
     document.querySelectorAll('[data-elcd]').forEach(b=>b.onclick=async()=>{ const c=EL.cons.find(x=>x.id===b.dataset.elcd); if(!c||!confirm('حذف المقاول «'+c.name+'»؟ أيامه المسجلة هتفضل محفوظة لكن مش هتظهر.')) return; try{ await BE.rcDel('extLaborContractors',c.id); toast('تم الحذف'); mountExtLabor(); }catch(e){ toast(authMsg(e),true); } });
     return; }
   const redraw=()=>{ elRender(); };
-  if(q('elf_c')){ q('elf_c').onchange=()=>{ EL.con=q('elf_c').value; redraw(); }; q('elf_f').onchange=()=>{ EL.from=q('elf_f').value; redraw(); }; q('elf_t').onchange=()=>{ EL.to=q('elf_t').value; redraw(); }; }
+  if(q('elf_c')){ q('elf_c').onchange=()=>{ EL.con=q('elf_c').value; redraw(); }; q('elf_s').onchange=()=>{ EL.sh=q('elf_s').value; redraw(); }; q('elf_f').onchange=()=>{ EL.from=q('elf_f').value; redraw(); }; q('elf_t').onchange=()=>{ EL.to=q('elf_t').value; redraw(); }; }
   if(q('eld_c')&&!EL.edit){ const fill=()=>{ const c=EL.cons.find(x=>x.id===q('eld_c').value); if(c){ q('eld_si').value=c.sIn||''; q('eld_so').value=c.sOut||''; } }; q('eld_c').onchange=fill; fill(); }
   if(q('eld_save')) q('eld_save').onclick=async()=>{ const con=q('eld_c').value, date=q('eld_d').value; if(!con||!date){ toast('اختر المقاول والتاريخ',true); return; }
-    const rec={con,date,sIn:q('eld_si').value,sOut:q('eld_so').value,aIn:q('eld_ai').value,aOut:q('eld_ao').value,workers:Math.max(1,parseInt(q('eld_n').value)||1),note:q('eld_t').value.trim(),absent:q('eld_ab').checked};
+    const rec={con,date,shift:q('eld_sh').value,sIn:q('eld_si').value,sOut:q('eld_so').value,aIn:q('eld_ai').value,aOut:q('eld_ao').value,workers:Math.max(1,parseInt(q('eld_n').value)||1),note:q('eld_t').value.trim(),absent:q('eld_ab').checked};
     if(!rec.absent&&(!rec.sIn||!rec.sOut)){ toast('اكتب موعد الحضور والانصراف المفروض',true); return; }
     const dup=EL.days.find(x=>x.con===con&&x.date===date&&x.id!==EL.edit); if(dup&&!confirm('فيه يوم مسجل لنفس المقاول في نفس التاريخ — تضيف يوم تاني؟')) return;
     const id=EL.edit||('d'+Date.now().toString(36)+Math.random().toString(36).slice(2,5)); try{ await BE.rcSet('extLaborDays',id,rec); const keep=EL.con; EL.edit=null; toast('تم الحفظ ✓'); await mountExtLabor(); }catch(e){ toast(authMsg(e),true); } };
@@ -3300,7 +3302,7 @@ function elBind(){ const q=id=>$(id);
   if(q('el_xl')) q('el_xl').onclick=elExport; if(q('el_pr')) q('el_pr').onclick=()=>window.print();
 }
 async function elExport(){ const rows=elRows(); if(!rows.length){ toast('لا توجد بيانات',true); return; } await loadXLSX();
-  const data=rows.map(({d,c,r})=>({'التاريخ':elDate(d.date),'المقاول':c.name,'عدد العمال':r.n,'الحضور المفروض':d.sIn||'','الانصراف المفروض':d.sOut||'','الحضور الفعلي':d.aIn||'','الانصراف الفعلي':d.aOut||'','غياب':r.absent?'نعم':'','دقائق التأخير':r.late,'دقائق الخروج المبكر':r.early,'اليومية':elR(r.gross),'الخصم':elR(r.ded),'الصافي':elR(r.net),'ملاحظات':d.note||''}));
+  const data=rows.map(({d,c,r})=>({'التاريخ':elDate(d.date),'المقاول':c.name,'الوردية':elSh(d.shift||'day'),'عدد العمال':r.n,'الحضور المفروض':d.sIn||'','الانصراف المفروض':d.sOut||'','الحضور الفعلي':d.aIn||'','الانصراف الفعلي':d.aOut||'','غياب':r.absent?'نعم':'','دقائق التأخير':r.late,'دقائق الخروج المبكر':r.early,'اليومية':elR(r.gross),'الخصم':elR(r.ded),'الصافي':elR(r.net),'ملاحظات':d.note||''}));
   const ws=XLSX.utils.json_to_sheet(data); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'عمالة خارجية'); XLSX.writeFile(wb,'حساب_عمالة_خارجية.xlsx'); }
 
 function mountDeduct(){ setLayout({view:true}); $('view').innerHTML=`<div class="card" id="dcx">
