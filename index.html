@@ -660,6 +660,10 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
               <label class="block font-bold mb-1">المشرف المسؤول</label>
               <select id="apt-supervisor" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"></select>
             </div>
+            <div>
+              <label class="block font-bold mb-1">رقم موبايل مشرف الشقة (يظهر في رسائل الساكنين)</label>
+              <input type="tel" id="apt-supphone" dir="ltr" placeholder="01xxxxxxxxx" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" style="text-align:right">
+            </div>
           </div>
           <p class="text-[11px] text-slate-500">قائمة المشرفين تظهر من تاب "إدارة المستخدمين" (المستخدمون بصلاحية مشرف).</p>
           <div class="pt-2 flex gap-2">
@@ -7307,7 +7311,7 @@ function renderBeds() {
     for (let i = 1; i <= a.totalBeds; i++) {
       const o = occ.find(x => x.bedIndex === i);
       slots += o
-        ? `<div class="p-2 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between text-xs"><div class="flex items-center gap-2 overflow-hidden"><i class="fa-solid fa-bed text-emerald-600"></i><span class="font-bold truncate">${esc(o.name)}</span></div><div class="flex items-center gap-1 shrink-0"><span class="text-[10px] bg-emerald-200/80 text-emerald-800 px-2 py-0.5 rounded-md">${esc(o.role)}</span><button onclick="openEditEmp('${o.id}')" class="text-brand-700 hover:bg-white rounded p-1" title="تعديل"><i class="fa-solid fa-pen text-[10px]"></i></button></div></div>`
+        ? `<div class="p-2 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between text-xs"><div class="flex items-center gap-2 overflow-hidden"><i class="fa-solid fa-bed text-emerald-600"></i><span class="font-bold truncate">${esc(o.name)}</span></div><div class="flex items-center gap-1 shrink-0"><span class="text-[10px] bg-emerald-200/80 text-emerald-800 px-2 py-0.5 rounded-md">${esc(o.role)}</span>${welBtn(o)}<button onclick="openEditEmp('${o.id}')" class="text-brand-700 hover:bg-white rounded p-1" title="تعديل"><i class="fa-solid fa-pen text-[10px]"></i></button></div></div>`
         : `<div class="p-2 bg-white border border-dashed border-slate-300 rounded-lg flex items-center gap-2 text-xs text-slate-400"><i class="fa-solid fa-bed text-slate-300"></i><span>سرير ${i} (شاغر)</span></div>`;
     }
     return `<div class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
@@ -7369,7 +7373,7 @@ function rpBlock(a, occ, o) {
   const ex = a.contractEnd ? (Math.floor((new Date(a.contractEnd) - new Date()) / 864e5) < 0 ? ' (منتهي)' : '') : '';
   const ct = a.contractEnd ? (o.screen ? contractBadge(a.contractEnd) : esc(a.contractEnd) + ex) : '--';
   const head = `<div class="rp-h"><b class="rp-no">${esc(a.number)}</b><span class="rp-ty ${o.screen ? typeClass(a.type) : ''}">${esc(a.type)}</span><span class="rp-loc" title="${esc(a.location || '')}">${esc(a.location || '')}</span><span class="rp-bd">${occ.length}/${a.totalBeds}</span><span>العقد: ${ct}</span><span>${a.supervisorName ? 'المشرف: <b>' + esc(a.supervisorName) + '</b>' : 'بدون مشرف'}${o.screen ? supWaBtn(a) : ''}</span>${o.admin ? `<span class="rp-rent">${fmt(S.fin[a.id])} ج.م</span>` : ''}${o.screen ? `<span class="no-print">${linkBtns(a)}</span>` : ''}</div>`;
-  const res = occ.map((e, i) => `<div class="rp-r"><span class="rp-i">${i + 1}</span><b class="rp-nm" title="${esc(e.name)}${e.phone ? ' — ' + esc(e.phone) : ''}">${esc(e.name)}</b><span class="rp-job">${esc(e.role)}</span><span class="rp-dt">${esc(e.entryDate)}</span>${o.screen && o.admin ? `<span class="rp-ac no-print">${resWaBtn(e)}<button onclick="openEditEmp('${e.id}')" title="تعديل"><i class="fa-solid fa-pen"></i></button><button onclick="evictEmp('${e.id}')" title="إخلاء"><i class="fa-solid fa-user-xmark"></i></button></span>` : ''}</div>`);
+  const res = occ.map((e, i) => `<div class="rp-r"><span class="rp-i">${i + 1}</span><b class="rp-nm" title="${esc(e.name)}${e.phone ? ' — ' + esc(e.phone) : ''}">${esc(e.name)}</b><span class="rp-job">${esc(e.role)}</span><span class="rp-dt">${esc(e.entryDate)}</span>${o.screen && o.admin ? `<span class="rp-ac no-print">${welBtn(e)}${resWaBtn(e)}<button onclick="openEditEmp('${e.id}')" title="تعديل"><i class="fa-solid fa-pen"></i></button><button onclick="evictEmp('${e.id}')" title="إخلاء"><i class="fa-solid fa-user-xmark"></i></button></span>` : ''}</div>`);
   return `<div class="rp-blk">${head}${occ.length ? `<div class="rp-g">${res.join('')}</div>` : '<div class="rp-e">— لا يوجد ساكنين —</div>'}</div>`;
 }
 window.printApts = function () {
@@ -7501,7 +7505,7 @@ $('apt-manage-form').addEventListener('submit', async e => {
   const supUid = $('apt-supervisor').value;
   const sup = S.users.find(u => u.id === supUid);
   const data = { number: $('apt-number').value.trim(), type: $('apt-type').value, location: $('apt-location').value.trim() || 'غير محدد',
-    totalBeds: beds, contractEnd: $('apt-contract-end').value, supervisorUid: supUid, supervisorName: sup ? sup.name : '', whatsappLink: waLink, mapLink };
+    totalBeds: beds, contractEnd: $('apt-contract-end').value, supervisorUid: supUid, supervisorName: sup ? sup.name : '', supervisorPhone: ($('apt-supphone').value.trim() || (sup && sup.phone) || ''), whatsappLink: waLink, mapLink };
   try {
     const ref = id ? doc(db, 'apartments', id) : doc(collection(db, 'apartments'));
     const batch = writeBatch(db);
@@ -7521,7 +7525,7 @@ window.editApt = id => {
   const a = S.apts.find(x => x.id === id); if (!a) return;
   $('apt-id-hidden').value = a.id; $('apt-number').value = a.number; $('apt-type').value = a.type; $('apt-location').value = a.location; $('apt-whatsapp').value = a.whatsappLink || ''; $('apt-map').value = a.mapLink || '';
   $('apt-beds').value = a.totalBeds; $('apt-rent').value = S.fin[a.id] ?? 0; $('apt-contract-end').value = a.contractEnd;
-  renderSupervisorOptions(); $('apt-supervisor').value = a.supervisorUid || '';
+  renderSupervisorOptions(); $('apt-supervisor').value = a.supervisorUid || ''; { const _su = S.users.find(u => u.id === a.supervisorUid); $('apt-supphone').value = a.supervisorPhone || (_su && _su.phone) || ''; } if (!$('apt-supervisor').dataset.ph) { $('apt-supervisor').dataset.ph = 1; $('apt-supervisor').addEventListener('change', () => { const u = S.users.find(x => x.id === $('apt-supervisor').value); if (u && u.phone) $('apt-supphone').value = u.phone; }); }
   $('apt-form-title').textContent = 'تعديل بيانات الشقة'; window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 window.deleteApt = id => {
@@ -9230,7 +9234,7 @@ window.runAptsImport = async () => {
     const ops = []; const now = Date.now();
     aptPlan.apts.forEach(p => {
       const ref = p.id ? doc(db, 'apartments', p.id) : doc(collection(db, 'apartments')); const id = ref.id;
-      ops.push(b => b.set(ref, { number: p.number, type: p.type, location: p.location, totalBeds: p.beds, contractEnd: p.contract, supervisorUid: p.supUid, supervisorName: p.supName, whatsappLink: p.wa, mapLink: p.map }));
+      ops.push(b => b.set(ref, { number: p.number, type: p.type, location: p.location, totalBeds: p.beds, contractEnd: p.contract, supervisorUid: p.supUid, supervisorName: p.supName, supervisorPhone: (sup0 => (sup0 && sup0.phone) || (S.apts.find(x => x.id === p.id) || {}).supervisorPhone || '')(S.users.find(u => u.id === p.supUid)), whatsappLink: p.wa, mapLink: p.map }));
       ops.push(b => b.set(doc(db, 'apartmentsFinance', id), { rent: p.rent }));
       p.evict.forEach(e => ops.push(b => b.delete(doc(db, 'employees', e.id))));
       p.emps.forEach(e => {
@@ -9361,17 +9365,34 @@ function hwEmpMsg(e,a,sup,pol,welcome){
   L.push(`🏠 شقة ${a.number||''}${a.type?' — '+a.type:''}`);
   if(e.role) L.push(`💼 وظيفتك: ${e.role}`);
   if(a.location) L.push(`📍 الموقع: ${a.location}`); const mp=hwMap(a.mapLink); if(mp) L.push(`🗺 لوكيشن الشقة على الخريطة: ${mp}`);
+  { const sn=(sup&&sup.name)||a.supervisorName||'', sp=(sup&&sup.phone)||a.supervisorPhone||''; L.push(`👤 مشرف الشقة: ${sn||'غير محدد'}`); L.push(`📞 رقم المشرف: ${sp||'غير مسجل — يُضاف من إعدادات الشقة'}`); }
+  if(a.whatsappLink&&WA_RE.test(a.whatsappLink)) L.push(`💬 جروب واتساب الشقة (انضم للتواصل): ${a.whatsappLink}`);
   if(e.entryDate) L.push(`📅 تاريخ الدخول: ${e.entryDate}`);
   const mates=occupantsOf(a.id).filter(x=>x.id!==e.id&&x.name!==e.name);
   if(mates.length){ L.push('','👥 الساكنين معاك في الشقة:'); mates.forEach((x,i)=>L.push(`${i+1}. ${x.name}${x.role?' — '+x.role:''}`)); L.push(''); }
-  if(!sup||!(sup.name||sup.phone)) sup=Object.assign({},sup,{name:(sup&&sup.name)||a.supervisorName||''});
-  L.push(''); L.push(`👤 مشرف الشقة: ${sup.name||'غير محدد'}`); if(sup.phone) L.push(`📞 رقم المشرف: ${sup.phone}`);
-  if(a.whatsappLink&&WA_RE.test(a.whatsappLink)) L.push(`💬 جروب واتساب الشقة (انضم للتواصل): ${a.whatsappLink}`);
+
   if(pol&&pol.trim()) L.push('','📌 أهم بنود سياسة سكن الموظفين:',pol.trim());
   L.push('','برجاء الالتزام بالبنود، وللتواصل مع مشرف الشقة في أي ملاحظة أو عطل.'); return L.join('\n');
 }
+const welBtn = e => { const a=S.apts.find(x=>x.id===e.aptId)||{}; return isAdmin() ? `<button type="button" onclick="grpWelcome('${e.id}')" class="no-print" title="رسالة ترحيب في جروب الشقة" style="background:#0d9488;color:#fff;border-radius:6px;padding:1px 8px;font-size:11px;font-weight:700;margin-inline-start:6px;cursor:pointer">ترحيب</button>` : ''; };
+window.grpWelcome = function(id){
+  const e=S.emps.find(x=>x.id===id); if(!e) return; const a=S.apts.find(x=>x.id===e.aptId)||{};
+  const ok=a.whatsappLink&&WA_RE.test(a.whatsappLink); if(!ok){ toast('الشقة دي ملهاش رابط جروب واتساب — ضيفه من إعدادات الشقة','error'); return; }
+  const dt=String(e.entryDate||'').split('-').reverse().join('/');
+  const L=['السلام عليكم ورحمة الله 🌟','',`ننضم إليكم الزميل الجديد في شقة ${a.number||''}:`,`👤 الاسم: ${e.name}`];
+  if(e.role) L.push(`💼 الوظيفة: ${e.role}`); if(e.phone) L.push(`📞 رقم الموبايل: ${e.phone}`); if(dt) L.push(`📅 سيسكن معكم بدءًا من: ${dt}`);
+  L.push('','نرجو الترحيب به ومساعدته والالتزام بسياسة السكن. أهلاً وسهلاً بيه 🌹');
+  const ov=document.createElement('div'); ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:14px;direction:rtl';
+  ov.innerHTML=`<div style="background:#fff;border-radius:12px;padding:18px;width:min(560px,100%);max-height:92vh;overflow:auto;font-size:14px"><h3 style="font-weight:800;font-size:16px;margin-bottom:6px">ترحيب بـ ${esc(e.name)} — جروب شقة ${esc(a.number||'')}</h3>
+   <div style="font-size:12px;color:#64748b;margin-bottom:6px">واتساب مش بيسمح بإرسال رسالة لجروب تلقائيًا؛ هتتنسخ الرسالة وبيتفتح الجروب وإنت تلصقها وتبعتها.</div>
+   <textarea id="gw-msg" rows="10" style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:6px 8px;font-size:13px"></textarea>
+   <div style="display:flex;gap:8px;margin-top:10px"><button type="button" id="gw-go" style="background:#25d366;color:#fff;border-radius:8px;padding:8px 18px;font-weight:700">نسخ الرسالة وفتح الجروب</button><button type="button" id="gw-x" style="border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 16px">إغلاق</button></div></div>`;
+  ($('adm')||document.body).appendChild(ov); const q=x=>ov.querySelector(x); q('#gw-msg').value=L.join('\n');
+  q('#gw-x').onclick=()=>ov.remove(); ov.addEventListener('click',ev=>{ if(ev.target===ov) ov.remove(); });
+  q('#gw-go').onclick=async()=>{ const t=q('#gw-msg').value; try{ await navigator.clipboard.writeText(t); }catch(er){ q('#gw-msg').select(); try{ document.execCommand('copy'); }catch(e2){} } toast('تم نسخ الرسالة — الصقها في الجروب','success'); window.open(a.whatsappLink,'_blank','noopener'); };
+};
 window.hwWelcome = function(e,a){
-  try{ if(!waNum(e.phone)) return; const sup=S.users.find(u=>u.id===a.supervisorUid)||{name:a.supervisorName||'',phone:(P&&P.uid===a.supervisorUid)?(P.phone||''):''};
+  try{ if(!waNum(e.phone)) return; const sup=S.users.find(u=>u.id===a.supervisorUid)||{name:a.supervisorName||'',phone:a.supervisorPhone||((P&&P.uid===a.supervisorUid)?(P.phone||''):'')};
     setTimeout(()=>hwOpen(`تم تسكين ${esc(e.name)} ✓ — رسالة ترحيب بالموظف`, e.phone, pol=>hwEmpMsg(e,a,sup,pol,true)),350); }catch(err){}
 };
 window.empWa = function(id){
