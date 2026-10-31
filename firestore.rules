@@ -253,13 +253,35 @@ service cloud.firestore {
 
     // ===== ID (كروت تصريح الدخول: الموظفون + الظهر + الصور) =====
     match /idCards/{id} {
-      allow read:  if can('idcard','view') || ((id == 'emps' || id == 'pw') && (anyA('resign') || anyA('hiring'))) || (id == 'cfg' && anyA('hiring')) || (id.matches('ph_.*') && anyA('hiring'));
+      allow read:  if can('idcard','view') || ((id == 'emps' || id == 'pw') && (anyA('resign') || anyA('hiring'))) || (id == 'cfg' && anyA('hiring')) || (id.matches('ph_.*') && anyA('hiring')) || ((id == 'emps' || id.matches('ph_.*')) && canA('attend','edit'));
       allow write: if wr('idcard') || ((id == 'emps' || id.matches('ph_.*')) && canA('hiring','add'));
     }
 
     // ===== طابور الطباعة (موبايل ← كمبيوتر) =====
     match /printJobs/{id} {
       allow read, create, update, delete: if anyA('resign');
+    }
+
+    // ===== الحضور (التعرف على الوجه) =====
+    match /attCfg/{id} {
+      allow read:  if anyA('attend');
+      allow write: if canA('attend','edit');
+    }
+    match /attLinks/{uid} {
+      allow read:  if (request.auth.uid == uid && anyA('attend')) || canA('attend','edit') || canA('attend','report');
+      allow write: if canA('attend','edit');
+    }
+    match /attFaces/{k} {
+      allow read:  if canA('attend','edit') || canA('attend','report')
+                   || (anyA('attend') && exists(/databases/$(database)/documents/attLinks/$(request.auth.uid))
+                       && get(/databases/$(database)/documents/attLinks/$(request.auth.uid)).data.k == k);
+      allow write: if canA('attend','edit');
+    }
+    match /attRecords/{id} {
+      allow read:   if (anyA('attend') && resource.data.uid == request.auth.uid) || canA('attend','report');
+      allow create: if anyA('attend') && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.ts == request.time;
+      allow update, delete: if canA('attend','edit');
     }
 
     // ===== حساب عمالة خارجية =====

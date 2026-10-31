@@ -1831,6 +1831,10 @@ const LocalBackend = {
   async rcList(col){ const o=LS.get('demo_rc_'+col,{}); return Object.keys(o).map(k=>({...o[k],id:k})); },
   async rcSet(col,id,data){ const o=LS.get('demo_rc_'+col,{}); o[id]=JSON.parse(JSON.stringify(data)); LS.set('demo_rc_'+col,o); },
   async rcDel(col,id){ const o=LS.get('demo_rc_'+col,{}); delete o[id]; LS.set('demo_rc_'+col,o); },
+  async docGet(col,id){ const o=LS.get('demo_rc_'+col,{}); return o[id]?{...o[id],id}:null; },
+  async attAdd(r){ const o=LS.get('demo_rc_attRecords',{}); const id='a'+Date.now(); o[id]={...r,ts:Date.now()}; LS.set('demo_rc_attRecords',o); },
+  async attMine(uid){ return (await this.rcList('attRecords')).filter(r=>r.uid===uid); },
+  async attRange(f,t){ return (await this.rcList('attRecords')).filter(r=>(!f||r.date>=f)&&(!t||r.date<=t)); },
   async pqSend(job){ const a=LS.get('demo_pq',[]); a.push({...job,id:'j'+Date.now()}); LS.set('demo_pq',a); },
   pqWatch(cb){ const t=setInterval(()=>cb(LS.get('demo_pq',[])),2000); cb(LS.get('demo_pq',[])); return ()=>clearInterval(t); },
   async pqDel(id){ LS.set('demo_pq',LS.get('demo_pq',[]).filter(j=>j.id!==id)); },
@@ -1935,6 +1939,10 @@ const FirebaseBackend = {
   async rcList(col){ const {Fs}=this.S; const s=await Fs.getDocs(Fs.collection(this.db,col)); return s.docs.map(d=>({...d.data(),id:d.id})); },
   async rcSet(col,id,data){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(this.db,col,id),data); },
   async rcDel(col,id){ const {Fs}=this.S; await Fs.deleteDoc(Fs.doc(this.db,col,id)); },
+  async docGet(col,id){ if(!id) return null; const {Fs}=this.S; const d=await Fs.getDoc(Fs.doc(this.db,col,id)); return d.exists()?{...d.data(),id:d.id}:null; },
+  async attAdd(r){ const {Fs}=this.S; await Fs.addDoc(Fs.collection(this.db,'attRecords'),{...r,ts:Fs.serverTimestamp()}); },
+  async attMine(uid){ const {Fs}=this.S; const s=await Fs.getDocs(Fs.query(Fs.collection(this.db,'attRecords'),Fs.where('uid','==',uid))); return s.docs.map(d=>({...d.data(),id:d.id})); },
+  async attRange(f,t){ const {Fs}=this.S; const s=await Fs.getDocs(Fs.query(Fs.collection(this.db,'attRecords'),Fs.where('date','>=',f),Fs.where('date','<=',t))); return s.docs.map(d=>({...d.data(),id:d.id})); },
   async pqSend(job){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(Fs.collection(this.db,'printJobs')),job); },
   pqWatch(cb){ const {Fs}=this.S; return Fs.onSnapshot(Fs.collection(this.db,'printJobs'),s=>cb(s.docs.map(d=>({...d.data(),id:d.id}))),()=>{}); },
   async pqDel(id){ const {Fs}=this.S; await Fs.deleteDoc(Fs.doc(this.db,'printJobs',id)); },
@@ -2129,6 +2137,7 @@ const PERM = {
   tasks:{label:'المهام',acts:{view:'دخول المديول (المهام المسندة له)'}},
   forms:{label:'نماذج العمل',acts:{'*':'كل النماذج (حتى اللي تتضاف بعدين)'}},
   links:{label:'لينكات هامة',acts:{view:'عرض اللينكات',edit:'إضافة وتعديل وحذف اللينكات'}},
+  attend:{label:'الحضور',acts:{view:'تسجيل حضور وانصراف بالوجه (من موبايله)',report:'عرض تقارير حضور كل الموظفين',edit:'الإعدادات: المواقع وبصمات الوجوه وربط المستخدمين'}},
   extlabor:{label:'حساب عمالة خارجية',acts:{view:'دخول المديول وعرض الحسابات',add:'إضافة أيام عمل',edit:'تعديل الأيام + التهيئة (المقاولين واليوميات)',delete:'حذف الأيام'}},
   payrev:{label:'مراجع المرتبات',acts:{view:'دخول المديول (فحص الاستقطاعات والإجازات ومطابقة المؤثرات)'}},
   orgchart:{label:'الهيكل التنظيمي',acts:{view:'عرض الهيكل وخطة التعيينات وطباعتها',edit:'رفع الشيتات وتعديل الهيكل والمراحل'}},
@@ -2159,6 +2168,7 @@ const ICONS={
   forms:'<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/><circle cx="7" cy="8" r=".6"/><circle cx="7" cy="12" r=".6"/><circle cx="7" cy="16" r=".6"/></svg>',
   links:'<svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
   payrev:'<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/><path d="M9 15l2 2 4-4"/></svg>',
+  attend:'<svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="4"/><path d="M4 21c0-4 3.5-6 8-6s8 2 8 6"/><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3"/></svg>',
   extlabor:'<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/><circle cx="12" cy="14" r="2"/><path d="M8 19c0-2 2-3 4-3s4 1 4 3"/></svg>',
   orgchart:'<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="4" rx="1"/><rect x="3" y="17" width="6" height="4" rx="1"/><rect x="15" y="17" width="6" height="4" rx="1"/><path d="M12 7v5M6 17v-5h12v5"/></svg>',
   idcard:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6 16c.5-2 5.5-2 6 0M14 10h4M14 13h3"/></svg>'
@@ -2175,6 +2185,7 @@ const MODS={
   tasks:{title:'المهام',color:'linear-gradient(135deg,#d35cc0,#8a2f7c)',subs:null,adm:true},
   forms:{title:'نماذج العمل',color:'linear-gradient(135deg,#f2b705,#b88300)',subs:null},
   links:{title:'لينكات هامة',color:'linear-gradient(135deg,#1aa39a,#0b6b65)',subs:null},
+  attend:{title:'الحضور',color:'linear-gradient(135deg,#1d7a4b,#0f4d2f)',subs:null},
   extlabor:{title:'حساب عمالة خارجية',color:'linear-gradient(135deg,#8a6d3b,#5a4220)',subs:null},
   payrev:{title:'مراجع المرتبات',color:'linear-gradient(135deg,#2f8f83,#1b5a52)',subs:null},
   orgchart:{title:'الهيكل التنظيمي',color:'linear-gradient(135deg,#2f9e6f,#1f5fa8)',subs:null},
@@ -3230,12 +3241,13 @@ const elMin=t=>{ const m=String(t||'').match(/^(\d{1,2}):(\d{2})/); return m?(+m
 const elR=n=>Math.round((+n||0)*100)/100, elM=n=>elR(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2});
 const elDate=s=>{ const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[3]}/${m[2]}/${m[1]}`:''; };
 const elDay=s=>{ const d=new Date(s+'T12:00:00'); return isNaN(d)?'':['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'][d.getDay()]; };
+function elFac(d,c){ const si=elMin(d.sIn), so=elMin(d.sOut), hrs=+c.hours||8; if(si===null||so===null) return {f:1,sh:null}; let m=so-si; if(m<=0) m+=1440; return {f:Math.min(1,m/(hrs*60)),sh:m/60}; }
 function elOne(d,c,cnt,aIn,aOut){ const w=+c.wage||0, hrs=+c.hours||8, rate=w/(hrs*60), si=elMin(d.sIn), so=elMin(d.sOut), ai=elMin(aIn); let ao=elMin(aOut), late=0, early=0;
   let ai2=ai; if(si!==null&&ai2!==null&&si-ai2>720) ai2+=1440;
   if(si!==null&&ai2!==null) late=Math.max(0,ai2-si);
   { const gr=Math.max(0,+c.grace||0); if(late<=gr) late=0; else if(c.graceMode==='excess') late-=gr; }
   if(so!==null&&si!==null&&ao!==null){ let S=so; if(S<si) S+=1440; if(ao<(ai2!==null?ai2:si)) ao+=1440; early=Math.max(0,S-ao); }
-  const gross=w*cnt, ded=Math.min(gross,(late+early)*rate*cnt); return {cnt,late,early,gross,ded,net:gross-ded}; }
+  const gross=w*elFac(d,c).f*cnt, ded=Math.min(gross,(late+early)*rate*cnt); return {cnt,late,early,gross,ded,net:gross-ded}; }
 function elCalc(d,c){ const w=+c.wage||0, n=Math.max(0.01,+d.workers||1);
   if(d.absent) return {late:0,early:0,gross:0,ded:0,net:0,absent:true,n,groups:[],absN:n};
   const ex=(d.ex||[]).filter(x=>(+x.cnt||0)>0).map(x=>({cnt:Math.min(+x.cnt,n),aIn:x.aIn||'',aOut:x.aOut||'',absent:!!x.absent}));
@@ -3244,7 +3256,162 @@ function elCalc(d,c){ const w=+c.wage||0, n=Math.max(0.01,+d.workers||1);
   ex.forEach(x=>{ if(x.cnt>0) groups.push(x); });
   let late=0,early=0,gross=0,ded=0,absN=0;
   groups.forEach(g=>{ if(g.absent){ absN+=g.cnt; g.r={cnt:g.cnt,late:0,early:0,gross:0,ded:0,net:0}; return; } const r=elOne(d,c,g.cnt,g.aIn,g.aOut); g.r=r; late+=r.late*g.cnt; early+=r.early*g.cnt; gross+=r.gross; ded+=r.ded; });
-  return {late,early,gross,ded,net:gross-ded,absent:false,n,groups,absN}; }
+  const F=elFac(d,c); return {late,early,gross,ded,net:gross-ded,absent:false,n,groups,absN,f:F.f,sh:F.sh,hrs:+c.hours||8}; }
+
+/* ===== الحضور والانصراف بالتعرف على الوجه ===== */
+const AT={tab:'me',cfg:{locs:[],thr:0.5,accMax:150,live:true},link:null,vec:null,recs:[],busy:false,rep:{from:'',to:'',k:'',rows:[]},faces:[],users:[]};
+const AT_JS='https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js', AT_MD='https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model/';
+let AT_LIB=null, AT_BASE=AT_MD;
+function atLoadJs(u){ return new Promise((res,rej)=>{ const e=document.createElement('script'); e.src=u; e.onload=res; e.onerror=()=>{ e.remove(); rej(new Error('x')); }; document.head.appendChild(e); }); }
+function atLib(){ if(AT_LIB) return AT_LIB; AT_LIB=(async()=>{
+  /* الأول من مجلد face/ جنب الموقع (أسرع وما يعتمدش على CDN)، ولو مش موجود يرجع للـ CDN */
+  let local=false; try{ const r=await fetch('face/tiny_face_detector_model-weights_manifest.json',{cache:'no-store'}); local=r.ok&&!!(await r.json()); }catch(e){}
+  if(!window.faceapi){ if(local){ try{ await atLoadJs('face/face-api.js'); }catch(e){ local=false; } } if(!window.faceapi){ try{ await atLoadJs(AT_JS); }catch(e){ throw new Error('تعذر تحميل مكتبة التعرف على الوجه — تأكد من الإنترنت'); } } }
+  AT_BASE=local?'face/':AT_MD; const f=window.faceapi; await Promise.all([f.nets.tinyFaceDetector.loadFromUri(AT_BASE),f.nets.ssdMobilenetv1.loadFromUri(AT_BASE),f.nets.faceLandmark68Net.loadFromUri(AT_BASE),f.nets.faceRecognitionNet.loadFromUri(AT_BASE)]); return f; })().catch(e=>{ AT_LIB=null; throw e; }); return AT_LIB; }
+const atMs=r=>{ const t=r&&r.ts; return t&&t.toMillis?t.toMillis():(+t||0); };
+const atTime=ms=>new Date(ms).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'});
+const atDate=s=>{ const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[3]}/${m[2]}/${m[1]}`:''; };
+const atISO=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+function atHav(a,b,c,d){ const R=6371000,t=x=>x*Math.PI/180,dl=t(c-a),dn=t(d-b),h=Math.sin(dl/2)**2+Math.cos(t(a))*Math.cos(t(c))*Math.sin(dn/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
+function atGeo(){ return new Promise((res,rej)=>{ if(!navigator.geolocation) return rej(new Error('المتصفح لا يدعم تحديد الموقع')); navigator.geolocation.getCurrentPosition(p=>res(p.coords),e=>rej(new Error(e.code===1?'لازم تسمح للموقع (Location) بتحديد مكانك من إعدادات المتصفح':'تعذر تحديد موقعك — فعّل GPS وحاول تاني')),{enableHighAccuracy:true,timeout:25000,maximumAge:0}); }); }
+function atCheckLoc(co){ const L=AT.cfg.locs||[]; if(!L.length) return {ok:true,name:'',dist:null};
+  if(co.accuracy>(+AT.cfg.accMax||150)) return {ok:false,msg:`دقة تحديد الموقع ضعيفة (±${Math.round(co.accuracy)} متر) — اقفل وافتح الـ GPS أو اطلع مكان مفتوح وحاول تاني`};
+  let best=null; L.forEach(l=>{ const d=atHav(co.latitude,co.longitude,+l.lat,+l.lng); if(!best||d<best.d) best={d,l}; });
+  if(best.d<=(+best.l.r||150)) return {ok:true,name:best.l.name,dist:Math.round(best.d)};
+  return {ok:false,msg:`أنت خارج نطاق التسجيل — أقرب موقع «${best.l.name}» على بُعد ${Math.round(best.d)} متر (المسموح ${best.l.r||150} متر)`}; }
+async function mountAttend(){
+  setLayout({view:true}); $('view').innerHTML='<div class="card muted">جارٍ التحميل…</div>';
+  try{ const c=await BE.docGet('attCfg','main'); if(c) AT.cfg={locs:c.locs||[],thr:c.thr||0.5,accMax:c.accMax||150,live:c.live!==false};
+    AT.link=await BE.docGet('attLinks',ME.uid||ME.id||''); AT.vec=null;
+    if(AT.link&&AT.link.k){ const f=await BE.docGet('attFaces',AT.link.k); if(f&&f.d) AT.vec=Float32Array.from(f.d); }
+    AT.recs=can('attend','view')?await BE.attMine(ME.uid||ME.id):[]; AT.recs.sort((a,b)=>atMs(b)-atMs(a)); }
+  catch(e){ $('view').innerHTML=`<div class="card bad">${esc(authMsg(e))}</div>`; return; }
+  if(AT.tab==='rep'&&!can('attend','report')) AT.tab='me'; if(AT.tab==='cfg'&&!can('attend','edit')) AT.tab='me'; atRender();
+}
+function atTabs(){ const t=[{k:'me',t:'تسجيل حضوري',on:AT.tab==='me'}]; if(can('attend','report')) t.push({k:'rep',t:'تقارير الحضور',on:AT.tab==='rep'}); if(can('attend','edit')) t.push({k:'cfg',t:'الإعدادات',on:AT.tab==='cfg'}); if(t.length>1) hdrTabs(t,k=>{ AT.tab=k; atRender(); }); else hdrTabs([],()=>{}); }
+function atRender(){ atTabs(); if(!$('atstyle')){ const s=document.createElement('style'); s.id='atstyle'; s.textContent=`#atx h2{margin:0 0 10px;font-size:18px;color:var(--navy)}#atx .atg{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;margin-bottom:12px}#atx label{display:block;font-size:12.5px;font-weight:600;margin-bottom:3px}
+#atx input,#atx select{width:100%;font:inherit;font-size:14px;padding:7px 9px;border:1.5px solid #c3c6cf;border-radius:6px;background:#fff;box-sizing:border-box}#atx .att{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:14px}#atx table{border-collapse:collapse;width:100%;min-width:640px;font-size:13.5px}#atx th{background:var(--navy);color:#fff;padding:7px 8px;text-align:right;white-space:nowrap}#atx td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}
+#atx .atbig{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}#atx .atbig button{font:inherit;font-size:20px;font-weight:800;padding:26px 10px;border:0;border-radius:14px;color:#fff;cursor:pointer}#atx .atbig .in{background:#1d7a4b}#atx .atbig .out{background:#c62828}#atx .atbig button:disabled{opacity:.45}#atx .atbig small{display:block;font-size:12px;font-weight:400;margin-top:4px}
+#atx .ok{color:#1b7a3d;font-weight:700}#atx .bad{color:#c62828;font-weight:700}#atx .atsm img{width:38px;height:38px;object-fit:cover;border-radius:6px;cursor:pointer}
+.atcam{position:relative;width:100%;aspect-ratio:4/3;background:#000;border-radius:12px;overflow:hidden}.atcam video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}.atcam .ring{position:absolute;inset:12% 22%;border:3px dashed rgba(255,255,255,.7);border-radius:50%}.atcam.ok .ring{border-color:#2ecc71;border-style:solid}
+.atst{margin:10px 0;font-size:15px;font-weight:700;text-align:center;min-height:24px}`; document.head.appendChild(s); }
+  $('view').innerHTML=`<div class="card" id="atx">${AT.tab==='rep'?atRepHtml():AT.tab==='cfg'?atCfgHtml():atMeHtml()}</div>`; atBind(); }
+function atMeHtml(){
+  if(!can('attend','view')) return '<h2>الحضور</h2><div class="muted">لا توجد صلاحية تسجيل حضور لحسابك.</div>';
+  if(!AT.link||!AT.link.k) return '<h2>الحضور والانصراف</h2><div class="bad">حسابك لسه مش مربوط بموظف — اطلب من الإدارة ربط حسابك (من الإعدادات ← ربط المستخدمين).</div>';
+  if(!AT.vec) return `<h2>الحضور والانصراف</h2><div>أهلاً <b>${esc(AT.link.n||'')}</b></div><div class="bad" style="margin-top:8px">لا توجد بصمة وجه محفوظة لك — اطلب من الإدارة تجهيز بصمات الوجوه (لازم تكون صورتك مرفوعة في مديول الـ ID).</div>`;
+  const last=AT.recs[0], nextIn=!last||last.type!=='in', today=atISO(new Date()), mine=AT.recs.filter(r=>r.date===today||(last&&r===last));
+  return `<h2>الحضور والانصراف</h2><div style="margin-bottom:6px">أهلاً <b>${esc(AT.link.n||'')}</b> — ${last?`آخر تسجيل: <b>${last.type==='in'?'دخول':'انصراف'}</b> ${atDate(last.date)} ${atTime(atMs(last))}`:'لم يتم تسجيل أي حضور بعد'}</div>
+  <div class="atbig"><button class="in" data-atrec="in">🟢 تسجيل الدخول<small>${nextIn?'التسجيل التالي':''}</small></button><button class="out" data-atrec="out">🔴 تسجيل الانصراف<small>${!nextIn?'التسجيل التالي':''}</small></button></div>
+  <div class="muted" style="font-size:12.5px;margin-bottom:10px">هيتم تحديد موقعك ثم فتح الكاميرا — وجّه وشك للكاميرا وهيتسجل تلقائي.${(AT.cfg.locs||[]).length?' التسجيل متاح في المواقع المحددة فقط.':''}</div>
+  <h3 style="margin:10px 0 6px;font-size:15px">تسجيلاتي (آخر 15)</h3><div class="att"><table><thead><tr><th>النوع</th><th>التاريخ</th><th>الوقت</th><th>الموقع</th></tr></thead><tbody>${AT.recs.slice(0,15).map(r=>`<tr><td class="${r.type==='in'?'ok':'bad'}">${r.type==='in'?'دخول':'انصراف'}</td><td>${atDate(r.date)}</td><td>${atTime(atMs(r))}</td><td>${esc(r.loc||'—')}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">لا توجد تسجيلات</td></tr>'}</tbody></table></div>`; }
+const atConsent=()=>{ try{ return localStorage.getItem('atConsent_'+(ME.uid||ME.id))==='1'; }catch(e){ return false; } };
+function atSus(co){ const w=[]; if(co.accuracy!=null&&co.accuracy<=1) w.push('دقة GPS غير طبيعية'); const dec=x=>{ const t=String(x).split('.')[1]; return t?t.length:0; }; if(dec(co.latitude)<=3&&dec(co.longitude)<=3) w.push('إحداثيات مقرّبة'); const l=AT.recs[0];
+  if(l&&l.lat!=null&&l.lng!=null){ const hrs=(Date.now()-atMs(l))/3600000; if(hrs>0&&hrs<12){ const km=atHav(l.lat,l.lng,co.latitude,co.longitude)/1000; if(km>2&&km/hrs>150) w.push(`قفزة مكان مستحيلة (${km.toFixed(1)} كم في ${Math.max(1,Math.round(hrs*60))} د)`); } } return w.join(' + '); }
+/* فحص الحيوية: تحدّي عشوائي — رمش أو لفّ الوجه يمين/شمال */
+async function atLive(f,v,alive,st){
+  const ch=['blink','right','left'][Math.floor(Math.random()*3)], txt={blink:'👁 ارمش بعينيك مرتين',right:'↪ لفّ وشك ناحية يمينك ببطء',left:'↩ لفّ وشك ناحية شمالك ببطء'}[ch]; st('<b>'+txt+'</b>');
+  const ear=p=>{ const d=(a,b)=>Math.hypot(p[a].x-p[b].x,p[a].y-p[b].y); return (d(1,5)+d(2,4))/(2*d(0,3)); };
+  const t0=Date.now(); let open=0, closed=false, blinks=0, turned=false;
+  while(alive()&&Date.now()-t0<14000){
+    const d=await f.detectSingleFace(v,new f.TinyFaceDetectorOptions({inputSize:224,scoreThreshold:0.4})).withFaceLandmarks(); if(!alive()) return {ok:false,msg:''};
+    if(d){ const L=d.landmarks, pts=L.positions;
+      if(ch==='blink'){ const e=(ear(L.getLeftEye())+ear(L.getRightEye()))/2; open=Math.max(open*0.995,e); if(!closed&&open>0.2&&e<open*0.72) closed=true; else if(closed&&e>open*0.85){ closed=false; blinks++; if(blinks>=2) return {ok:true}; } }
+      else { const r=(pts[30].x-pts[0].x)/(pts[16].x-pts[0].x); if(ch==='right'&&r<0.36) turned=true; if(ch==='left'&&r>0.64) turned=true; if(turned&&r>0.42&&r<0.58) return {ok:true}; if(turned) st('<b>تمام ✓ — ارجع بوشك للمواجهة</b>'); } }
+    await new Promise(r=>setTimeout(r,40)); }
+  return {ok:false,msg:'لم يتم اجتياز فحص الحيوية — حاول مرة أخرى وأنت قدّام الكاميرا مباشرة وبإضاءة كويسة'}; }
+async function atRecord(type){
+  if(AT.busy) return; const last=AT.recs[0];
+  if(!atConsent()){ if(!confirm('إقرار: أوافق على استخدام صورة وجهي وموقعي الجغرافي لأغراض تسجيل الحضور والانصراف فقط، وعلى حفظ لقطة صغيرة مع كل تسجيل.\n\nهل توافق؟')) return; try{ localStorage.setItem('atConsent_'+(ME.uid||ME.id),'1'); }catch(e){} }
+  if(type==='in'&&last&&last.type==='in'&&!confirm('آخر تسجيل ليك كان «دخول» ولسه ماسجلتش انصراف — تسجل دخول تاني؟')) return;
+  if(type==='out'&&(!last||last.type!=='in')&&!confirm('مفيش دخول مسجل قبل كده — تسجل انصراف؟')) return;
+  AT.busy=true; const m=document.createElement('div'); m.className='modal'; m.innerHTML=`<div class="box" style="width:min(460px,100%)"><h3>${type==='in'?'تسجيل الدخول':'تسجيل الانصراف'}</h3><div class="atcam" id="at_cam" hidden><video id="at_v" playsinline muted autoplay></video><div class="ring"></div></div><div class="atst" id="at_s">جارٍ تحديد موقعك…</div><div style="text-align:center"><button class="btn" id="at_x" type="button">إلغاء</button></div></div>`; document.body.appendChild(m);
+  let alive=true, stream=null; const st=t=>{ $('at_s').innerHTML=t; };
+  const close=()=>{ alive=false; AT.busy=false; if(stream) stream.getTracks().forEach(t=>t.stop()); m.remove(); }; $('at_x').onclick=close;
+  try{
+    const co=await atGeo(); if(!alive) return; const lc=atCheckLoc(co); if(!lc.ok){ st(`<span class="bad">⛔ ${esc(lc.msg)}</span>`); $('at_x').textContent='إغلاق'; AT.busy=false; return; }
+    st('جارٍ تحميل نموذج التعرف على الوجه… (أول مرة بياخد وقت)'); const f=await atLib(); if(!alive) return;
+    st('جارٍ فتح الكاميرا…'); stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false}); if(!alive){ stream.getTracks().forEach(t=>t.stop()); return; }
+    const v=$('at_v'); v.srcObject=stream; await v.play(); $('at_cam').hidden=false; st('وجّه وشك للكاميرا…');
+    const t0=Date.now(), thr=+AT.cfg.thr||0.5; let hits=0, seen=0, best=9, liveOk=(AT.cfg.live===false), live=null;
+    while(alive&&Date.now()-t0<50000){
+      const det=await f.detectSingleFace(v,new f.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:0.5})).withFaceLandmarks().withFaceDescriptor();
+      if(!alive) return;
+      if(!det){ hits=0; st('لا يظهر وجه — قرّب وجهك من الكاميرا'); await new Promise(r=>setTimeout(r,200)); continue; }
+      seen++; const dist=f.euclideanDistance(det.descriptor,AT.vec); best=Math.min(best,dist);
+      if(dist<thr){ hits++; $('at_cam').classList.add('ok'); st('جارٍ التحقق…'); } else { hits=0; $('at_cam').classList.remove('ok'); st('الوجه غير مطابق لصورتك — اثبت وإضاءة كويسة'); }
+      if(hits>=2&&!liveOk){ live=await atLive(f,v,()=>alive,st); if(!alive) return; if(live.ok){ liveOk=true; hits=1; st('جارٍ التحقق النهائي…'); await new Promise(r=>setTimeout(r,250)); continue; } st(`<span class="bad">⛔ ${esc(live.msg)}</span>`); $('at_x').textContent='إغلاق'; alive=false; if(stream) stream.getTracks().forEach(t=>t.stop()); AT.busy=false; return; }
+      if(hits>=2&&liveOk){
+        const c=document.createElement('canvas'); c.width=240; c.height=Math.round(240*v.videoHeight/v.videoWidth)||180; c.getContext('2d').drawImage(v,0,0,c.width,c.height); const snap=c.toDataURL('image/jpeg',0.55);
+        const now=new Date(), rec={uid:ME.uid||ME.id,k:AT.link.k,n:AT.link.n||'',type,date:atISO(now),loc:lc.name||'',dist:lc.dist===null?null:lc.dist,lat:+co.latitude.toFixed(6),lng:+co.longitude.toFixed(6),acc:Math.round(co.accuracy),m:+dist.toFixed(3),live:AT.cfg.live===false?'off':'ok',consent:true,sus:atSus(co),snap};
+        await BE.attAdd(rec); alive=false; stream.getTracks().forEach(t=>t.stop()); $('at_cam').hidden=true;
+        st(`<span class="ok" style="font-size:18px">✅ تم تسجيل ${type==='in'?'الدخول':'الانصراف'} — ${atTime(Date.now())}</span>${lc.name?`<br><small>${esc(lc.name)}</small>`:''}`); $('at_x').textContent='تم'; $('at_x').onclick=()=>{ close(); mountAttend(); }; AT.busy=false; return; }
+      await new Promise(r=>setTimeout(r,150));
+    }
+    if(alive){ st(`<span class="bad">⛔ انتهى الوقت — ${seen?'الوجه غير مطابق':'لم يتم اكتشاف وجه'}. حاول تاني.</span>`); $('at_x').textContent='إغلاق'; if(stream) stream.getTracks().forEach(t=>t.stop()); AT.busy=false; }
+  }catch(e){ if(alive){ st(`<span class="bad">⛔ ${esc(e.name==='NotAllowedError'?'لازم تسمح باستخدام الكاميرا':(authMsg(e)||e.message||e))}</span>`); $('at_x').textContent='إغلاق'; if(stream) stream.getTracks().forEach(t=>t.stop()); AT.busy=false; } }
+}
+/* --- التقارير --- */
+function atPairs(rows){ // يجمع كل (دخول → انصراف) للموظف
+  const by=new Map(); rows.forEach(r=>{ (by.get(r.k)||by.set(r.k,[]).get(r.k)).push(r); }); const out=[];
+  by.forEach(list=>{ list.sort((a,b)=>atMs(a)-atMs(b)); let cur=null; list.forEach(r=>{ if(r.type==='in'){ if(cur) out.push(cur); cur={n:r.n,k:r.k,date:r.date,inR:r,outR:null}; } else { if(cur&&!cur.outR){ cur.outR=r; out.push(cur); cur=null; } else out.push({n:r.n,k:r.k,date:r.date,inR:null,outR:r}); } }); if(cur) out.push(cur); });
+  return out.sort((a,b)=>a.date.localeCompare(b.date)||String(a.n).localeCompare(String(b.n),'ar')); }
+function atRepHtml(){ const R=AT.rep; if(!R.from){ const n=new Date(); R.from=atISO(new Date(n.getFullYear(),n.getMonth(),1)); R.to=atISO(n); }
+  const pairs=atPairs(R.rows.filter(r=>!R.k||r.k===R.k)), names=[...new Map(R.rows.map(r=>[r.k,r.n])).entries()].sort((a,b)=>String(a[1]).localeCompare(String(b[1]),'ar'));
+  const hrs=p=>p.inR&&p.outR?((atMs(p.outR)-atMs(p.inR))/3600000):null;
+  return `<h2>تقارير الحضور</h2><div class="atg"><div><label>من</label><input type="date" id="atr_f" value="${R.from}"></div><div><label>إلى</label><input type="date" id="atr_t" value="${R.to}"></div><div><label>الموظف</label><select id="atr_k"><option value="">كل الموظفين</option>${names.map(([k,n])=>`<option value="${esc(k)}" ${R.k===k?'selected':''}>${esc(n)}</option>`).join('')}</select></div>
+  <div style="display:flex;gap:6px"><button class="btn pri" id="atr_go" type="button">عرض</button><button class="btn" id="atr_xl" type="button">Excel</button><button class="btn" id="atr_pr" type="button">🖨 طباعة</button></div></div>
+  <div class="att"><table><thead><tr><th>الموظف</th><th>التاريخ</th><th>دخول</th><th>انصراف</th><th>المدة</th><th>موقع الدخول</th><th>موقع الانصراف</th><th>ملاحظات</th><th>الصور</th></tr></thead><tbody>${pairs.map(p=>{ const h=hrs(p); const sus=[p.inR,p.outR].filter(r=>r&&r.sus).map(r=>r.sus).join(' | '), mm=[p.inR,p.outR].filter(r=>r&&r.m!=null).map(r=>r.m); return `<tr><td><b>${esc(p.n)}</b></td><td>${atDate(p.date)}</td><td>${p.inR?atTime(atMs(p.inR)):'<span class="bad">—</span>'}</td><td>${p.outR?atTime(atMs(p.outR)):'<span class="bad">لم ينصرف</span>'}</td><td>${h===null?'—':Math.floor(h)+'س '+Math.round((h%1)*60)+'د'}</td><td>${esc(p.inR?p.inR.loc||'—':'')}${p.inR&&p.inR.dist!=null?` <small class="muted">(${p.inR.dist}م)</small>`:''}</td><td>${esc(p.outR?p.outR.loc||'—':'')}</td><td style="font-size:12px">${sus?`<span class="bad">⚠ ${esc(sus)}</span><br>`:''}${mm.length?`<span class="muted">تطابق: ${mm.join(' / ')}</span>`:''}</td><td class="atsm">${[p.inR,p.outR].filter(Boolean).map(r=>r.snap?`<img src="${r.snap}" data-atsnap="${esc(r.id)}" title="${r.type==='in'?'دخول':'انصراف'}">`:'').join(' ')}</td></tr>`; }).join('')||'<tr><td colspan="9" class="muted">لا توجد تسجيلات — اختر الفترة واضغط عرض</td></tr>'}</tbody></table></div>`; }
+async function atLoadRep(){ const R=AT.rep; try{ R.rows=await BE.attRange(R.from,R.to); atRender(); }catch(e){ toast(authMsg(e),true); } }
+function atRepExport(){ const R=AT.rep, pairs=atPairs(R.rows.filter(r=>!R.k||r.k===R.k)); if(!pairs.length){ toast('لا توجد بيانات',true); return; }
+  loadXLSX().then(()=>{ const data=pairs.map(p=>{ const h=p.inR&&p.outR?(atMs(p.outR)-atMs(p.inR))/3600000:null; return {'الموظف':p.n,'التاريخ':atDate(p.date),'دخول':p.inR?atTime(atMs(p.inR)):'','انصراف':p.outR?atTime(atMs(p.outR)):'','المدة (ساعة)':h===null?'':Math.round(h*100)/100,'موقع الدخول':p.inR?p.inR.loc||'':'','موقع الانصراف':p.outR?p.outR.loc||'':''}; }); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data),'الحضور'); XLSX.writeFile(wb,'تقرير_الحضور.xlsx'); }); }
+function atRepPrint(){ const R=AT.rep, pairs=atPairs(R.rows.filter(r=>!R.k||r.k===R.k)); if(!pairs.length){ toast('لا توجد بيانات للطباعة',true); return; }
+  const body=pairs.map(p=>{ const h=p.inR&&p.outR?(atMs(p.outR)-atMs(p.inR))/3600000:null; return `<tr><td><b>${esc(p.n)}</b></td><td>${atDate(p.date)}</td><td>${p.inR?atTime(atMs(p.inR)):'—'}</td><td>${p.outR?atTime(atMs(p.outR)):'لم ينصرف'}</td><td>${h===null?'—':Math.floor(h)+'س '+Math.round((h%1)*60)+'د'}</td><td>${esc(p.inR?p.inR.loc||'—':'')}</td><td>${esc(p.outR?p.outR.loc||'—':'')}</td></tr>`; }).join('');
+  const html=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير الحضور</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{margin:0;direction:rtl;font-family:"Segoe UI",Tahoma,Arial,sans-serif;font-size:11px}.tp{display:flex;justify-content:space-between;border-bottom:2px solid #d71920;padding-bottom:4px;margin-bottom:6px}.tp h1{margin:0;font-size:17px}table{width:100%;border-collapse:collapse}thead{display:table-header-group}th{background:#1f2a44;color:#fff;padding:4px 5px;text-align:right}td{border:1px solid #cbd5e1;padding:3px 5px}tr{break-inside:avoid}</style></head><body><div class="tp"><h1>تقرير الحضور والانصراف</h1><span>${atDate(R.from)} إلى ${atDate(R.to)}</span></div><table><thead><tr><th>الموظف</th><th>التاريخ</th><th>دخول</th><th>انصراف</th><th>المدة</th><th>موقع الدخول</th><th>موقع الانصراف</th></tr></thead><tbody>${body}</tbody></table></body></html>`;
+  const fr=document.createElement('iframe'); fr.style.cssText='position:fixed;left:-10000px;top:0;width:1062px;height:733px;border:0;visibility:hidden'; fr.srcdoc=html; fr.onload=()=>setTimeout(()=>{ try{ fr.contentWindow.focus(); fr.contentWindow.print(); }catch(e){ toast('تعذر فتح الطباعة',true); } setTimeout(()=>fr.remove(),60000); },300); document.body.appendChild(fr); }
+/* --- الإعدادات --- */
+function atCfgHtml(){ const C=AT.cfg;
+  return `<h2>إعدادات الحضور</h2>
+  <h3 style="font-size:15px;margin:6px 0">📍 مواقع التسجيل المسموحة</h3>
+  <div class="muted" style="font-size:12.5px;margin-bottom:8px">لو ماحطتش أي موقع، التسجيل بيتقبل من أي مكان (مع تسجيل الإحداثيات). لو حطيت مواقع، التسجيل بيتقبل داخل نطاق أي موقع منهم بس.</div>
+  <div class="atg"><div><label>اسم الموقع</label><input id="atl_n" placeholder="مثال: المصنع"></div><div><label>خط العرض</label><input id="atl_la" dir="ltr" placeholder="30.0444"></div><div><label>خط الطول</label><input id="atl_ln" dir="ltr" placeholder="31.2357"></div><div><label>نطاق السماح (متر)</label><input id="atl_r" type="number" value="150" min="20"></div>
+   <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" id="atl_me" type="button">📍 موقعي الحالي</button><button class="btn pri" id="atl_add" type="button">+ إضافة</button></div></div>
+  <div class="att"><table><thead><tr><th>الموقع</th><th>الإحداثيات</th><th>النطاق</th><th></th></tr></thead><tbody>${(C.locs||[]).map((l,i)=>`<tr><td><b>${esc(l.name)}</b></td><td dir="ltr" style="text-align:right">${l.lat}, ${l.lng} <a href="https://www.google.com/maps?q=${l.lat},${l.lng}" target="_blank" rel="noopener">خريطة</a></td><td>${l.r} م</td><td><button class="btn sm" data-atld="${i}" type="button">حذف</button></td></tr>`).join('')||'<tr><td colspan="4" class="muted">لا توجد مواقع (التسجيل مفتوح من أي مكان)</td></tr>'}</tbody></table></div>
+  <div class="atg"><div><label>حساسية مطابقة الوجه (أقل = أصرم)</label><input id="atc_thr" type="number" step="0.01" min="0.3" max="0.7" value="${C.thr}"></div><div><label>أقصى عدم دقة GPS مسموح (متر)</label><input id="atc_acc" type="number" min="20" value="${C.accMax}"></div><div><label>فحص الحيوية (رمش / لفّ الوجه)</label><select id="atc_live"><option value="1" ${C.live!==false?'selected':''}>مفعّل (موصى به)</option><option value="0" ${C.live===false?'selected':''}>متوقف</option></select></div><div><button class="btn pri" id="atc_save" type="button">حفظ الإعدادات</button></div></div>
+  <h3 style="font-size:15px;margin:14px 0 6px">🧑 بصمات الوجوه</h3>
+  <div class="muted" style="font-size:12.5px;margin-bottom:8px">بتتحسب من الصور المرفوعة في مديول الـ ID (بتتعمل مرة واحدة وبتتحدّث لما تضغط الزر). المحفوظ حاليًا: <b id="atf_cnt">…</b></div>
+  <div style="margin-bottom:8px"><button class="btn pri" id="atf_go" type="button">⚙ تجهيز / تحديث بصمات الوجوه من صور الـ ID</button> <span id="atf_st" class="muted"></span></div><div id="atf_fail" style="font-size:12.5px;color:#c62828"></div>
+  <h3 style="font-size:15px;margin:14px 0 6px">🔗 ربط المستخدمين بالموظفين</h3>
+  <div class="muted" style="font-size:12.5px;margin-bottom:8px">كل مستخدم لازم يتربط بموظف عشان يتقارن وشه بصورته.</div>
+  <div style="margin-bottom:8px"><button class="btn" id="atu_auto" type="button">ربط تلقائي بالأسماء المتطابقة</button> <span id="atu_st" class="muted"></span></div><div id="atu_box" class="att"><div class="muted" style="padding:10px">جارٍ التحميل…</div></div>`; }
+async function atLoadCfgData(){ try{ AT.faces=(await BE.rcList('attFaces')).map(f=>({k:f.id,n:f.n,code:f.code})).sort((a,b)=>String(a.n).localeCompare(String(b.n),'ar')); const c=$('atf_cnt'); if(c) c.textContent=AT.faces.length+' موظف';
+    if(ME.isAdmin){ AT.users=await BE.listUsers(); const links=await BE.rcList('attLinks'); const lm=new Map(links.map(l=>[l.id,l])); AT.lm=lm; atUsersDraw(); } else { const b=$('atu_box'); if(b) b.innerHTML='<div class="muted" style="padding:10px">ربط المستخدمين متاح لمدير النظام فقط.</div>'; } }catch(e){ toast(authMsg(e),true); } }
+function atUsersDraw(){ const b=$('atu_box'); if(!b) return; const lm=AT.lm||new Map(), opts=AT.faces.map(f=>`<option value="${esc(f.k)}">${esc(f.n)}${f.code?' — '+esc(f.code):''}</option>`).join('');
+  b.innerHTML=`<table><thead><tr><th>المستخدم</th><th>الإيميل</th><th>الموظف المرتبط</th><th></th></tr></thead><tbody>${AT.users.map(u=>{ const l=lm.get(u.uid); return `<tr><td><b>${esc(u.name||'')}</b></td><td dir="ltr" style="text-align:right">${esc(u.email||'')}</td><td><select data-atus="${esc(u.uid)}"><option value="">— غير مربوط —</option>${opts.replace(`value="${esc(l?l.k:'')}"`,`value="${esc(l?l.k:'')}" selected`)}</select></td><td>${l?'<span class="ok">✓</span>':''}</td></tr>`; }).join('')}</tbody></table>`; }
+async function atSaveLink(uid,k){ try{ if(!k){ await BE.rcDel('attLinks',uid); AT.lm.delete(uid); } else { const f=AT.faces.find(x=>x.k===k); await BE.rcSet('attLinks',uid,{k,n:f?f.n:''}); AT.lm.set(uid,{id:uid,k,n:f?f.n:''}); } atUsersDraw(); }catch(e){ toast(authMsg(e),true); } }
+async function atBuildFaces(){ const st=$('atf_st'), fl=$('atf_fail'); fl.textContent=''; st.textContent='جارٍ تحميل نموذج التعرف…';
+  try{ const f=await atLib(); const all=await BE.idAll(); const emps=(all.emps&&all.emps.rows)||[]; let ok=0; const fails=[];
+    for(let i=0;i<emps.length;i++){ const e=emps[i]; st.textContent=`جارٍ المعالجة ${i+1} / ${emps.length}…`; const ph=all['ph_'+e.k]&&all['ph_'+e.k].u; if(!ph){ fails.push(e.n+' (لا توجد صورة)'); continue; }
+      try{ const img=await f.fetchImage(ph); let det=await f.detectSingleFace(img,new f.SsdMobilenetv1Options({minConfidence:0.4})).withFaceLandmarks().withFaceDescriptor();
+        if(!det) det=await f.detectSingleFace(img,new f.TinyFaceDetectorOptions({inputSize:416,scoreThreshold:0.3})).withFaceLandmarks().withFaceDescriptor();
+        if(!det){ fails.push(e.n+' (لم يُكتشف وجه)'); continue; } await BE.rcSet('attFaces',e.k,{n:e.n,code:e.code||'',d:Array.from(det.descriptor).map(x=>+x.toFixed(5)),at:new Date().toISOString().slice(0,10)}); ok++; }catch(er){ fails.push(e.n+' (خطأ)'); } }
+    st.textContent=`تم: ${ok} موظف${fails.length?` — فشل ${fails.length}`:''}`; fl.innerHTML=fails.length?'تعذر تجهيز: '+fails.map(esc).join('، '):''; atLoadCfgData(); }catch(e){ st.textContent=''; toast(authMsg(e)||e.message,true); } }
+async function atSaveCfg(){ try{ await BE.rcSet('attCfg','main',{locs:AT.cfg.locs||[],thr:AT.cfg.thr,accMax:AT.cfg.accMax,live:AT.cfg.live!==false}); toast('تم الحفظ ✓'); }catch(e){ toast(authMsg(e),true); } }
+function atBind(){
+  document.querySelectorAll('[data-atrec]').forEach(b=>b.onclick=()=>atRecord(b.dataset.atrec));
+  if(AT.tab==='rep'){ const R=AT.rep; $('atr_go').onclick=()=>{ R.from=$('atr_f').value; R.to=$('atr_t').value; R.k=''; atLoadRep(); }; $('atr_k').onchange=()=>{ R.k=$('atr_k').value; R.from=$('atr_f').value; R.to=$('atr_t').value; atRender(); }; $('atr_xl').onclick=atRepExport; $('atr_pr').onclick=atRepPrint;
+    document.querySelectorAll('[data-atsnap]').forEach(i=>i.onclick=()=>{ const m=document.createElement('div'); m.className='modal'; m.innerHTML=`<div class="box" style="width:min(300px,100%);text-align:center"><img src="${i.src}" style="width:100%;border-radius:8px"><div style="margin-top:10px"><button class="btn" type="button">إغلاق</button></div></div>`; document.body.appendChild(m); m.onclick=e=>{ if(e.target===m||e.target.tagName==='BUTTON') m.remove(); }; }); }
+  if(AT.tab==='cfg'){ const C=AT.cfg;
+    $('atl_me').onclick=async()=>{ try{ const c=await atGeo(); $('atl_la').value=c.latitude.toFixed(6); $('atl_ln').value=c.longitude.toFixed(6); toast('تم التقاط موقعك (±'+Math.round(c.accuracy)+' م)'); }catch(e){ toast(e.message,true); } };
+    $('atl_add').onclick=()=>{ const name=$('atl_n').value.trim(), lat=parseFloat($('atl_la').value), lng=parseFloat($('atl_ln').value), r=parseInt($('atl_r').value)||150; if(!name||isNaN(lat)||isNaN(lng)){ toast('اكتب اسم الموقع والإحداثيات',true); return; } C.locs=[...(C.locs||[]),{id:'l'+Date.now().toString(36),name,lat,lng,r}]; atSaveCfg().then(atRender); };
+    document.querySelectorAll('[data-atld]').forEach(b=>b.onclick=()=>{ if(!confirm('حذف الموقع؟')) return; C.locs.splice(+b.dataset.atld,1); atSaveCfg().then(atRender); });
+    $('atc_save').onclick=()=>{ C.thr=Math.min(0.7,Math.max(0.3,parseFloat($('atc_thr').value)||0.5)); C.accMax=parseInt($('atc_acc').value)||150; C.live=$('atc_live').value==='1'; atSaveCfg(); };
+    $('atf_go').onclick=atBuildFaces;
+    $('atu_auto').onclick=async()=>{ const nn=s=>ocN(s); let n=0; for(const u of AT.users){ if(AT.lm.get(u.uid)) continue; const f=AT.faces.find(x=>nn(x.n)===nn(u.name)); if(f){ await atSaveLink(u.uid,f.k); n++; } } $('atu_st').textContent='تم ربط '+n+' مستخدم'; };
+    $('atu_box').onchange=e=>{ const s=e.target.closest('[data-atus]'); if(s) atSaveLink(s.dataset.atus,s.value); };
+    atLoadCfgData(); }
+}
+
 async function mountExtLabor(){
   setLayout({view:true}); $('view').innerHTML='<div class="card muted">جارٍ التحميل…</div>';
   if(!$('elstyle')){ const s=document.createElement('style'); s.id='elstyle'; s.textContent=`#elx h2{margin:0 0 10px;font-size:18px;color:var(--navy)}#elx .elg{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;margin-bottom:12px}
@@ -3267,7 +3434,7 @@ function elCfgHtml(){ const e=EL.cons.find(x=>x.id===EL.edit)||{};
   <div><label>عند تجاوز السماح يُحتسب</label><select id="elc_gm"><option value="full" ${e.graceMode!=='excess'?'selected':''}>التأخير كامل (من وقت الحضور)</option><option value="excess" ${e.graceMode==='excess'?'selected':''}>الزيادة عن السماح فقط</option></select></div>
   <div><label>موعد الحضور الافتراضي</label><input id="elc_i" type="time" value="${esc(e.sIn||'')}"></div><div><label>موعد الانصراف الافتراضي</label><input id="elc_o" type="time" value="${esc(e.sOut||'')}"></div>
   <div style="display:flex;gap:6px"><button class="btn pri" id="elc_save" type="button">${e.id?'حفظ التعديل':'+ إضافة مقاول'}</button>${e.id?'<button class="btn" id="elc_cancel" type="button">إلغاء</button>':''}</div></div>
-  <div class="muted" style="font-size:12.5px;margin-bottom:8px">دقيقة التأخير أو الخروج المبكر = قيمة اليومية ÷ (ساعات اليومية × 60). فترة السماح: لو التأخير أقل من أو يساوي السماح مفيش خصم، ولو زاد بيتحسب كامل أو الزيادة بس حسب اختيارك (السماح للتأخير فقط، مش للخروج المبكر). مواعيد الحضور والانصراف الافتراضية بتتعبّى تلقائي عند إضافة يوم جديد للمقاول.</div>
+  <div class="muted" style="font-size:12.5px;margin-bottom:8px">دقيقة التأخير أو الخروج المبكر = قيمة اليومية ÷ (ساعات اليومية × 60). فترة السماح: لو التأخير أقل من أو يساوي السماح مفيش خصم، ولو زاد بيتحسب كامل أو الزيادة بس حسب اختيارك (السماح للتأخير فقط، مش للخروج المبكر). مواعيد الحضور والانصراف الافتراضية بتتعبّى تلقائي عند إضافة يوم جديد للمقاول. لو مدة اليوم المفروضة (من الحضور للانصراف) أقل من ساعات اليومية، بتتحسب اليومية بالنسبة (مثلًا 8 ساعات من يومية 12 ساعة بـ 525 = 350)، ولو أكبر أو تساوي بتتحسب اليومية كاملة.</div>
   <div class="elt"><table><thead><tr><th>المقاول</th><th>قيمة اليومية</th><th>ساعات اليومية</th><th>قيمة الدقيقة</th><th>سماح التأخير</th><th>الحضور</th><th>الانصراف</th><th></th></tr></thead><tbody>${EL.cons.map(c=>`<tr><td><b>${esc(c.name)}</b></td><td>${elM(c.wage)}</td><td>${c.hours||8}</td><td>${(c.wage/((c.hours||8)*60)).toFixed(3)}</td><td>${c.grace?c.grace+' د'+(c.graceMode==='excess'?' (الزيادة فقط)':' (كامل)'):'—'}</td><td>${esc(c.sIn||'—')}</td><td>${esc(c.sOut||'—')}</td><td style="white-space:nowrap"><button class="btn sm" data-elce="${esc(c.id)}" type="button">تعديل</button> <button class="btn sm" data-elcd="${esc(c.id)}" type="button">حذف</button></td></tr>`).join('')||'<tr><td colspan="8" class="muted">لا يوجد مقاولين — أضف أول مقاول من فوق</td></tr>'}</tbody></table></div>`; }
 function elRows(){ const cs=new Map(EL.cons.map(c=>[c.id,c]));
   return EL.days.filter(d=>cs.has(d.con)&&(!EL.con||d.con===EL.con)&&(!EL.sh||(d.shift||'day')===EL.sh)&&(!EL.from||d.date>=EL.from)&&(!EL.to||d.date<=EL.to)).sort((a,b)=>a.date.localeCompare(b.date)||String(cs.get(a.con).name).localeCompare(String(cs.get(b.con).name),'ar')).map(d=>({d,c:cs.get(d.con),r:elCalc(d,cs.get(d.con))})); }
@@ -3290,7 +3457,7 @@ function elDaysHtml(){ const canAdd=can('extlabor','add'), e=EL.days.find(x=>x.i
    <div style="display:flex;gap:6px"><button class="btn" id="el_xl" type="button">تصدير Excel</button><button class="btn" id="el_pr" type="button">🖨 طباعة</button></div></div>
    <div class="elst"><div><b>${tot.days}</b><span>أيام عمل${tot.ab?` (+${tot.ab} غياب)`:''}</span></div><div><b>${elM(tot.gross)}</b><span>إجمالي اليوميات</span></div><div><b class="bad">${elM(tot.ded)}</b><span>خصم تأخير/خروج مبكر (${tot.late+tot.early} دقيقة×عامل)</span></div><div style="background:#e6f5ea;color:#1b7a3d"><b>${elM(tot.net)}</b><span>الصافي المستحق</span></div></div>
    <div class="elt"><table><thead><tr><th>التاريخ</th><th>المقاول</th><th>الوردية</th><th>العمال</th><th>مفروض (حضور–انصراف)</th><th>فعلي (حضور–انصراف)</th><th title="دقائق × عدد العمال">تأخير (د×عامل)</th><th title="دقائق × عدد العمال">خروج مبكر (د×عامل)</th><th>اليومية</th><th>الخصم</th><th>الصافي</th><th></th></tr></thead><tbody>
-   ${rows.map(({d,c,r})=>`<tr class="${r.absent?'ab':''}"><td>${elDate(d.date)}<br><small class="muted">${elDay(d.date)}</small></td><td><b>${esc(c.name)}</b>${d.note?`<br><small class="muted">${esc(d.note)}</small>`:''}</td><td>${elSh(d.shift||'day')}</td><td>${r.n}</td><td>${esc(d.sIn||'—')} – ${esc(d.sOut||'—')}</td><td>${r.absent?'<span class="bad">غياب</span>':(r.groups.length>1||r.absN?r.groups.map(g=>`<div style="white-space:nowrap">${g.cnt} عامل: ${g.absent?'<span class="bad">غياب</span>':esc(g.aIn||'—')+' – '+esc(g.aOut||'—')}</div>`).join(''):esc(d.aIn||'—')+' – '+esc(d.aOut||'—'))}</td><td class="${r.late?'bad':''}">${r.late||'—'}</td><td class="${r.early?'bad':''}">${r.early||'—'}</td><td>${elM(r.gross)}</td><td class="${r.ded?'bad':''}">${r.ded?elM(r.ded):'—'}</td><td><b>${elM(r.net)}</b></td><td style="white-space:nowrap">${can('extlabor','edit')?`<button class="btn sm" data-elde="${esc(d.id)}" type="button">تعديل</button> `:''}${can('extlabor','delete')?`<button class="btn sm" data-eldd="${esc(d.id)}" type="button">حذف</button>`:''}</td></tr>`).join('')||'<tr><td colspan="12" class="muted">لا توجد أيام في الفترة المختارة</td></tr>'}
+   ${rows.map(({d,c,r})=>`<tr class="${r.absent?'ab':''}"><td>${elDate(d.date)}<br><small class="muted">${elDay(d.date)}</small></td><td><b>${esc(c.name)}</b>${d.note?`<br><small class="muted">${esc(d.note)}</small>`:''}</td><td>${elSh(d.shift||'day')}</td><td>${r.n}</td><td>${esc(d.sIn||'—')} – ${esc(d.sOut||'—')}${r.sh!==null&&r.sh!==undefined?`<br><small class="muted">${+r.sh.toFixed(2)} ساعة${r.f<1?` من ${r.hrs} = ${Math.round(r.f*1000)/10}% من اليومية`:''}</small>`:''}</td><td>${r.absent?'<span class="bad">غياب</span>':(r.groups.length>1||r.absN?r.groups.map(g=>`<div style="white-space:nowrap">${g.cnt} عامل: ${g.absent?'<span class="bad">غياب</span>':esc(g.aIn||'—')+' – '+esc(g.aOut||'—')}</div>`).join(''):esc(d.aIn||'—')+' – '+esc(d.aOut||'—'))}</td><td class="${r.late?'bad':''}">${r.late||'—'}</td><td class="${r.early?'bad':''}">${r.early||'—'}</td><td>${elM(r.gross)}</td><td class="${r.ded?'bad':''}">${r.ded?elM(r.ded):'—'}</td><td><b>${elM(r.net)}</b></td><td style="white-space:nowrap">${can('extlabor','edit')?`<button class="btn sm" data-elde="${esc(d.id)}" type="button">تعديل</button> `:''}${can('extlabor','delete')?`<button class="btn sm" data-eldd="${esc(d.id)}" type="button">حذف</button>`:''}</td></tr>`).join('')||'<tr><td colspan="12" class="muted">لا توجد أيام في الفترة المختارة</td></tr>'}
    ${rows.length?`<tr class="tot"><td colspan="6">الإجمالي</td><td>${tot.late}</td><td>${tot.early}</td><td>${elM(tot.gross)}</td><td>${elM(tot.ded)}</td><td>${elM(tot.net)}</td><td></td></tr>`:''}</tbody></table></div>`; }
 function elBind(){ const q=id=>$(id);
   if(EL.tab==='cfg'){
@@ -3315,7 +3482,27 @@ function elBind(){ const q=id=>$(id);
   if(q('eld_cancel')) q('eld_cancel').onclick=()=>{ EL.edit=null; elRender(); };
   document.querySelectorAll('[data-elde]').forEach(b=>b.onclick=()=>{ EL.edit=b.dataset.elde; elRender(); window.scrollTo(0,0); });
   document.querySelectorAll('[data-eldd]').forEach(b=>b.onclick=async()=>{ if(!confirm('حذف اليوم ده؟')) return; try{ await BE.rcDel('extLaborDays',b.dataset.eldd); toast('تم الحذف'); mountExtLabor(); }catch(e){ toast(authMsg(e),true); } });
-  if(q('el_xl')) q('el_xl').onclick=elExport; if(q('el_pr')) q('el_pr').onclick=()=>window.print();
+  if(q('el_xl')) q('el_xl').onclick=elExport; if(q('el_pr')) q('el_pr').onclick=elPrint;
+}
+
+function elPrint(){
+  const rows=elRows(); if(!rows.length){ toast('لا توجد أيام للطباعة في الفترة المختارة',true); return; }
+  const tot=rows.reduce((s,x)=>({days:s.days+(x.r.absent?0:1),ab:s.ab+(x.r.absent?1:0),gross:s.gross+x.r.gross,ded:s.ded+x.r.ded,net:s.net+x.r.net,late:s.late+x.r.late,early:s.early+x.r.early}),{days:0,ab:0,gross:0,ded:0,net:0,late:0,early:0});
+  const con=EL.con?(EL.cons.find(c=>c.id===EL.con)||{}).name:'كل المقاولين', shn=EL.sh?elSh(EL.sh):'كل الورديات';
+  const act=({d,r})=>r.absent?'غياب':(r.groups.length>1||r.absN?r.groups.map(g=>`${elM(g.cnt)} عامل: ${g.absent?'غياب':(esc(g.aIn||'—')+' – '+esc(g.aOut||'—'))}`).join('<br>'):esc(d.aIn||'—')+' – '+esc(d.aOut||'—'));
+  const body=rows.map(({d,c,r})=>`<tr class="${r.absent?'ab':''}"><td>${elDate(d.date)}<br><small>${elDay(d.date)}</small></td><td class="t">${esc(c.name)}${d.note?`<br><small>${esc(d.note)}</small>`:''}</td><td>${elSh(d.shift||'day')}</td><td>${elM(r.n)}</td><td>${esc(d.sIn||'—')} – ${esc(d.sOut||'—')}</td><td>${act({d,r})}</td><td>${r.late||'—'}</td><td>${r.early||'—'}</td><td>${elM(r.gross)}</td><td>${r.ded?elM(r.ded):'—'}</td><td class="t">${elM(r.net)}</td></tr>`).join('');
+  const css=`@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}body{direction:rtl;font-family:"Segoe UI",Tahoma,Arial,sans-serif;color:#1b1b1f;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:11px}
+  .tp{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #d71920;padding-bottom:4px;margin-bottom:6px}.tp h1{margin:0;font-size:17px}.tp span{font-size:11px;color:#444}
+  .sm{display:flex;gap:8px;margin:0 0 6px}.sm div{flex:1;border:1px solid #cbd5e1;border-radius:6px;padding:4px 8px}.sm b{display:block;font-size:14px}
+  table{width:100%;border-collapse:collapse}thead{display:table-header-group}th{background:#1f2a44;color:#fff;padding:4px 5px;text-align:right;font-size:10.5px}td{border:1px solid #cbd5e1;padding:3px 5px;vertical-align:top}td.t{font-weight:700}small{color:#555;font-size:9.5px}tr{break-inside:avoid;page-break-inside:avoid}tr.ab td{background:#fdecec}tr.tot td{font-weight:800;background:#eef1f6}`;
+  const html=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>حساب عمالة خارجية</title><style>${css}</style></head><body>
+  <div class="tp"><h1>حساب عمالة خارجية — ${esc(con)}</h1><span>الفترة: ${elDate(EL.from)} إلى ${elDate(EL.to)} — ${esc(shn)} — طُبع ${new Date().toLocaleDateString('ar-EG')}</span></div>
+  <div class="sm"><div>أيام العمل<b>${tot.days}${tot.ab?` (+${tot.ab} غياب)`:''}</b></div><div>إجمالي اليوميات<b>${elM(tot.gross)}</b></div><div>خصم تأخير / خروج مبكر<b>${elM(tot.ded)}</b></div><div>الصافي المستحق<b>${elM(tot.net)}</b></div></div>
+  <table><thead><tr><th>التاريخ</th><th>المقاول</th><th>الوردية</th><th>العمال</th><th>مفروض</th><th>فعلي</th><th>تأخير (د×عامل)</th><th>خروج مبكر (د×عامل)</th><th>اليومية</th><th>الخصم</th><th>الصافي</th></tr></thead><tbody>${body}
+  <tr class="tot"><td colspan="6">الإجمالي</td><td>${tot.late}</td><td>${tot.early}</td><td>${elM(tot.gross)}</td><td>${elM(tot.ded)}</td><td>${elM(tot.net)}</td></tr></tbody></table></body></html>`;
+  const fr=document.createElement('iframe'); fr.style.cssText='position:fixed;left:-10000px;top:0;width:1062px;height:733px;border:0;visibility:hidden'; fr.srcdoc=html;
+  fr.onload=()=>{ setTimeout(()=>{ try{ fr.contentWindow.focus(); fr.contentWindow.print(); }catch(e){ toast('تعذر فتح الطباعة',true); } setTimeout(()=>fr.remove(),60000); },300); };
+  document.body.appendChild(fr);
 }
 async function elExport(){ const rows=elRows(); if(!rows.length){ toast('لا توجد بيانات',true); return; } await loadXLSX();
   const data=rows.map(({d,c,r})=>({'التاريخ':elDate(d.date),'المقاول':c.name,'الوردية':elSh(d.shift||'day'),'عدد العمال':r.n,'الحضور المفروض':d.sIn||'','الانصراف المفروض':d.sOut||'','الحضور الفعلي':d.aIn||'','الانصراف الفعلي':d.aOut||'','غياب':r.absent?'نعم':'','دقائق التأخير':r.late,'دقائق الخروج المبكر':r.early,'اليومية':elR(r.gross),'الخصم':elR(r.ded),'الصافي':elR(r.net),'ملاحظات':d.note||''}));
@@ -6684,7 +6871,7 @@ document.addEventListener('click',e=>{ const a=e.target.closest&&e.target.closes
 document.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const a=e.target.closest&&e.target.closest('#pwaTile'); if(a){ e.preventDefault(); pwaInstall(); } } });
 
 /* ---------------- الموجّه / الشاشة الرئيسية ---------------- */
-const HOME_ORDER=['hiring','insurance','resign','housing','cars','tasks','forms','links','payrev','extlabor','orgchart','idcard','users','buffet','stationery'];
+const HOME_ORDER=['hiring','insurance','resign','housing','cars','tasks','forms','links','payrev','attend','extlabor','orgchart','idcard','users','buffet','stationery'];
 function showHome(){
   CUR={mod:null,sub:null}; $('mod').hidden=true; $('adm').hidden=true; $('home').hidden=false; $('subnav').innerHTML=''; $('modTitle').textContent='أوباك — الموارد البشرية والشؤون الإدارية';
   const apps=HOME_ORDER.filter(k=>MODS[k]&&canMod(k));
@@ -6701,7 +6888,7 @@ function openModule(m,sub){
   $('adm').hidden=true; $('mod').hidden=false;
   const subs=MODS[m].subs?MODS[m].subs.filter(s=>can(m,s[2])):[];
   $('subnav').innerHTML=subs.map(s=>`<a data-sub="${s[0]}" href="#/${m}/${s[0]}">${s[1]}</a>`).join('');
-  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='users') mountUsers(); else if(m==='forms') mountForms(); else if(m==='links') mountLinks(); else if(m==='payrev') mountPayRev(sub); else if(m==='extlabor') mountExtLabor(); else if(m==='orgchart') mountOrg(); else if(m==='idcard') mountID();
+  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='users') mountUsers(); else if(m==='forms') mountForms(); else if(m==='links') mountLinks(); else if(m==='payrev') mountPayRev(sub); else if(m==='extlabor') mountExtLabor(); else if(m==='attend') mountAttend(); else if(m==='orgchart') mountOrg(); else if(m==='idcard') mountID();
   window.scrollTo(0,0);
 }
 function route(){
