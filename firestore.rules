@@ -274,13 +274,17 @@ service cloud.firestore {
     match /attFaces/{k} {
       allow read:  if canA('attend','edit') || canA('attend','report')
                    || (anyA('attend') && exists(/databases/$(database)/documents/attLinks/$(request.auth.uid))
-                       && get(/databases/$(database)/documents/attLinks/$(request.auth.uid)).data.k == k);
+                       && (get(/databases/$(database)/documents/attLinks/$(request.auth.uid)).data.k == k
+                           || k in get(/databases/$(database)/documents/attLinks/$(request.auth.uid)).data.get('tk',[])));
       allow write: if canA('attend','edit');
     }
     match /attRecords/{id} {
       allow read:   if (anyA('attend') && resource.data.uid == request.auth.uid) || canA('attend','report');
       allow create: if anyA('attend') && request.resource.data.uid == request.auth.uid
-                    && request.resource.data.ts == request.time;
+                    && request.resource.data.ts == request.time
+                    && exists(/databases/$(database)/documents/attLinks/$(request.auth.uid))
+                    && (get(/databases/$(database)/documents/attLinks/$(request.auth.uid)).data.k == request.resource.data.k
+                        || request.resource.data.k in get(/databases/$(database)/documents/attLinks/$(request.auth.uid)).data.get('tk',[]));
       allow update, delete: if canA('attend','edit');
     }
 
