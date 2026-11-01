@@ -1293,7 +1293,7 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
           <button type="button" onclick="printTasks()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold"><i class="fa-solid fa-print"></i> طباعة</button>
         </div>
       </div>
-      <div id="tk-list" class="space-y-2"></div>
+      <div id="tk-list"></div>
     </div>
   </div>
 </main>
@@ -8983,23 +8983,23 @@ function renderTasks() {
   const tkCard = x => {
     const dueCls = x.late ? 'bg-rose-100 text-rose-700' : x.today ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600';
     const check = x.kind === 'task' || x.kind === 'gcal'
-      ? `<input type="checkbox" ${x.done ? 'checked' : ''} onchange="${x.kind === 'gcal' ? `toggleGcal('${x.id}'` : `toggleTask('${x.id}'`}, this.checked)" class="w-5 h-5 mt-0.5 accent-emerald-600 cursor-pointer" title="تم">`
-      : `<i class="fa-solid ${x.done ? (x.status === 'معتمد' ? 'fa-circle-check text-emerald-600' : 'fa-circle-xmark text-rose-500') : 'fa-hourglass-half text-amber-500'} text-lg mt-0.5"></i>`;
+      ? `<input type="checkbox" ${x.done ? 'checked' : ''} onchange="${x.kind === 'gcal' ? `toggleGcal('${x.id}'` : `toggleTask('${x.id}'`}, this.checked)" class="w-4 h-4 mt-0.5 accent-emerald-600 cursor-pointer" title="تم">`
+      : `<i class="fa-solid ${x.done ? (x.status === 'معتمد' ? 'fa-circle-check text-emerald-600' : 'fa-circle-xmark text-rose-500') : 'fa-hourglass-half text-amber-500'} text-sm mt-0.5"></i>`;
     const actions = x.kind === 'gcal'
-      ? (x.link ? `<a href="${esc(x.link)}" target="_blank" rel="noopener noreferrer" class="px-2 py-1 bg-sky-50 text-sky-700 hover:bg-sky-100 rounded text-[10px] font-bold" title="فتح في تقويم جوجل"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>` : '')
+      ? (x.link ? `<a href="${esc(x.link)}" target="_blank" rel="noopener noreferrer" class="px-1.5 py-0.5 bg-sky-50 text-sky-700 hover:bg-sky-100 rounded text-[10px] font-bold" title="فتح في تقويم جوجل"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>` : '')
       : x.kind === 'task'
-      ? (isAdmin() ? `<button onclick="editTask('${x.id}')" class="px-2 py-1 bg-sky-50 text-sky-700 hover:bg-sky-100 rounded text-[10px] font-bold"><i class="fa-solid fa-pen"></i></button>
-         <button onclick="deleteTask('${x.id}')" class="px-2 py-1 text-rose-600 hover:bg-rose-50 rounded text-[10px]"><i class="fa-solid fa-trash"></i></button>` : '')
-      : `${x.raw.attachment ? `<button onclick="openAttachment('${x.id}')" class="px-2 py-1 bg-sky-50 text-sky-700 hover:bg-sky-100 rounded font-bold text-[10px]"><i class="fa-solid fa-paperclip"></i></button>` : ''}
-         ${!x.done ? `<button onclick="setReqStatus('${x.id}','معتمد')" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[10px]">اعتماد</button>
-         <button onclick="setReqStatus('${x.id}','مرفوض')" class="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded font-bold text-[10px]">رفض</button>` : `<span class="text-[10px] font-bold ${x.status === 'معتمد' ? 'text-emerald-700' : 'text-rose-600'}">${esc(x.status)}</span>`}`;
+      ? (isAdmin() ? `<button onclick="editTask('${x.id}')" class="px-1.5 py-0.5 bg-sky-50 text-sky-700 hover:bg-sky-100 rounded text-[10px] font-bold"><i class="fa-solid fa-pen"></i></button>
+         <button onclick="deleteTask('${x.id}')" class="px-1.5 py-0.5 text-rose-600 hover:bg-rose-50 rounded text-[10px]"><i class="fa-solid fa-trash"></i></button>` : '')
+      : `${x.raw.attachment ? `<button onclick="openAttachment('${x.id}')" class="px-1.5 py-0.5 bg-sky-50 text-sky-700 hover:bg-sky-100 rounded font-bold text-[10px]"><i class="fa-solid fa-paperclip"></i></button>` : ''}
+         ${!x.done ? `<button onclick="setReqStatus('${x.id}','معتمد')" class="px-1.5 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[10px]">اعتماد</button>
+         <button onclick="setReqStatus('${x.id}','مرفوض')" class="px-1.5 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded font-bold text-[10px]">رفض</button>` : `<span class="text-[10px] font-bold ${x.status === 'معتمد' ? 'text-emerald-700' : 'text-rose-600'}">${esc(x.status)}</span>`}`;
     const bc = x.done ? '#10b981' : x.late ? '#e11d48' : x.today ? '#f59e0b' : '#38bdf8';
-    return `<div class="flex items-start gap-3 p-3.5 border border-slate-200 rounded-xl shadow-sm ${x.done ? 'bg-slate-50 opacity-60' : 'bg-white'}" style="border-inline-start:6px solid ${bc}">
+    return `<div class="flex items-start gap-2 px-2.5 py-1.5 border border-slate-200 rounded-xl ${x.done ? 'bg-slate-50 opacity-60' : 'bg-white'}" style="border-inline-start:4px solid ${bc}">
       ${check}
       <div class="flex-1 min-w-0">
-        <div class="font-extrabold text-[15px] leading-snug ${x.kind !== 'req' && x.done ? 'line-through text-slate-400' : 'text-slate-900'}">${esc(x.title)}</div>
-        ${x.notes ? `<div class="text-xs text-slate-600 mt-1 leading-relaxed">${esc(x.notes)}</div>` : ''}
-        <div class="flex flex-wrap items-center gap-2 mt-1.5 text-[10px]">
+        <div class="font-bold text-[13px] leading-tight ${x.kind !== 'req' && x.done ? 'line-through text-slate-400' : 'text-slate-900'}">${esc(x.title)}</div>
+        ${x.notes ? `<div class="text-[11px] text-slate-500 leading-tight">${esc(x.notes)}</div>` : ''}
+        <div class="flex flex-wrap items-center gap-1 mt-0.5 text-[10px]">
           ${x.kind === 'task' && isAdmin() ? `<span class="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-bold"><i class="fa-solid fa-user"></i> ${(x.assignees || []).length ? esc(x.assignees.map(tkUserName).join('، ')) : 'لي فقط'}</span>${(x.assignees || []).length ? `<button type="button" onclick="notifyTask('${x.id}')" class="px-1.5 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold">📨 إرسال تذكير</button>` : ''}` : ''}
           ${x.kind === 'task' && x.done && x.doneByName ? `<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold"><i class="fa-solid fa-check"></i> تم بواسطة ${esc(x.doneByName)}</span>` : ''}
           ${x.kind === 'gcal' ? `<span class="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-bold"><i class="fa-brands fa-google"></i> ${x.isTask ? 'مهمة جوجل' : 'تقويم جوجل'}${x.cal ? ': ' + esc(x.cal) : ''}</span>` : ''}
@@ -9016,10 +9016,10 @@ function renderTasks() {
     { k: 'later', t: '⚪ لاحقًا', c: '#475569', bg: '#f8fafc', f: x => !x.done && !x.late && !x.today && x.due && dd(x) > 7 },
     { k: 'nodate', t: '⚪ بدون تاريخ', c: '#475569', bg: '#f8fafc', f: x => !x.done && !x.due },
   ];
-  const head = (g, n) => `<div class="flex items-center gap-2 px-3 py-1.5 rounded-lg font-extrabold text-sm" style="background:${g.bg};color:${g.c}">${g.t}<span class="px-2 rounded-full text-xs text-white" style="background:${g.c}">${n}</span></div>`;
-  let out = G.map(g => { const l = rows.filter(g.f); return l.length ? `<div class="space-y-2 mb-4">${head(g, l.length)}${l.map(tkCard).join('')}</div>` : ''; }).join('');
+  const head = (g, n) => `<div class="flex items-center gap-2 px-2.5 py-0.5 rounded-lg font-extrabold text-xs" style="background:${g.bg};color:${g.c}">${g.t}<span class="px-2 rounded-full text-xs text-white" style="background:${g.c}">${n}</span></div>`;
+  let out = G.map(g => { const l = rows.filter(g.f); return l.length ? `<div class="space-y-1 mb-2">${head(g, l.length)}${l.map(tkCard).join('')}</div>` : ''; }).join('');
   const dn = rows.filter(x => x.done);
-  if (dn.length) out += `<details class="mb-4" ${f === 'done' ? 'open' : ''}><summary class="cursor-pointer px-3 py-1.5 rounded-lg font-extrabold text-sm bg-emerald-50 text-emerald-700">✅ المنتهية <span class="px-2 rounded-full text-xs text-white bg-emerald-600">${dn.length}</span> <span class="text-[11px] font-normal">(اضغط للعرض)</span></summary><div class="space-y-2 mt-2">${dn.map(tkCard).join('')}</div></details>`;
+  if (dn.length) out += `<details class="mb-2" ${f === 'done' ? 'open' : ''}><summary class="cursor-pointer px-2.5 py-0.5 rounded-lg font-extrabold text-xs bg-emerald-50 text-emerald-700">✅ المنتهية <span class="px-2 rounded-full text-xs text-white bg-emerald-600">${dn.length}</span> <span class="text-[11px] font-normal">(اضغط للعرض)</span></summary><div class="space-y-1 mt-1">${dn.map(tkCard).join('')}</div></details>`;
   $('tk-list').innerHTML = out || `<p class="p-8 text-center text-slate-400 text-xs">لا توجد مهام</p>`;
 }
 function tkRel(x) {
