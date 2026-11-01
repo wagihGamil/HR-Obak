@@ -2143,7 +2143,7 @@ const PERM = {
   links:{label:'لينكات هامة',acts:{view:'عرض اللينكات',edit:'إضافة وتعديل وحذف اللينكات'}},
   attend:{label:'الحضور',acts:{view:'تسجيل حضور وانصراف بالوجه (من موبايله)',report:'عرض تقارير حضور كل الموظفين',edit:'الإعدادات: المواقع وبصمات الوجوه وربط المستخدمين'}},
   extlabor:{label:'حساب عمالة خارجية',acts:{view:'دخول المديول وعرض الحسابات',add:'إضافة أيام عمل',edit:'تعديل الأيام + التهيئة (المقاولين واليوميات)',delete:'حذف الأيام'}},
-  payrev:{label:'مراجع المرتبات',acts:{view:'دخول المديول (فحص الاستقطاعات والإجازات ومطابقة المؤثرات)'}},
+  payrev:{label:'مراجع المرتبات',acts:{view:'دخول المديول (فحص الاستقطاعات والإجازات ومطابقة المؤثرات وحضور في يوم إجازة)'}},
   orgchart:{label:'الهيكل التنظيمي',acts:{view:'عرض الهيكل وخطة التعيينات وطباعتها',edit:'رفع الشيتات وتعديل الهيكل والمراحل'}},
   idcard:{label:'ID',acts:{view:'عرض وطباعة كروت الدخول',edit:'رفع الشيت وتعديل البيانات والصور والظهر'}}
 };
@@ -3097,7 +3097,7 @@ function lkDate(v){ if(v instanceof Date) return v; if(typeof v==='number'&&wind
   m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/); if(m) return new Date(+m[3],+m[2]-1,+m[1]); const d=new Date(s); return isNaN(d)?null:d; }
 const lkFmt=d=>d?`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`:'';
 const lkR=n=>Math.round(n*1000)/1000;
-async function lkRead(file){ await loadXLSX(); const wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array',cellDates:true}); return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null,raw:true}); }
+async function lkRead(file){ await loadXLSX(); const wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array',cellDates:true}); const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null,raw:true}); rows.forEach(r=>{ for(const k in r){ const v=r[k]; if(v instanceof Date) r[k]=new Date(Math.round(v.getTime()/60000)*60000); } }); return rows; }
 function lkCol(row,rx){ return Object.keys(row).find(k=>rx.test(k)); }
 function mountLeaveChk(){ setLayout({view:true}); $('view').innerHTML=`<div class="card" id="dcx">
 <h2>فحص الإجازات</h2>
@@ -3172,6 +3172,71 @@ async function lkExport(){ if(!LK.res.length) return toast('احتسب الأو�
 
 
 /* ===== مراجع المرتبات ===== */
+/* ===== حضور في يوم إجازة (تاب في مراجع المرتبات) ===== */
+const AL={att:null,lv:null,res:null,map:{}};
+const alISO=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const alDays=['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+function alHeads(rows){ const s=new Set(); rows.slice(0,80).forEach(r=>Object.keys(r).forEach(k=>s.add(k))); return [...s]; }
+function alGuess(H){ const f=(rx,ex)=>H.find(h=>rx.test(h)&&!(ex&&ex.test(h)))||''; const cin=f(/check.?in|وقت الحضور|الحضور|حضور|دخول|time.?in/i,/تاريخ.*(?!حضور)|date/i)||'', cout=f(/check.?out|وقت الانصراف|الانصراف|انصراف|خروج|time.?out/i);
+  return {name:f(/الموظف|اسم|employee|name/i,/كود|code/i),code:f(/كود|code|رقم الموظف|badge|barcode/i),date:f(/^التاريخ$|^تاريخ|^date|اليوم/i,/حضور|انصراف|check|دخول|خروج/i),cin,cout}; }
+const alFilled=v=>{ if(v===null||v===undefined) return false; if(v instanceof Date) return true; if(typeof v==='number') return v>0; const s=String(v).trim(); return !!s&&!/^0{1,2}:0{2}(:0{2})?$/.test(s)&&!/^(-|—|false|لا يوجد)$/i.test(s); };
+function alTime(v){ if(v instanceof Date) return String(v.getHours()).padStart(2,'0')+':'+String(v.getMinutes()).padStart(2,'0'); if(typeof v==='number'){ const fr=v%1, m=Math.round(fr*1440); return String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); } const m=String(v||'').match(/(\d{1,2}):(\d{2})/); return m?m[1].padStart(2,'0')+':'+m[2]:String(v||'').trim(); }
+function mountAttLeave(){ setLayout({view:true});
+  $('view').innerHTML=`<div class="card" id="dcx"><h2>حضور في يوم إجازة</h2>
+<p class="dc-sub">ارفع شيت الحضور (البصمات) لكل الموظفين وشيت الإجازات (hr.leave). البرنامج يبلّغك بأي موظف عنده بصمة حضور في يوم إجازته المسجّلة. المعالجة كلها داخل جهازك.</p>
+<div class="dc-drops" style="grid-template-columns:repeat(2,1fr)">
+ <label class="dc-drop" id="al_d1"><input type="file" accept=".xlsx,.xls,.csv"><b>1) شيت الحضور (البصمات)</b><span>اسم الموظف + التاريخ (أو وقت الحضور/الانصراف)</span></label>
+ <label class="dc-drop" id="al_d2"><input type="file" accept=".xlsx,.xls,.csv"><b>2) شيت الإجازات</b><span>hr.leave — الموظف + تاريخ البداية والانتهاء</span></label></div>
+<div class="dc-set" id="al_cols" style="display:none"></div>
+<div class="dc-set"><b>إعدادات:</b> <label>الإجازات المحسوبة <select id="al_st"><option value="ok">المعتمدة فقط</option><option value="okp">المعتمدة + بانتظار الموافقة</option></select></label>
+ <label>من تاريخ <input type="date" id="al_from"></label><label>إلى تاريخ <input type="date" id="al_to"></label><span>(الفترة اختيارية — اتركها فاضية لفحص كل الأيام)</span></div>
+<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px"><button class="btn pri" id="al_run" type="button">↻ فحص</button><button class="btn" id="al_exp" type="button">تصدير إلى Excel</button><span class="dc-calc" id="al_msg">ارفع الشيتين.</span></div>
+<div id="al_res" style="margin-top:14px"></div></div>`;
+  [['al_d1','att'],['al_d2','lv']].forEach(([id,k])=>{ const lab=$(id), inp=lab.querySelector('input');
+    if(AL[k]){ lab.classList.add('dc-ok'); lab.querySelector('span').textContent='تم الرفع — '+AL[k].length+' صف'; }
+    const take=async f=>{ if(!f) return; try{ AL[k]=await lkRead(f); lab.classList.add('dc-ok'); lab.querySelector('span').textContent=f.name+' — '+AL[k].length+' صف'; if(k==='att'){ AL.map=alGuess(alHeads(AL.att)); alColsUI(); } if(AL.att&&AL.lv) alRun(); }catch(e){ $('al_msg').textContent='تعذر قراءة الملف: '+(e.message||e); } };
+    inp.onchange=()=>take(inp.files[0]); lab.ondragover=e=>{e.preventDefault();lab.classList.add('dc-over');}; lab.ondragleave=()=>lab.classList.remove('dc-over'); lab.ondrop=e=>{e.preventDefault();lab.classList.remove('dc-over');take(e.dataTransfer.files[0]);}; });
+  if(AL.att){ if(!AL.map||!AL.map.name&&!AL.map.date) AL.map=alGuess(alHeads(AL.att)); alColsUI(); }
+  $('al_run').onclick=alRun; $('al_exp').onclick=alExport; ['al_st','al_from','al_to'].forEach(i=>$(i).onchange=()=>{ if(AL.att&&AL.lv) alRun(); });
+  if(AL.att&&AL.lv) alRun(); }
+function alColsUI(){ const H=alHeads(AL.att), M=AL.map, box=$('al_cols'); box.style.display='';
+  const sel=(id,lbl,cur)=>`<label>${lbl} <select id="${id}"><option value="">— غير موجود —</option>${H.map(h=>`<option value="${esc(h)}" ${h===cur?'selected':''}>${esc(h)}</option>`).join('')}</select></label>`;
+  box.innerHTML=`<b>أعمدة شيت الحضور (اتعرفت تلقائي — عدّلها لو غلط):</b> ${sel('al_cn','اسم الموظف',M.name)}${sel('al_cd','التاريخ',M.date)}${sel('al_ci','وقت الحضور',M.cin)}${sel('al_co','وقت الانصراف',M.cout)}`;
+  [['al_cn','name'],['al_cd','date'],['al_ci','cin'],['al_co','cout']].forEach(([i,k])=>$(i).onchange=()=>{ M[k]=$(i).value; if(AL.lv) alRun(); }); }
+function alRun(){ const msg=$('al_msg'); if(!AL.att||!AL.lv){ msg.textContent='ارفع الشيتين.'; return; }
+  const M=AL.map, L0=AL.lv[0]||{};
+  const lN=lkCol(L0,/^الموظف|employee/i), lT=lkCol(L0,/نوع الإجازة|نوع الاجازة|type/i), lS=lkCol(L0,/تاريخ البداية|date from|start/i), lE=lkCol(L0,/تاريخ الانتهاء|date to|end/i), lD=lkCol(L0,/المدة بالأيام|days/i), lSt=lkCol(L0,/^الحالة|state|status/i);
+  const miss=[]; if(!M.name) miss.push('اسم الموظف (الحضور)'); if(!M.date&&!M.cin) miss.push('التاريخ أو وقت الحضور (الحضور)'); if(!lN) miss.push('الموظف (الإجازات)'); if(!lS) miss.push('تاريخ البداية (الإجازات)');
+  if(miss.length){ msg.textContent='⛔ أعمدة ناقصة: '+miss.join('، '); return; }
+  const okp=$('al_st').value==='okp', from=$('al_from').value, to=$('al_to').value;
+  /* الحضور: موظف → تاريخ → أوقات */
+  const pres=new Map(), names=new Map(); let usedRows=0;
+  AL.att.forEach(r=>{ const n=lkNorm(r[M.name]); if(!n) return; const dv=M.date?r[M.date]:r[M.cin]; let d=lkDate(dv); if(!d&&M.cin) d=lkDate(r[M.cin]); if(!d) return;
+    const hasIn=M.cin&&alFilled(r[M.cin]), hasOut=M.cout&&alFilled(r[M.cout]); if((M.cin||M.cout)&&!hasIn&&!hasOut) return;
+    const iso=alISO(d); let em=pres.get(n); if(!em){ em=new Map(); pres.set(n,em); names.set(n,String(r[M.name]).trim()); }
+    let p=em.get(iso); if(!p){ p={ins:[],outs:[]}; em.set(iso,p); } if(hasIn) p.ins.push(alTime(r[M.cin])); if(hasOut) p.outs.push(alTime(r[M.cout])); usedRows++; });
+  /* الإجازات → أيام */
+  const out=[]; let lvCount=0, skipped=0, noAtt=new Set();
+  AL.lv.forEach(r=>{ const n=lkNorm(r[lN]); if(!n) return; const st=lkNorm(lSt?r[lSt]:'تمت الموافقة'); const approved=/تمت الموافقه/.test(st), pend=/بانتظار|الموافقه الثانيه/.test(st); if(!(approved||(okp&&pend))){ skipped++; return; }
+    const s=lkDate(r[lS]); if(!s) return; let e=lE?lkDate(r[lE]):null; const days=lD?Number(r[lD])||0:0; if(!e||e<s) e=new Date(s.getFullYear(),s.getMonth(),s.getDate()+Math.max(0,Math.ceil(days)-1)); lvCount++;
+    const em=pres.get(n); if(!em){ noAtt.add(String(r[lN]).trim()); return; }
+    const sd=new Date(s.getFullYear(),s.getMonth(),s.getDate()), ed=new Date(e.getFullYear(),e.getMonth(),e.getDate());
+    for(let d=new Date(sd),i=0;d<=ed&&i<400;d.setDate(d.getDate()+1),i++){ const iso=alISO(d); if(from&&iso<from) continue; if(to&&iso>to) continue; const p=em.get(iso); if(!p) continue;
+      const uniq=a=>[...new Set(a)].sort(); out.push({name:names.get(n),iso,dow:alDays[d.getDay()],type:String(lD&&lT?r[lT]:(lT?r[lT]:'')||''),from:lkFmt(s),to:lkFmt(ed),status:approved?'معتمدة':'بانتظار الموافقة',days,half:days>0&&days<1,inn:uniq(p.ins)[0]||'',outt:uniq(p.outs).slice(-1)[0]||''}); } });
+  out.sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar')||a.iso.localeCompare(b.iso)); AL.res={rows:out,noAtt:[...noAtt],lvCount,skipped,usedRows};
+  const emps=new Set(out.map(o=>o.name)); const box=(l,v,c)=>`<div style="background:#fff;border:1px solid var(--bd);border-radius:10px;padding:8px 14px;min-width:120px"><div style="font-size:12px;color:#64748b">${l}</div><div style="font-size:22px;font-weight:800;color:${c||'inherit'}">${v}</div></div>`;
+  msg.textContent=out.length?`⚠ ${out.length} يوم حضور في إجازة`:'✓ لا توجد تعارضات';
+  $('al_res').innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">${box('موظفون عندهم تعارض',emps.size,emps.size?'#c62828':'#1b7a3d')}${box('أيام حضور في إجازة',out.length,out.length?'#c62828':'#1b7a3d')}${box('إجازات تم فحصها',lvCount)}${box('صفوف حضور مقروءة',usedRows)}</div>
+  ${skipped?`<div class="dc-msg" style="display:block">ℹ تم تجاهل ${skipped} إجازة غير معتمدة (مرفوضة/ملغاة/مسودة).</div>`:''}
+  ${AL.res.noAtt.length?`<div class="dc-msg" style="display:block">ℹ موظفون عندهم إجازات ولا يوجد لهم أي صف في شيت الحضور (تأكد من تطابق الأسماء): ${AL.res.noAtt.slice(0,12).map(esc).join('، ')}${AL.res.noAtt.length>12?'…':''}</div>`:''}
+  ${usedRows?'':'<div class="dc-msg" style="display:block;background:#fdecec">⛔ ما اتقرأش أي صف حضور — راجع اختيار الأعمدة فوق.</div>'}
+  <div class="dc-bar" style="display:flex;gap:8px;margin-bottom:8px"><input type="search" id="al_q" placeholder="بحث باسم الموظف…" style="flex:1"></div>
+  <div class="dc-tw"><table><thead><tr><th>الموظف</th><th>اليوم</th><th>نوع الإجازة</th><th>فترة الإجازة</th><th>الحالة</th><th>أول بصمة حضور</th><th>آخر بصمة انصراف</th><th>ملاحظة</th></tr></thead><tbody id="al_tb"></tbody></table></div>`;
+  const draw=()=>{ const q=lkNorm($('al_q').value); $('al_tb').innerHTML=out.filter(o=>!q||lkNorm(o.name).includes(q)).map(o=>`<tr style="background:#fdecec"><td><b>${esc(o.name)}</b></td><td>${lkFmt(lkDate(o.iso))}<br><small class="muted">${o.dow}</small></td><td>${esc(o.type)}</td><td style="white-space:nowrap">${o.from} → ${o.to}</td><td>${o.status}</td><td>${esc(o.inn||'—')}</td><td>${esc(o.outt||'—')}</td><td style="font-size:12px">${o.half?'إجازة أقل من يوم (قد يكون الحضور مبرر)':''}</td></tr>`).join('')||'<tr><td colspan="8" class="muted">لا توجد تعارضات</td></tr>'; }; $('al_q').oninput=draw; draw(); }
+async function alExport(){ if(!AL.res||!AL.res.rows.length) return toast('لا توجد تعارضات للتصدير',true); await loadXLSX();
+  const rows=AL.res.rows.map(o=>({'الموظف':o.name,'التاريخ':lkFmt(lkDate(o.iso)),'اليوم':o.dow,'نوع الإجازة':o.type,'من':o.from,'إلى':o.to,'الحالة':o.status,'أول بصمة حضور':o.inn,'آخر بصمة انصراف':o.outt,'ملاحظة':o.half?'إجازة أقل من يوم':''}));
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'حضور في إجازة'); XLSX.writeFile(wb,'حضور_في_يوم_إجازة.xlsx'); }
+
 let PRT='ded';
 const FX={emp:null,sl:null,ot:null,res:null};
 function fxDefPeriod(){ const t=new Date(), e=new Date(t.getFullYear(),t.getMonth()+(t.getDate()>=20?0:-1),20), s=new Date(e.getFullYear(),e.getMonth()-1,21); const f=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; return [f(s),f(e)]; }
@@ -3232,10 +3297,10 @@ async function fxExport(){ if(!FX.res) return toast('اعمل المطابقة �
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'مطابقة المؤثرات');
   if(R.exSl.length||R.exOt.length) XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([...R.exSl.map(n=>({'الاسم':n,'ملاحظة':'في المرتبات وليس في الموظفين'})),...R.exOt.map(n=>({'الاسم':n,'ملاحظة':'في الإضافي وليس في الموظفين'}))]),'غير مطابق');
   XLSX.writeFile(wb,'مطابقة_المؤثرات.xlsx'); }
-function mountPayRev(sub){ if(['ded','lv','fx'].includes(sub)) PRT=sub; else if(location.hash.replace(/^#\/?/,'')==='payrev'&&!['ded','lv','fx'].includes(PRT)) PRT='ded';
+function mountPayRev(sub){ if(['ded','lv','fx','al'].includes(sub)) PRT=sub; else if(location.hash.replace(/^#\/?/,'')==='payrev'&&!['ded','lv','fx','al'].includes(PRT)) PRT='ded';
   prDraw(); }
-function prDraw(){ if(PRT==='lv') mountLeaveChk(); else if(PRT==='fx') mountFx(); else mountDeduct();
-  hdrTabs([{k:'ded',t:'فحص الاستقطاعات',on:PRT==='ded'},{k:'lv',t:'فحص الإجازات',on:PRT==='lv'},{k:'fx',t:'مطابقة المؤثرات',on:PRT==='fx'}],k=>{ PRT=k; prDraw(); }); }
+function prDraw(){ if(PRT==='lv') mountLeaveChk(); else if(PRT==='fx') mountFx(); else if(PRT==='al') mountAttLeave(); else mountDeduct();
+  hdrTabs([{k:'ded',t:'فحص الاستقطاعات',on:PRT==='ded'},{k:'lv',t:'فحص الإجازات',on:PRT==='lv'},{k:'fx',t:'مطابقة المؤثرات',on:PRT==='fx'},{k:'al',t:'حضور في يوم إجازة',on:PRT==='al'}],k=>{ PRT=k; prDraw(); }); }
 
 
 /* ===== حساب عمالة خارجية ===== */
