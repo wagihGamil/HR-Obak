@@ -9384,12 +9384,14 @@ window.grpWelcome = function(id){
   L.push('','نرجو الترحيب به ومساعدته والالتزام بسياسة السكن. أهلاً وسهلاً بيه 🌹');
   const ov=document.createElement('div'); ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:14px;direction:rtl';
   ov.innerHTML=`<div style="background:#fff;border-radius:12px;padding:18px;width:min(560px,100%);max-height:92vh;overflow:auto;font-size:14px"><h3 style="font-weight:800;font-size:16px;margin-bottom:6px">ترحيب بـ ${esc(e.name)} — جروب شقة ${esc(a.number||'')}</h3>
-   <div style="font-size:12px;color:#64748b;margin-bottom:6px">واتساب مش بيسمح بإرسال رسالة لجروب تلقائيًا؛ هتتنسخ الرسالة وبيتفتح الجروب وإنت تلصقها وتبعتها.</div>
+   <div style="font-size:12px;color:#64748b;margin-bottom:6px">لينك الجروب في واتساب مابيقبلش نص جاهز. عشان كده فيه طريقتين: <b>(1)</b> «واتساب بالرسالة» بيفتح واتساب والنص مكتوب جاهز وإنت تختار الجروب من القايمة وتبعت. <b>(2)</b> «فتح الجروب» بينسخ الرسالة وإنت تلصقها بالضغط المطوّل في خانة الكتابة.</div>
    <textarea id="gw-msg" rows="10" style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:6px 8px;font-size:13px"></textarea>
-   <div style="display:flex;gap:8px;margin-top:10px"><button type="button" id="gw-go" style="background:#25d366;color:#fff;border-radius:8px;padding:8px 18px;font-weight:700">نسخ الرسالة وفتح الجروب</button><button type="button" id="gw-x" style="border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 16px">إغلاق</button></div></div>`;
+   <div style="display:flex;gap:8px;margin-top:10px"><button type="button" id="gw-wa" style="background:#25d366;color:#fff;border-radius:8px;padding:8px 18px;font-weight:700">واتساب بالرسالة (اختار الجروب)</button><button type="button" id="gw-go" style="background:#0d9488;color:#fff;border-radius:8px;padding:8px 14px;font-weight:700">فتح الجروب + نسخ الرسالة</button><button type="button" id="gw-x" style="border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 16px">إغلاق</button></div></div>`;
   ($('adm')||document.body).appendChild(ov); const q=x=>ov.querySelector(x); q('#gw-msg').value=L.join('\n');
   q('#gw-x').onclick=()=>ov.remove(); ov.addEventListener('click',ev=>{ if(ev.target===ov) ov.remove(); });
-  q('#gw-go').onclick=async()=>{ const t=q('#gw-msg').value; try{ await navigator.clipboard.writeText(t); }catch(er){ q('#gw-msg').select(); try{ document.execCommand('copy'); }catch(e2){} } toast('تم نسخ الرسالة — الصقها في الجروب','success'); window.open(a.whatsappLink,'_blank','noopener'); };
+  const cp=()=>{ const ta=q('#gw-msg'); try{ ta.focus(); ta.select(); ta.setSelectionRange(0,99999); document.execCommand('copy'); }catch(e2){} try{ navigator.clipboard&&navigator.clipboard.writeText(ta.value); }catch(e3){} };
+  q('#gw-wa').onclick=()=>{ cp(); window.open('https://api.whatsapp.com/send?text='+encodeURIComponent(q('#gw-msg').value),'_blank','noopener'); };
+  q('#gw-go').onclick=()=>{ cp(); toast('تم نسخ الرسالة — الصقها في الجروب','success'); window.open(a.whatsappLink,'_blank','noopener'); };
 };
 window.hwWelcome = function(e,a){
   try{ if(!waNum(e.phone)) return; const sup=S.users.find(u=>u.id===a.supervisorUid)||{name:a.supervisorName||'',phone:a.supervisorPhone||((P&&P.uid===a.supervisorUid)?(P.phone||''):'')};
