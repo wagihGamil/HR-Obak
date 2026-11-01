@@ -1285,7 +1285,7 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
           <button type="button" id="tk-gcal-btn" data-admin onclick="connectGcal()" class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl text-xs font-bold"><i class="fa-brands fa-google text-rose-500"></i> <span id="tk-gcal-label">ربط تقويم جوجل</span></button>
           <button type="button" id="tk-gcal-off" onclick="disconnectGcal()" class="hidden px-2 py-1.5 text-slate-500 hover:text-rose-600 text-xs" title="فصل التقويم"><i class="fa-solid fa-link-slash"></i></button>
           <select id="tk-filter" class="px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs">
-            <option value="open">المفتوحة</option><option value="late">المتأخرة</option><option value="done">المنتهية</option><option value="all">الكل</option></select>
+            <option value="open">المفتوحة</option><option value="focus">تركيز: اليوم والمتأخرة</option><option value="late">المتأخرة</option><option value="done">المنتهية</option><option value="all">الكل</option></select>
           <select id="tk-who" data-admin class="px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs"></select>
           <select id="tk-src" data-admin class="px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs">
             <option value="all">كل المصادر</option><option value="task">مهامي</option><option value="req">طلبات المشرفين</option><option value="gcal">تقويم جوجل</option></select>
@@ -8976,11 +8976,11 @@ function renderTasks() {
   $('tk-k-today').textContent = all.filter(x => x.today).length;
   $('tk-k-done').textContent = all.filter(x => x.done).length;
   const f = $('tk-filter').value, src = $('tk-src').value, q = $('tk-search').value.trim().toLowerCase();
-  const rows = all.filter(x => (f === 'all' || (f === 'open' && !x.done) || (f === 'late' && x.late) || (f === 'done' && x.done))
+  const rows = all.filter(x => (f === 'all' || (f === 'open' && !x.done) || (f === 'focus' && (x.late || x.today)) || (f === 'late' && x.late) || (f === 'done' && x.done))
     && (src === 'all' || x.kind === src) && tkWhoOk(x) && (!q || (x.title + ' ' + x.notes).toLowerCase().includes(q)))
     .sort((a, b) => (a.done - b.done) || (a.due || '9999').localeCompare(b.due || '9999') || (a.time || '').localeCompare(b.time || ''));
   TK_ROWS = rows;
-  $('tk-list').innerHTML = rows.map(x => {
+  const tkCard = x => {
     const dueCls = x.late ? 'bg-rose-100 text-rose-700' : x.today ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600';
     const check = x.kind === 'task' || x.kind === 'gcal'
       ? `<input type="checkbox" ${x.done ? 'checked' : ''} onchange="${x.kind === 'gcal' ? `toggleGcal('${x.id}'` : `toggleTask('${x.id}'`}, this.checked)" class="w-5 h-5 mt-0.5 accent-emerald-600 cursor-pointer" title="تم">`
@@ -8993,20 +8993,39 @@ function renderTasks() {
       : `${x.raw.attachment ? `<button onclick="openAttachment('${x.id}')" class="px-2 py-1 bg-sky-50 text-sky-700 hover:bg-sky-100 rounded font-bold text-[10px]"><i class="fa-solid fa-paperclip"></i></button>` : ''}
          ${!x.done ? `<button onclick="setReqStatus('${x.id}','معتمد')" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[10px]">اعتماد</button>
          <button onclick="setReqStatus('${x.id}','مرفوض')" class="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded font-bold text-[10px]">رفض</button>` : `<span class="text-[10px] font-bold ${x.status === 'معتمد' ? 'text-emerald-700' : 'text-rose-600'}">${esc(x.status)}</span>`}`;
-    return `<div class="flex items-start gap-3 p-3 border border-slate-200 rounded-xl ${x.done ? 'bg-slate-50 opacity-70' : 'bg-white'}">
+    const bc = x.done ? '#10b981' : x.late ? '#e11d48' : x.today ? '#f59e0b' : '#38bdf8';
+    return `<div class="flex items-start gap-3 p-3.5 border border-slate-200 rounded-xl shadow-sm ${x.done ? 'bg-slate-50 opacity-60' : 'bg-white'}" style="border-inline-start:6px solid ${bc}">
       ${check}
       <div class="flex-1 min-w-0">
-        <div class="font-bold text-sm ${x.kind !== 'req' && x.done ? 'line-through text-slate-400' : ''}">${esc(x.title)}</div>
-        ${x.notes ? `<div class="text-[11px] text-slate-500 mt-0.5">${esc(x.notes)}</div>` : ''}
+        <div class="font-extrabold text-[15px] leading-snug ${x.kind !== 'req' && x.done ? 'line-through text-slate-400' : 'text-slate-900'}">${esc(x.title)}</div>
+        ${x.notes ? `<div class="text-xs text-slate-600 mt-1 leading-relaxed">${esc(x.notes)}</div>` : ''}
         <div class="flex flex-wrap items-center gap-2 mt-1.5 text-[10px]">
           ${x.kind === 'task' && isAdmin() ? `<span class="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-bold"><i class="fa-solid fa-user"></i> ${(x.assignees || []).length ? esc(x.assignees.map(tkUserName).join('، ')) : 'لي فقط'}</span>${(x.assignees || []).length ? `<button type="button" onclick="notifyTask('${x.id}')" class="px-1.5 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold">📨 إرسال تذكير</button>` : ''}` : ''}
           ${x.kind === 'task' && x.done && x.doneByName ? `<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold"><i class="fa-solid fa-check"></i> تم بواسطة ${esc(x.doneByName)}</span>` : ''}
           ${x.kind === 'gcal' ? `<span class="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-bold"><i class="fa-brands fa-google"></i> ${x.isTask ? 'مهمة جوجل' : 'تقويم جوجل'}${x.cal ? ': ' + esc(x.cal) : ''}</span>` : ''}
           ${x.kind === 'req' ? `<span class="px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-bold"><i class="fa-solid fa-receipt"></i> طلب من مشرف${x.by ? ': ' + esc(x.by) : ''}</span>` : ''}
-          <span class="px-1.5 py-0.5 rounded font-bold ${dueCls}"><i class="fa-regular fa-calendar"></i> ${esc(x.due || 'بدون تاريخ')}${x.time ? ' ' + esc(x.time) : ''}${x.late ? ' — متأخرة' : x.today ? ' — اليوم' : ''}</span>
+          <span class="px-1.5 py-0.5 rounded font-bold ${dueCls}"><i class="fa-regular fa-calendar"></i> ${esc(x.due || 'بدون تاريخ')}${x.time ? ' ' + esc(x.time) : ''}${tkRel(x)}</span>
         </div></div>
       <div class="whitespace-nowrap flex items-center gap-1">${actions}</div></div>`;
-  }).join('') || `<p class="p-8 text-center text-slate-400 text-xs">لا توجد مهام</p>`;
+  };
+  const today = tkToday(), dd = x => Math.round((new Date(x.due + 'T00:00:00') - new Date(today + 'T00:00:00')) / 864e5);
+  const G = [
+    { k: 'late', t: '🔴 متأخرة', c: '#e11d48', bg: '#fff1f2', f: x => !x.done && x.late },
+    { k: 'today', t: '🟠 اليوم', c: '#d97706', bg: '#fffbeb', f: x => !x.done && x.today },
+    { k: 'soon', t: '🔵 خلال 7 أيام', c: '#0284c7', bg: '#f0f9ff', f: x => !x.done && !x.late && !x.today && x.due && dd(x) <= 7 },
+    { k: 'later', t: '⚪ لاحقًا', c: '#475569', bg: '#f8fafc', f: x => !x.done && !x.late && !x.today && x.due && dd(x) > 7 },
+    { k: 'nodate', t: '⚪ بدون تاريخ', c: '#475569', bg: '#f8fafc', f: x => !x.done && !x.due },
+  ];
+  const head = (g, n) => `<div class="flex items-center gap-2 px-3 py-1.5 rounded-lg font-extrabold text-sm" style="background:${g.bg};color:${g.c}">${g.t}<span class="px-2 rounded-full text-xs text-white" style="background:${g.c}">${n}</span></div>`;
+  let out = G.map(g => { const l = rows.filter(g.f); return l.length ? `<div class="space-y-2 mb-4">${head(g, l.length)}${l.map(tkCard).join('')}</div>` : ''; }).join('');
+  const dn = rows.filter(x => x.done);
+  if (dn.length) out += `<details class="mb-4" ${f === 'done' ? 'open' : ''}><summary class="cursor-pointer px-3 py-1.5 rounded-lg font-extrabold text-sm bg-emerald-50 text-emerald-700">✅ المنتهية <span class="px-2 rounded-full text-xs text-white bg-emerald-600">${dn.length}</span> <span class="text-[11px] font-normal">(اضغط للعرض)</span></summary><div class="space-y-2 mt-2">${dn.map(tkCard).join('')}</div></details>`;
+  $('tk-list').innerHTML = out || `<p class="p-8 text-center text-slate-400 text-xs">لا توجد مهام</p>`;
+}
+function tkRel(x) {
+  if (x.done || !x.due) return '';
+  const n = Math.round((new Date(x.due + 'T00:00:00') - new Date(tkToday() + 'T00:00:00')) / 864e5);
+  return n < 0 ? ` — متأخرة ${-n} يوم` : n === 0 ? ' — اليوم' : n === 1 ? ' — غدًا' : ` — بعد ${n} يوم`;
 }
 ['tk-filter', 'tk-src'].forEach(id => $(id).addEventListener('change', renderTasks));
 window.printTasks = function () {
