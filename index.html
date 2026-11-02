@@ -9055,6 +9055,7 @@ function tkDragInit() {
   });
 }
 window.printTasks = function () {
+  renderTasks(); /* يحدّث TK_ROWS بالترتيب الحالي (يدوي أو تلقائي) */
   const rows = TK_ROWS; if (!rows.length) { toast('لا توجد مهام للطباعة', 'error'); return; }
   const fl = $('tk-filter'), today = new Date().toLocaleDateString('ar-EG');
   const st = x => x.kind === 'req' ? (x.done ? x.status : 'بانتظار الاعتماد') : x.done ? 'منتهية' : x.late ? 'متأخرة' : x.today ? 'اليوم' : 'مفتوحة';
