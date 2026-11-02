@@ -214,6 +214,10 @@ service cloud.firestore {
     }
 
     // ===== المهام =====
+    // ترتيب أولوية المهام (لكل مستخدم ترتيبه الخاص)
+    match /taskPrefs/{uid} {
+      allow read, write: if request.auth.uid == uid && (hasModule('tasks') || isAdmin());
+    }
     match /tasks/{id} {
       allow read:   if wr('tasks') ||
                        (hasModule('tasks') && request.auth.uid in resource.data.assignees);

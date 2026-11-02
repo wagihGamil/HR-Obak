@@ -1284,6 +1284,7 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
         <div class="flex flex-wrap gap-2 items-center">
           <button type="button" id="tk-gcal-btn" data-admin onclick="connectGcal()" class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl text-xs font-bold"><i class="fa-brands fa-google text-rose-500"></i> <span id="tk-gcal-label">ربط تقويم جوجل</span></button>
           <button type="button" id="tk-gcal-off" onclick="disconnectGcal()" class="hidden px-2 py-1.5 text-slate-500 hover:text-rose-600 text-xs" title="فصل التقويم"><i class="fa-solid fa-link-slash"></i></button>
+          <select id="tk-sort" class="px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs" title="ترتيب المهام"><option value="auto">ترتيب تلقائي (بالتاريخ)</option><option value="manual">ترتيب يدوي بالأولوية (سحب وإفلات)</option></select>
           <select id="tk-filter" class="px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs">
             <option value="open">المفتوحة</option><option value="focus">تركيز: اليوم والمتأخرة</option><option value="late">المتأخرة</option><option value="done">المنتهية</option><option value="all">الكل</option></select>
           <select id="tk-who" data-admin class="px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs"></select>
@@ -7302,7 +7303,7 @@ window.admOpenModule = key => {
   hideAllModules();
   currentModule = key; applyPermClass(key);
   $('module-' + key).classList.remove('hidden');
-  if (key === 'tasks') { setupTasksUI(); window.resetTaskForm(); if (isAdmin() && GOOGLE_CLIENT_ID && gRestore() && !S.gcal.length) loadGcalEvents(); if (isAdmin()) gcalUpdateUI(); }
+  if (key === 'tasks') { setupTasksUI(); tkDragInit(); tkLoadOrd(); window.resetTaskForm(); if (isAdmin() && GOOGLE_CLIENT_ID && gRestore() && !S.gcal.length) loadGcalEvents(); if (isAdmin()) gcalUpdateUI(); }
   if (key === 'stationery') { setupStationeryUI(); window.switchStTab('stock'); }
   if (key === 'buffet') { setupBuffetUI(); window.switchBfTab('stock'); }
   if (key === 'cars') { loadCarsFrame(); window.switchCarsTab('main'); }
@@ -8979,6 +8980,8 @@ function renderTasks() {
   const rows = all.filter(x => (f === 'all' || (f === 'open' && !x.done) || (f === 'focus' && (x.late || x.today)) || (f === 'late' && x.late) || (f === 'done' && x.done))
     && (src === 'all' || x.kind === src) && tkWhoOk(x) && (!q || (x.title + ' ' + x.notes).toLowerCase().includes(q)))
     .sort((a, b) => (a.done - b.done) || (a.due || '9999').localeCompare(b.due || '9999') || (a.time || '').localeCompare(b.time || ''));
+  const man = tkManual(); $('tk-sort').value = man ? 'manual' : 'auto';
+  if (man) { const ix = x => { const i = TK_ORD.indexOf(tkKey(x)); return i < 0 ? 1e9 : i; }; rows.sort((a, b) => (a.done - b.done) || (ix(a) - ix(b))); }
   TK_ROWS = rows;
   const tkCard = x => {
     const dueCls = x.late ? 'bg-rose-100 text-rose-700' : x.today ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600';
@@ -8994,8 +8997,8 @@ function renderTasks() {
          ${!x.done ? `<button onclick="setReqStatus('${x.id}','معتمد')" class="px-1.5 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[10px]">اعتماد</button>
          <button onclick="setReqStatus('${x.id}','مرفوض')" class="px-1.5 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded font-bold text-[10px]">رفض</button>` : `<span class="text-[10px] font-bold ${x.status === 'معتمد' ? 'text-emerald-700' : 'text-rose-600'}">${esc(x.status)}</span>`}`;
     const bc = x.done ? '#10b981' : x.late ? '#e11d48' : x.today ? '#f59e0b' : '#38bdf8';
-    return `<div class="flex items-start gap-2 px-2.5 py-1.5 border border-slate-200 rounded-xl ${x.done ? 'bg-slate-50 opacity-60' : 'bg-white'}" style="border-inline-start:4px solid ${bc}">
-      ${check}
+    return `<div class="flex items-start gap-2 px-2.5 py-1.5 border border-slate-200 rounded-xl ${x.done ? 'bg-slate-50 opacity-60' : 'bg-white'}" style="border-inline-start:4px solid ${bc}"${man && !x.done ? ` data-tkk="${esc(tkKey(x))}"` : ''}>
+      ${man && !x.done ? '<span class="tk-h" title="اسحب لتغيير الأولوية" style="cursor:grab;touch-action:none;user-select:none;color:#94a3b8;font-size:16px;line-height:1;padding:2px 2px 0">⋮⋮</span>' : ''}${check}
       <div class="flex-1 min-w-0">
         <div class="font-bold text-[13px] leading-tight ${x.kind !== 'req' && x.done ? 'line-through text-slate-400' : 'text-slate-900'}">${esc(x.title)}</div>
         ${x.notes ? `<div class="text-[11px] text-slate-500 leading-tight">${esc(x.notes)}</div>` : ''}
@@ -9017,7 +9020,7 @@ function renderTasks() {
     { k: 'nodate', t: '⚪ بدون تاريخ', c: '#475569', bg: '#f8fafc', f: x => !x.done && !x.due },
   ];
   const head = (g, n) => `<div class="flex items-center gap-2 px-2.5 py-0.5 rounded-lg font-extrabold text-xs" style="background:${g.bg};color:${g.c}">${g.t}<span class="px-2 rounded-full text-xs text-white" style="background:${g.c}">${n}</span></div>`;
-  let out = G.map(g => { const l = rows.filter(g.f); return l.length ? `<div class="space-y-1 mb-2">${head(g, l.length)}${l.map(tkCard).join('')}</div>` : ''; }).join('');
+  let out = man ? (rows.some(x => !x.done) ? `<div class="space-y-1 mb-2" id="tk-man"><div class="flex items-center gap-2 px-2.5 py-0.5 rounded-lg font-extrabold text-xs" style="background:#eef2ff;color:#4338ca">⭐ الأولوية (الأعلى = الأهم) — اسحب ⋮⋮ لإعادة الترتيب</div>${rows.filter(x => !x.done).map(tkCard).join('')}</div>` : '') : G.map(g => { const l = rows.filter(g.f); return l.length ? `<div class="space-y-1 mb-2">${head(g, l.length)}${l.map(tkCard).join('')}</div>` : ''; }).join('');
   const dn = rows.filter(x => x.done);
   if (dn.length) out += `<details class="mb-2" ${f === 'done' ? 'open' : ''}><summary class="cursor-pointer px-2.5 py-0.5 rounded-lg font-extrabold text-xs bg-emerald-50 text-emerald-700">✅ المنتهية <span class="px-2 rounded-full text-xs text-white bg-emerald-600">${dn.length}</span> <span class="text-[11px] font-normal">(اضغط للعرض)</span></summary><div class="space-y-1 mt-1">${dn.map(tkCard).join('')}</div></details>`;
   $('tk-list').innerHTML = out || `<p class="p-8 text-center text-slate-400 text-xs">لا توجد مهام</p>`;
@@ -9028,6 +9031,29 @@ function tkRel(x) {
   return n < 0 ? ` — متأخرة ${-n} يوم` : n === 0 ? ' — اليوم' : n === 1 ? ' — غدًا' : ` — بعد ${n} يوم`;
 }
 ['tk-filter', 'tk-src'].forEach(id => $(id).addEventListener('change', renderTasks));
+let TK_ORD = [];
+const tkKey = x => x.kind + ':' + x.id;
+const tkManual = () => { try { return localStorage.getItem('tk_sort') === 'manual'; } catch (e) { return false; } };
+$('tk-sort').addEventListener('change', () => { try { localStorage.setItem('tk_sort', $('tk-sort').value); } catch (e) { } renderTasks(); });
+async function tkLoadOrd() { try { const sn = await getDoc(doc(db, 'taskPrefs', P.uid)); TK_ORD = (sn.exists() && sn.data().order) || []; } catch (e) { TK_ORD = []; } renderTasks(); }
+async function tkSaveOrd(visible) { const keep = TK_ORD.filter(k => !visible.includes(k)); TK_ORD = visible.concat(keep); try { await _setDoc(doc(db, 'taskPrefs', P.uid), { order: TK_ORD.slice(0, 600), at: Date.now() }); } catch (e) { toast('تعذر حفظ الترتيب', 'error'); } }
+function tkDragInit() {
+  const box = $('tk-list'); if (box._dnd) return; box._dnd = true;
+  box.addEventListener('pointerdown', e => {
+    const h = e.target.closest('.tk-h'); if (!h) return; const card = h.closest('[data-tkk]'); if (!card) return; e.preventDefault();
+    const sec = card.parentElement; card.classList.add('tk-drag'); card.style.opacity = '.6'; card.style.boxShadow = '0 6px 16px rgba(0,0,0,.25)';
+    const mv = ev => {
+      const y = ev.clientY; if (y < 70) window.scrollBy(0, -14); else if (y > innerHeight - 70) window.scrollBy(0, 14);
+      const cards = [...sec.querySelectorAll('[data-tkk]')].filter(c => c !== card);
+      let before = null; for (const c of cards) { const r = c.getBoundingClientRect(); if (y < r.top + r.height / 2) { before = c; break; } }
+      if (before) { if (card.nextSibling !== before) sec.insertBefore(card, before); } else if (sec.lastElementChild !== card) sec.appendChild(card);
+    };
+    const up = () => { document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); document.removeEventListener('pointercancel', up);
+      card.classList.remove('tk-drag'); card.style.opacity = ''; card.style.boxShadow = '';
+      tkSaveOrd([...sec.querySelectorAll('[data-tkk]')].map(c => c.dataset.tkk)).then(() => toast('تم حفظ الترتيب', 'success')); };
+    document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
+  });
+}
 window.printTasks = function () {
   const rows = TK_ROWS; if (!rows.length) { toast('لا توجد مهام للطباعة', 'error'); return; }
   const fl = $('tk-filter'), today = new Date().toLocaleDateString('ar-EG');
