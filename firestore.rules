@@ -107,6 +107,21 @@ service cloud.firestore {
       allow update: if canA('cars','edit');
       allow delete: if canA('cars','delete');
     }
+    // تحضير الباصات (شركات/خطوط/ورديات + سجل التحضير + سياسة التأخير)
+    match /busCompanies/{id} {
+      allow read:  if wr('cars');
+      allow create, update, delete: if canA('cars','edit');
+    }
+    match /busCfg/{id} {
+      allow read:  if wr('cars');
+      allow create, update, delete: if canA('cars','edit');
+    }
+    match /busLog/{id} {
+      allow read:   if wr('cars');
+      allow create: if canA('cars','add');
+      allow update: if canA('cars','edit');
+      allow delete: if canA('cars','delete');
+    }
     match /carsFiles/{id} {
       allow read:  if isAdmin() || hasModule('cars');
       allow create: if canA('cars','add');
