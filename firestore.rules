@@ -62,6 +62,10 @@ service cloud.firestore {
       allow read:  if canA('housing','admin');
       allow write: if wr('housing');
     }
+    // بيانات مطالبة صرف الإيجارات (المؤجّر والعنوان والقيمة) — لمدير مديول الشقق فقط
+    match /aptClaimCfg/{id} {
+      allow read, write: if canA('housing','admin');
+    }
     match /employees/{id} {
       allow read:  if isAdmin() || isViewer() ||
                       (isSupervisor() && resource.data.supervisorUid == request.auth.uid);
@@ -109,12 +113,12 @@ service cloud.firestore {
     }
     // تحضير الباصات (شركات/خطوط/ورديات + سجل التحضير + سياسة التأخير)
     match /busCompanies/{id} {
-      allow read:  if wr('cars');
-      allow create, update, delete: if canA('cars','edit');
+      allow read:  if wr('cars') || canA('cars','cfg');
+      allow create, update, delete: if canA('cars','cfg');
     }
     match /busCfg/{id} {
-      allow read:  if wr('cars');
-      allow create, update, delete: if canA('cars','edit');
+      allow read:  if wr('cars') || canA('cars','cfg');
+      allow create, update, delete: if canA('cars','cfg');
     }
     match /busLog/{id} {
       allow read:   if wr('cars');
