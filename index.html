@@ -2153,12 +2153,13 @@ const PERM = {
   idcard:{label:'ID',acts:{view:'عرض وطباعة كروت الدخول',edit:'رفع الشيت وتعديل البيانات والصور والظهر'}}
 };
 const LV_MODS=['housing','cars','buffet','stationery','tasks','links','orgchart','idcard'];
-const LV_LBL={admin:'مدير المديول (كل الصلاحيات)',add:'إضافة',edit:'تعديل',delete:'حذف',issueonly:'صرف فقط'};
+const LV_LBL={admin:'مدير المديول (كل الصلاحيات)',add:'إضافة',edit:'تعديل',delete:'حذف',issueonly:'صرف فقط',cfg:'التهيئة'};
 LV_MODS.forEach(m=>{ const v=PERM[m].acts.view; PERM[m].acts={view:v,add:'إضافة (تسجيل جديد)',edit:'تعديل الموجود',delete:'حذف',admin:LV_LBL.admin}; PERM[m].lv=true; });
 const LV_BASE={hiring:['acks','kin','contract','policy'],resign:['rq','rf','er','ho','cl'],forms:['*']};
 const LV_XL={hiring:{add:'السجل: إضافة (حفظ موظف جديد)',edit:'السجل: تعديل (تحديث موظف محفوظ)',delete:'السجل: حذف موظف من السجل'},resign:{add:'السجل: إضافة (حفظ موظف جديد)',edit:'السجل: تعديل (تحديث موظف محفوظ)',delete:'السجل: حذف موظف من السجل'},forms:{add:'إضافة نماذج جديدة',edit:'تعديل النماذج',delete:'حذف نماذج'}};
 Object.keys(LV_BASE).forEach(m=>{ PERM[m].acts={...PERM[m].acts,...LV_XL[m],admin:LV_LBL.admin}; PERM[m].lv=true; PERM[m].base=LV_BASE[m]; PERM[m].vl=m==='forms'?'عرض كل النماذج فقط':'طباعة الأوراق فقط (السجل للعرض)'; });
 const lvPre=m=>{ const b=(PERM[m]&&PERM[m].base)||['view']; return {none:[],view:b,add:[...b,'add'],del:[...b,'delete'],ae:[...b,'add','edit'],admin:[...b,'add','edit','delete','admin']}; };
+PERM.cars.acts.cfg='تهيئة تحضير الباصات (الشركات والخطوط والأسعار وسياسة التأخير) — من غيرها التابة مخفية';
 ['buffet','stationery'].forEach(m=>{ PERM[m].acts.issueonly='صرف فقط — يخفي تاب الأصناف والرصيد ويفتح على تسجيل الصرف'; });
 const LV_PRESETS=lvPre('housing');
 function lvDetect(c,m){ c=c||[]; if(!c.length) return 'none'; const s=[...c].sort().join(); for(const [k,v] of Object.entries(lvPre(m))) if([...v].sort().join()===s) return k; return 'custom'; }
@@ -3282,7 +3283,7 @@ const BUS_VT={bus:'باص',micro:'ميكروباص',suz:'سيزوكي'};
 const busTypesOf=cfg=>{ if(!cfg) return []; if(cfg.vals){ const k=Object.keys(BUS_VT).filter(t=>cfg.vals[t]!==undefined&&cfg.vals[t]!==null); return k; } return cfg.val!==undefined?Object.keys(BUS_VT):[]; };
 const busVal=(cfg,t)=>{ if(!cfg) return 0; if(cfg.vals) return +cfg.vals[t]||0; return +cfg.val||0; };
 const busVtL=r=>BUS_VT[r.vType]||'';
-const busCan=()=>can('cars','add')||can('cars','edit'), busCanCfg=()=>can('cars','edit');
+const busCan=()=>can('cars','add')||can('cars','edit'), busCanCfg=()=>can('cars','cfg');
 window.busInit=function(){ const b=$('cars-tab-bus'), c=$('cars-tab-cfg'); if(b) b.hidden=!busCan(); if(c) c.hidden=!busCanCfg(); };
 window.busMount=async function(k){ BUS.tab=k; const box=$(k==='cfg'?'cars-pane-cfg':'cars-pane-bus'); if(!box) return;
   if(!$('busstyle')){ const s=document.createElement('style'); s.id='busstyle'; s.textContent=`#busx h2,#busc h2{margin:0 0 10px;font-size:18px;color:var(--navy)}#busx .bg,#busc .bg{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;margin-bottom:12px}#busx label,#busc label{display:block;font-size:12.5px;font-weight:600;margin-bottom:3px}
@@ -3935,6 +3936,7 @@ function ocChart(kind,opt){
   const cols=[]; let totalJobs=0;
   const order=isA?[...C.pDept,...C.extraD]:C.pDept;
   order.forEach(d=>{
+    if(opt.depts&&!opt.depts.has(d)) return;
     const rows=C.P.filter(r=>r.dept===d); let body='', n=0;
     if(!isA){ n=rows.reduce((s,r)=>s+(+r.count||0),0); totalJobs+=n; body=ocTree(rows,r=>ocCard({t:r.job,c:ocNum(r.count),lead:r.lead,id:'p:'+r.id,dnd:opt.dnd,addId:opt.addb?r.id:''}),[]); }
     else{
@@ -3947,11 +3949,12 @@ function ocChart(kind,opt){
       totalJobs+=n;
     }
     if(isA&&!n) return;
-    const dd=!!opt.dnd, hh=!!(opt.wr&&rows.length); cols.push(`<div class="oc-col"${dd?` data-ocd="${esc(d)}"`:''}><div class="oc-h"${hh?` data-ocdh="${esc(d)}" title="تعديل الإدارة"`:''}><span>${esc(d)}</span><span style="display:flex;gap:6px;align-items:center">${opt.addb&&rows.length?`<button class="oc-hadd" type="button" data-ocaddd="${esc(d)}" title="إضافة وظيفة في الإدارة">+</button>`:''}<span class="oc-bd">${ocNum(n)}</span></span></div><div class="oc-body">${body}</div></div>`);
+    const dd=!!opt.dnd, hh=!!(opt.wr&&rows.length); cols.push(`<div class="oc-col"${dd?` data-ocd="${esc(d)}"`:''}><div class="oc-h"${hh?` data-ocdh="${esc(d)}" title="تعديل الإدارة"`:''}><span>${esc(d)}</span><span style="display:flex;gap:6px;align-items:center">${opt.int?`<button class="oc-hadd" type="button" data-ocprd="${esc(d)}" title="طباعة هذه الإدارة فقط">🖨</button>`:''}${opt.addb&&rows.length?`<button class="oc-hadd" type="button" data-ocaddd="${esc(d)}" title="إضافة وظيفة في الإدارة">+</button>`:''}<span class="oc-bd">${ocNum(n)}</span></span></div><div class="oc-body">${body}</div></div>`);
   });
-  const th=isA?'b':'g';
-  const top=opt.compact?`<div class="oc-top"><div class="oc-ttl"><h2 style="font-size:20px">${isA?'الهيكل الحالي للموظفين':'الهيكل التنظيمي المخطط'}</h2></div><div class="oc-sb" style="font-weight:700;color:var(--ac)">${ocNum(totalJobs)} ${isA?'موظف':'وظيفة'} · ${cols.length} أقسام</div></div>`
-   :`<div class="oc-top"><div class="oc-ttl"><div class="oc-co">شركة أوباك للصناعات الغذائية</div><h2>${isA?'الهيكل الحالي للموظفين':'الهيكل التنظيمي المخطط'}</h2><div class="oc-sb">${isA?'الموظفون الحاليون حسب الأقسام والوظائف (مقارنة بالمخطط)':'خطة التعيينات حسب الأقسام والوظائف'}${isA&&OC.data.emps&&OC.data.emps.at?' · آخر رفع '+ocDate(OC.data.emps.at):''}</div></div><div class="oc-box"><b>${ocNum(totalJobs)}</b><span>${isA?'إجمالي الموظفين':'إجمالي الوظائف'}</span></div><div class="oc-box w"><b>${cols.length}</b><span>أقسام</span></div></div><div class="oc-line"></div>`;
+  if(opt.depts&&!cols.length) return '';
+  const th=isA?'b':'g', dsub=opt.depts?' — '+[...opt.depts].map(esc).join('، '):'';
+  const top=opt.compact?`<div class="oc-top"><div class="oc-ttl"><h2 style="font-size:20px">${isA?'الهيكل الحالي للموظفين':'الهيكل التنظيمي المخطط'}${dsub}</h2></div><div class="oc-sb" style="font-weight:700;color:var(--ac)">${ocNum(totalJobs)} ${isA?'موظف':'وظيفة'} · ${cols.length} أقسام</div></div>`
+   :`<div class="oc-top"><div class="oc-ttl"><div class="oc-co">شركة أوباك للصناعات الغذائية</div><h2>${isA?'الهيكل الحالي للموظفين':'الهيكل التنظيمي المخطط'}${dsub}</h2><div class="oc-sb">${isA?'الموظفون الحاليون حسب الأقسام والوظائف (مقارنة بالمخطط)':'خطة التعيينات حسب الأقسام والوظائف'}${isA&&OC.data.emps&&OC.data.emps.at?' · آخر رفع '+ocDate(OC.data.emps.at):''}</div></div><div class="oc-box"><b>${ocNum(totalJobs)}</b><span>${isA?'إجمالي الموظفين':'إجمالي الوظائف'}</span></div><div class="oc-box w"><b>${cols.length}</b><span>أقسام</span></div></div><div class="oc-line"></div>`;
   return `<div class="oc ${th}${opt.int?' int':''}">${top}<div class="oc-cols">${cols.join('')}</div>${opt.compact?'':OC_FT(kind)}</div>`;
 }
 
@@ -4209,16 +4212,23 @@ function ocMapModal(){
 }
 
 /* ----- الطباعة (A4 عرضي داخل إطار مخفي) ----- */
-function ocPrintModal(){
-  const C=OC.C; const m=ocModal(`<h3>طباعة</h3><div style="display:grid;gap:8px;margin-top:6px">
+function ocPrintModal(pre){
+  const C=OC.C, depts=[...new Set([...C.pDept,...C.extraD])]; const m=ocModal(`<h3>طباعة</h3><div style="display:grid;gap:8px;margin-top:6px">
    <label><input type="checkbox" id="pr_p" ${C.P.length?'checked':'disabled'}> الهيكل التنظيمي المخطط (أخضر)</label>
    <label><input type="checkbox" id="pr_a" ${C.E.length?'checked':'disabled'}> الهيكل الحالي للموظفين (أزرق)</label>
    <label><input type="checkbox" id="pr_r" ${C.P.length?'checked':'disabled'}> تقرير خطة التعيينات (المتبقي + المراحل)</label>
    <label style="margin-inline-start:22px"><input type="checkbox" id="pr_s"> الهيكلين فوق بعض في صفحة واحدة</label>
-   <label style="margin-inline-start:22px"><input type="checkbox" id="pr_n"> إظهار أسماء الموظفين في الهيكل الحالي</label></div>
+   <label style="margin-inline-start:22px"><input type="checkbox" id="pr_n"> إظهار أسماء الموظفين في الهيكل الحالي</label>
+   <div style="border-top:1px solid var(--line);padding-top:8px;margin-top:2px"><b style="font-size:13px">الإدارات</b>
+    <label style="display:block;margin:4px 0"><input type="checkbox" id="pr_all" ${pre?'':'checked'}> كل الإدارات</label>
+    <div id="pr_dl" style="display:none;max-height:170px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px 10px">${depts.map((d,i)=>`<label style="display:block;margin:3px 0"><input type="checkbox" class="pr_d" value="${i}" ${d===pre?'checked':''}> ${esc(d)}</label>`).join('')}</div>
+    <label style="display:none;margin:6px 0 0" id="pr_sepw"><input type="checkbox" id="pr_sep"> كل إدارة في صفحة (أو صفحات) لوحدها</label></div></div>
    <div class="lerr" id="pr_err"></div><div style="display:flex;gap:8px;margin-top:14px"><button class="btn pri" id="pr_go" type="button">طباعة</button><button class="btn" data-ocx type="button">إلغاء</button></div>`,460);
-  m.querySelector('#pr_go').onclick=()=>{ const o={p:m.querySelector('#pr_p').checked,a:m.querySelector('#pr_a').checked,r:m.querySelector('#pr_r').checked,s:m.querySelector('#pr_s').checked,n:m.querySelector('#pr_n').checked};
-    if(!o.p&&!o.a&&!o.r){ m.querySelector('#pr_err').textContent='اختار حاجة للطباعة'; return; } m.remove(); ocPrint(o); };
+  const all=m.querySelector('#pr_all'), dl=m.querySelector('#pr_dl'), sw=m.querySelector('#pr_sepw'), sync=()=>{ dl.style.display=all.checked?'none':'block'; sw.style.display=all.checked?'none':'block'; };
+  all.onchange=sync; sync();
+  m.querySelector('#pr_go').onclick=()=>{ const o={dp:all.checked?null:[...m.querySelectorAll('.pr_d:checked')].map(x=>depts[+x.value]),sep:m.querySelector('#pr_sep').checked,p:m.querySelector('#pr_p').checked,a:m.querySelector('#pr_a').checked,r:m.querySelector('#pr_r').checked,s:m.querySelector('#pr_s').checked,n:m.querySelector('#pr_n').checked};
+    if(!o.p&&!o.a&&!o.r){ m.querySelector('#pr_err').textContent='اختار حاجة للطباعة'; return; }
+    if(o.dp&&!o.dp.length){ m.querySelector('#pr_err').textContent='اختار إدارة واحدة على الأقل'; return; } m.remove(); ocPrint(o); };
 }
 function ocReportHtml(){
   const C=OC.C, S=ocStats(), rows=C.P.map(r=>({r,cur:C.cur(r.id),rem:C.rem(r),al:ocAlloc(r.id)})).filter(x=>x.rem>0);
@@ -4247,8 +4257,14 @@ function ocFitBoxes(d){
 }
 function ocPrint(o){
   const C=OC.C; let body='';
-  if(o.s&&o.p&&o.a) body+=`<div class="ocpg st"><div class="ocbox">${ocChart('p',{compact:true})}</div><div class="ocbox">${ocChart('a',{compact:true,names:o.n})}</div></div>`;
-  else{ if(o.p) body+=`<div class="ocpg"><div class="ocbox">${ocChart('p')}</div></div>`; if(o.a) body+=`<div class="ocpg"><div class="ocbox">${ocChart('a',{names:o.n})}</div></div>`; }
+  const sets=o.dp?(o.sep?o.dp.map(d=>new Set([d])):[new Set(o.dp)]):[null];
+  sets.forEach(ds=>{
+    const st=o.s&&o.p&&o.a, mk=(k,c)=>ocChart(k,{depts:ds,compact:c,names:k==='a'&&o.n});
+    const pp=o.p?mk('p',st):'', aa=o.a?mk('a',st):'';
+    if(st&&pp&&aa) body+=`<div class="ocpg st"><div class="ocbox">${pp}</div><div class="ocbox">${aa}</div></div>`;
+    else{ if(pp) body+=`<div class="ocpg"><div class="ocbox">${st?mk('p',false):pp}</div></div>`; if(aa) body+=`<div class="ocpg"><div class="ocbox">${st?mk('a',false):aa}</div></div>`; }
+  });
+  if(!body&&!o.r) { toast('مفيش بيانات للإدارات المختارة',true); return; }
   if(o.r) body+=ocReportHtml();
   const fr=document.createElement('iframe'); fr.style.cssText='position:fixed;left:-10000px;top:0;width:1062px;height:733px;border:0;visibility:hidden';
   fr.srcdoc=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>الهيكل التنظيمي</title><style>${OC_CSS}${OC_PRINT_CSS}</style></head><body>${body}</body></html>`;
@@ -4353,6 +4369,7 @@ function orgClick(t){
   const v=t.closest('[data-ocv]'); if(v){ OC.view=v.dataset.ocv; renderOrg(); return true; }
   if(t.closest('#oc_zoom')){ OC.fit=!OC.fit; renderOrg(); return true; }
   if(t.closest('#oc_print')){ ocPrintModal(); return true; }
+  const prd=t.closest('[data-ocprd]'); if(prd){ ocPrintModal(prd.dataset.ocprd); return true; }
   if(t.closest('[data-ocmap2]')){ ocMapModal(); return true; }
   if(t.closest('#oc_exp')){ ocExportPlanned(); return true; }
   if(t.closest('#oc_map')){ ocMapModal(); return true; }
