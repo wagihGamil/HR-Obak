@@ -7475,7 +7475,7 @@ function startApp() {
     listen(collection(db, 'stationeryIssues'), d => S.sIss = d);
   }
   if (P.role !== 'admin' && P.modules.includes('tasks')) {
-    if (isWriter('tasks')) { listen(collection(db, 'tasks'), d => S.tasks = d); listen(collection(db, 'users'), d => S.users = d.map(normHrUser)); }
+    if (isWriter('tasks')) { listen(collection(db, 'tasks'), d => S.tasks = d.filter(tkVisible)); listen(collection(db, 'users'), d => S.users = d.map(normHrUser)); }
     else listen(query(collection(db, 'tasks'), where('assignees', 'array-contains', P.uid)), d => S.tasks = d);
   }
   if (P.role !== 'admin' && P.modules.includes('cars')) listen(collection(db, 'carsFiles'), d => S.carsFiles = d);
@@ -9265,6 +9265,8 @@ window.deleteStAuth = id => {
 };
 
 /* ---------------------- قسم المهام (مدير النظام) ---------------------- */
+// المهمة اللي ما اتعيّنتش لحد = خاصة بمن أنشأها (والأدمن الرئيسي) ولا تظهر لباقي المستخدمين اللي معاهم صلاحية كتابة في المهام
+function tkVisible(t) { return !!P && (P.role === 'admin' || (t.assignees || []).length > 0 || t.createdBy === P.uid || String(t.id).startsWith('gcal_')); }
 S.tasks = [];
 const tkToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' });
 function tkItems() {
