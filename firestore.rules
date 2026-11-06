@@ -116,6 +116,11 @@ service cloud.firestore {
       allow read:  if wr('cars') || canA('cars','cfg');
       allow create, update, delete: if canA('cars','cfg');
     }
+    match /busAdv/{id} {
+      allow read:   if wr('cars');
+      allow create: if canA('cars','add') || canA('cars','edit');
+      allow update, delete: if canA('cars','edit') || canA('cars','delete');
+    }
     match /busCfg/{id} {
       allow read:  if wr('cars') || canA('cars','cfg');
       allow create, update, delete: if canA('cars','cfg');
@@ -290,6 +295,10 @@ service cloud.firestore {
       allow read:  if anyA('attend');
       allow write: if canA('attend','edit');
     }
+    // إعدادات ربط BioTime (IP / Port / اسم المستخدم) — للي معاه صلاحية الإعدادات فقط
+    match /attBio/{id} {
+      allow read, write: if canA('attend','edit');
+    }
     match /attLinks/{uid} {
       allow read:  if (request.auth.uid == uid && anyA('attend')) || canA('attend','edit') || canA('attend','report');
       allow write: if canA('attend','edit');
@@ -303,6 +312,8 @@ service cloud.firestore {
     }
     match /attRecords/{id} {
       allow read:   if (anyA('attend') && resource.data.uid == request.auth.uid) || canA('attend','report');
+      // بصمات مسحوبة من BioTime (id ثابت = بصمة واحدة) — بيكتبها صاحب صلاحية الإعدادات
+      allow create: if canA('attend','edit') && request.resource.data.src == 'bio';
       allow create: if anyA('attend') && request.resource.data.uid == request.auth.uid
                     && request.resource.data.ts == request.time
                     && exists(/databases/$(database)/documents/attLinks/$(request.auth.uid))
@@ -315,6 +326,11 @@ service cloud.firestore {
     match /extLaborContractors/{id} {
       allow read:   if anyA('extlabor');
       allow create, update, delete: if canA('extlabor','edit');
+    }
+    match /extLaborAdv/{id} {
+      allow read:   if anyA('extlabor');
+      allow create: if canA('extlabor','add') || canA('extlabor','edit');
+      allow update, delete: if canA('extlabor','edit');
     }
     match /extLaborReqs/{id} {
       allow read:   if anyA('extlabor');

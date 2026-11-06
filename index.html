@@ -1848,6 +1848,7 @@ const LocalBackend = {
   async rcDel(col,id){ const o=LS.get('demo_rc_'+col,{}); delete o[id]; LS.set('demo_rc_'+col,o); },
   async docGet(col,id){ const o=LS.get('demo_rc_'+col,{}); return o[id]?{...o[id],id}:null; },
   async attAdd(r){ const o=LS.get('demo_rc_attRecords',{}); const id='a'+Date.now(); o[id]={...r,ts:Date.now()}; LS.set('demo_rc_attRecords',o); },
+  async attBulk(rows){ const o=LS.get('demo_rc_attRecords',{}); rows.forEach(r=>{ const {id,...d}=r; o[id]=d; }); LS.set('demo_rc_attRecords',o); },
   async attMine(uid){ return (await this.rcList('attRecords')).filter(r=>r.uid===uid); },
   async attRange(f,t){ return (await this.rcList('attRecords')).filter(r=>(!f||r.date>=f)&&(!t||r.date<=t)); },
   async pqSend(job){ const a=LS.get('demo_pq',[]); a.push({...job,id:'j'+Date.now()}); LS.set('demo_pq',a); },
@@ -1956,6 +1957,7 @@ const FirebaseBackend = {
   async rcDel(col,id){ const {Fs}=this.S; await Fs.deleteDoc(Fs.doc(this.db,col,id)); },
   async docGet(col,id){ if(!id) return null; const {Fs}=this.S; const d=await Fs.getDoc(Fs.doc(this.db,col,id)); return d.exists()?{...d.data(),id:d.id}:null; },
   async attAdd(r){ const {Fs}=this.S; await Fs.addDoc(Fs.collection(this.db,'attRecords'),{...r,ts:Fs.serverTimestamp()}); },
+  async attBulk(rows){ const {Fs}=this.S; for(let i=0;i<rows.length;i+=400){ const b=Fs.writeBatch(this.db); rows.slice(i,i+400).forEach(r=>{ const {id,...d}=r; b.set(Fs.doc(this.db,'attRecords',id),d); }); await b.commit(); } },
   async attMine(uid){ const {Fs}=this.S; const s=await Fs.getDocs(Fs.query(Fs.collection(this.db,'attRecords'),Fs.where('uid','==',uid))); return s.docs.map(d=>({...d.data(),id:d.id})); },
   async attRange(f,t){ const {Fs}=this.S; const s=await Fs.getDocs(Fs.query(Fs.collection(this.db,'attRecords'),Fs.where('date','>=',f),Fs.where('date','<=',t))); return s.docs.map(d=>({...d.data(),id:d.id})); },
   async pqSend(job){ const {Fs}=this.S; await Fs.setDoc(Fs.doc(Fs.collection(this.db,'printJobs')),job); },
@@ -3267,6 +3269,37 @@ async function alExport(){ if(!AL.res||!AL.res.rows.length) return toast('لا �
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'حضور في إجازة'); XLSX.writeFile(wb,'حضور_في_يوم_إجازة.xlsx'); }
 
 /* ===== تحضير الباصات (خطوط السير) ===== */
+/* ---------------- السلف (مشترك: العمالة الخارجية + تحضير الباصات) ---------------- */
+const ADV={el:[],bus:[],sel:{el:'',bus:''}};
+const advR=n=>Math.round((+n||0)*100)/100, advM=n=>advR(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2});
+const advToday=()=>{ const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`; };
+const advDate=s=>{ const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[3]}/${m[2]}/${m[1]}`:'—'; };
+const advId=()=>'v'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+function advBal(list,ref){ let a=0,d=0; list.forEach(x=>{ if(x.ref!==ref) return; if(x.type==='ded') d+=+x.amt||0; else a+=+x.amt||0; }); return {adv:advR(a),ded:advR(d),bal:advR(a-d)}; }
+function advHtml(o){
+  if(!$('advstyle')){ const s=document.createElement('style'); s.id='advstyle'; s.textContent=`.advx h3{margin:6px 0 8px;font-size:16px;color:var(--navy)}.advx .ag{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;margin-bottom:12px}.advx label{display:block;font-size:12.5px;font-weight:600;margin-bottom:3px}.advx input,.advx select{width:100%;font:inherit;font-size:14px;padding:7px 9px;border:1.5px solid #c3c6cf;border-radius:6px;background:#fff;box-sizing:border-box}.advx .at{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:14px;background:#fff}.advx table{border-collapse:collapse;width:100%;min-width:560px;font-size:13.5px}.advx th{background:var(--navy);color:#fff;padding:7px 8px;text-align:right;white-space:nowrap}.advx td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}.advx .bad{color:#c62828;font-weight:700}.advx .ok{color:#1b7a3d;font-weight:700}`; document.head.appendChild(s); }
+  const L=ADV[o.key], sel=ADV.sel[o.key]||'', nm=id=>{ const r=o.refs.find(x=>x.id===id); return r?r.name:'(محذوف)'; };
+  const ids=[...new Set([...o.refs.map(r=>r.id),...L.map(x=>x.ref)])].filter(id=>L.some(x=>x.ref===id)||o.refs.some(r=>r.id===id));
+  const bal=ids.map(id=>({id,n:nm(id),...advBal(L,id)})).filter(b=>b.adv||b.ded).sort((a,b)=>b.bal-a.bal);
+  const rows=L.filter(x=>!sel||x.ref===sel).sort((a,b)=>String(b.date).localeCompare(String(a.date))||(+b.at||0)-(+a.at||0));
+  const rOpts=s=>o.refs.map(r=>`<option value="${esc(r.id)}" ${s===r.id?'selected':''}>${esc(r.name)}</option>`).join('');
+  return `<div class="advx"><h3>💵 السلف والخصم من المستحقات</h3>
+  <div class="muted" style="font-size:12.5px;margin-bottom:8px">سجّل السلفة اللي ${esc(o.label)} أخدها، والنظام بيعرض المتبقي منها ويخصمه من المستحقات (${o.key==='el'?'عند «تعليم المعروض مصروف» بيسألك تخصم كام':'من زرار «خصم سلفة من الفترة» في تابة التحضير'}). تقدر كمان تسجّل خصم يدوي.</div>
+  ${o.canAdd?`<div style="border:1.5px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px;background:#fafbfe"><div class="ag"><div><label>${esc(o.label)}</label><select id="adv_r">${rOpts(sel)}</select></div><div><label>النوع</label><select id="adv_t"><option value="adv">سلفة جديدة (تُسجَّل على ${esc(o.label)})</option><option value="ded">خصم / سداد من السلفة</option></select></div><div><label>التاريخ</label><input type="date" id="adv_d" value="${advToday()}"></div><div><label>المبلغ (جنيه)</label><input type="number" min="0" step="any" id="adv_a"></div><div><label>ملاحظات</label><input id="adv_n"></div><div><button class="btn pri" id="adv_add" type="button">+ تسجيل</button></div></div></div>`:''}
+  <div class="at"><table><thead><tr><th>${esc(o.label)}</th><th>إجمالي السلف</th><th>المخصوم</th><th>المتبقي</th></tr></thead><tbody>${bal.map(b=>`<tr><td><b>${esc(b.n)}</b></td><td>${advM(b.adv)}</td><td>${advM(b.ded)}</td><td class="${b.bal>0?'bad':'ok'}">${advM(b.bal)}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">لا توجد سلف مسجّلة</td></tr>'}</tbody></table></div>
+  <div class="ag"><div><label>عرض حركة</label><select id="adv_f"><option value="">الكل</option>${rOpts(sel).replace(/ selected/,'')}</select></div></div>
+  <div class="at"><table><thead><tr><th>التاريخ</th><th>${esc(o.label)}</th><th>النوع</th><th>المبلغ</th><th>ملاحظات</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${advDate(x.date)}</td><td>${esc(nm(x.ref))}</td><td>${x.type==='ded'?'<span class="ok">خصم / سداد</span>':'<span class="bad">سلفة</span>'}</td><td><b>${advM(x.amt)}</b></td><td>${esc(x.note||'')}</td><td>${o.canDel?`<button class="btn sm" data-advd="${esc(x.id)}" type="button">حذف</button>`:''}</td></tr>`).join('')||'<tr><td colspan="6" class="muted">لا توجد حركات</td></tr>'}</tbody></table></div></div>`;
+}
+function advBind(o,box){
+  const redraw=()=>{ box.innerHTML=advHtml(o); advBind(o,box); if(o.changed) o.changed(); }, q=id=>box.querySelector('#'+id);
+  if(q('adv_f')){ q('adv_f').value=ADV.sel[o.key]||''; q('adv_f').onchange=()=>{ ADV.sel[o.key]=q('adv_f').value; box.innerHTML=advHtml(o); advBind(o,box); }; }
+  if(q('adv_add')) q('adv_add').onclick=async()=>{ const ref=q('adv_r').value, amt=advR(parseFloat(q('adv_a').value)), date=q('adv_d').value; if(!ref||!(amt>0)||!date){ toast('اختر '+o.label+' واكتب مبلغ أكبر من صفر والتاريخ',true); return; }
+    const type=q('adv_t').value; if(type==='ded'&&amt>advBal(ADV[o.key],ref).bal+0.001&&!confirm('المبلغ أكبر من السلفة المتبقية — تسجله برضو؟')) return;
+    const rec={ref,type,date,amt,note:q('adv_n').value.trim(),at:Date.now()}, id=advId(); try{ await BE.rcSet(o.col,id,rec); ADV[o.key].push({id,...rec}); ADV.sel[o.key]=ref; toast('تم التسجيل ✓'); redraw(); }catch(e){ toast(authMsg(e),true); } };
+  box.querySelectorAll('[data-advd]').forEach(b=>b.onclick=async()=>{ if(!confirm('حذف الحركة دي؟')) return; try{ await BE.rcDel(o.col,b.dataset.advd); ADV[o.key]=ADV[o.key].filter(x=>x.id!==b.dataset.advd); toast('تم الحذف'); redraw(); }catch(e){ toast(authMsg(e),true); } });
+}
+async function advPut(key,col,rec){ const id=advId(); rec={...rec,at:Date.now()}; await BE.rcSet(col,id,rec); ADV[key].push({id,...rec}); }
+
 const BUS={cos:[],log:[],cfg:null,from:'',to:'',fl:'',fs:'',fc:'',edit:null,editLine:null,lines:[],tab:'bus'};
 const BUS_SH={day:'صباحية',eve:'مسائية',night:'ليلية'}, busShN=s=>BUS_SH[s]||'—';
 const BUS_TIERS0=[{from:1,pct:15},{from:16,pct:25},{from:31,pct:50},{from:60,pct:100}];
@@ -3297,7 +3330,7 @@ window.busMount=async function(k){ BUS.tab=k; const box=$(k==='cfg'?'cars-pane-c
 #busx tr.tot td{font-weight:800;background:#eef1f6}#busx .bad,#busc .bad{color:#c62828;font-weight:700}#busx .ok,#busc .ok{color:#1b7a3d;font-weight:700}#busx .bst,#busc .bst{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:12px 0}#busx .bst div{border-radius:10px;padding:10px 14px;background:#eef1f6;color:var(--navy)}#busx .bst b{display:block;font-size:21px}#busx .bst span{font-size:12.5px}
 #busc .shr{display:grid;grid-template-columns:100px repeat(5,minmax(90px,1fr));gap:6px;align-items:center;margin-bottom:6px;min-width:620px}#busc .shw{overflow-x:auto}`; document.head.appendChild(s); }
   box.innerHTML=`<div class="card" id="${k==='cfg'?'busc':'busx'}"><div class="muted">جارٍ التحميل…</div></div>`;
-  try{ const [co,lg,cf]=await Promise.all([BE.rcList('busCompanies'),BE.rcList('busLog'),BE.rcList('busCfg').catch(()=>[])]); BUS.cos=co.sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar')); BUS.log=lg; BUS.cfg=cf.find(x=>x.id==='main')||null; BUS.lines=await rtLoadLines().catch(()=>[]); }
+  try{ const [co,lg,cf,av]=await Promise.all([BE.rcList('busCompanies'),BE.rcList('busLog'),BE.rcList('busCfg').catch(()=>[]),BE.rcList('busAdv').catch(()=>[])]); ADV.bus=av; BUS.cos=co.sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar')); BUS.log=lg; BUS.cfg=cf.find(x=>x.id==='main')||null; BUS.lines=await rtLoadLines().catch(()=>[]); }
   catch(e){ box.innerHTML=`<div class="card bad">${esc(authMsg(e))}</div>`; return; }
   if(!BUS.from){ const n=new Date(), f=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; BUS.from=f(new Date(n.getFullYear(),n.getMonth(),1)); BUS.to=f(new Date(n.getFullYear(),n.getMonth()+1,0)); }
   busDraw(); };
@@ -3307,6 +3340,9 @@ function busLineOpts(sel){ const o=[]; BUS.cos.forEach(c=>(c.lines||[]).forEach(
 function busGetLine(v){ const [id,i]=String(v||'').split('|'), c=BUS.cos.find(x=>x.id===id); return c&&c.lines&&c.lines[+i]?{co:c,line:c.lines[+i],idx:+i}:null; }
 /* ---------- تاب التحضير ---------- */
 function busRows(){ return BUS.log.filter(r=>(!BUS.from||r.date>=BUS.from)&&(!BUS.to||r.date<=BUS.to)&&(!BUS.fc||r.coId===BUS.fc)&&(!BUS.fl||r.lineKey===BUS.fl)&&(!BUS.fs||r.shift===BUS.fs)).sort((a,b)=>b.date.localeCompare(a.date)||String(a.lineName).localeCompare(String(b.lineName),'ar')); }
+const busAdvOpt=()=>({key:'bus',col:'busAdv',label:'الشركة',refs:BUS.cos.map(c=>({id:c.id,name:c.name})),canAdd:can('cars','add')||can('cars','edit'),canDel:can('cars','delete')||can('cars','edit'),changed:()=>{ BUS.advOpen=true; busDraw(); }});
+function busAdvLeft(byCo){ let bal=0,take=0; byCo.forEach((o,id)=>{ const b=advBal(ADV.bus,id).bal; if(b>0){ bal+=b; take+=Math.min(b,Math.max(0,o.val-o.ded)); } }); return {bal:advR(bal),take:advR(take)}; }
+function busByCo(rows){ const m=new Map(); rows.forEach(r=>{ const o=m.get(r.coId)||{name:r.coName,n:0,val:0,ded:0}; o.n++; o.val+=+r.val||0; o.ded+=+r.ded||0; m.set(r.coId,o); }); return m; }
 function busDayHtml(){ const e=BUS.log.find(x=>x.id===BUS.edit)||null, canAdd=can('cars','add'), canEd=can('cars','edit'), canDel=can('cars','delete');
   if(!BUS.cos.some(c=>(c.lines||[]).length)) return `<h2>تحضير الباصات</h2><div class="muted">لسه مفيش خطوط في التهيئة. ${busCanCfg()?'روح لتابة «التهيئة» وأضف الشركة والخط ومواعيده وقيمة الوردية الأول.':'اطلب من المسؤول إضافة الشركات والخطوط من التهيئة.'}</div>`;
   const today=(()=>{ const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`; })();
@@ -3318,14 +3354,15 @@ function busDayHtml(){ const e=BUS.log.find(x=>x.id===BUS.edit)||null, canAdd=ca
    <div style="display:flex;gap:6px"><button class="btn pri" id="bus_save" type="button">${e?'حفظ التعديل':'+ تسجيل التحضير'}</button>${e?'<button class="btn" id="bus_cancel" type="button">إلغاء</button>':''}</div></div>`:'';
   const rows=busRows(), tot=rows.reduce((s,r)=>({n:s.n+1,late:s.late+(r.late>0&&!r.acc?1:0),val:s.val+(+r.val||0),ded:s.ded+(+r.ded||0)}),{n:0,late:0,val:0,ded:0});
   const lineKeys=[...new Map(BUS.log.map(r=>[r.lineKey,r.lineName+' — '+r.coName])).entries()];
-  const byCo=new Map(); rows.forEach(r=>{ const o=byCo.get(r.coName)||{n:0,val:0,ded:0}; o.n++; o.val+=+r.val||0; o.ded+=+r.ded||0; byCo.set(r.coName,o); });
+  const byCo=new Map(); rows.forEach(r=>{ const o=byCo.get(r.coId)||{name:r.coName,n:0,val:0,ded:0}; o.n++; o.val+=+r.val||0; o.ded+=+r.ded||0; byCo.set(r.coId,o); }); const advL=busAdvLeft(byCo);
   return `<h2>تحضير الباصات</h2>${form}
   <div class="bg"><div><label>الشركة</label><select id="busf_c"><option value="">كل الشركات</option>${BUS.cos.map(c=>`<option value="${esc(c.id)}" ${BUS.fc===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div><div><label>الخط</label><select id="busf_l"><option value="">كل الخطوط</option>${lineKeys.map(([k,t])=>`<option value="${esc(k)}" ${BUS.fl===k?'selected':''}>${esc(t)}</option>`).join('')}</select></div>
    <div><label>الوردية</label><select id="busf_s"><option value="">كل الورديات</option>${Object.keys(BUS_SH).map(k=>`<option value="${k}" ${BUS.fs===k?'selected':''}>${BUS_SH[k]}</option>`).join('')}</select></div><div><label>من تاريخ</label><input type="date" id="busf_f" value="${esc(BUS.from)}"></div><div><label>إلى تاريخ</label><input type="date" id="busf_t" value="${esc(BUS.to)}"></div>
-   <div style="display:flex;gap:6px"><button class="btn" id="bus_xl" type="button">تصدير Excel</button><button class="btn" id="bus_pr" type="button">🖨 طباعة</button></div></div>
-  <div class="bst"><div><b>${tot.n}</b><span>تحضير مسجّل</span></div><div><b class="${tot.late?'bad':''}">${tot.late}</b><span>مرات تأخير (بدون حوادث)</span></div><div><b>${busMoney(tot.val)}</b><span>إجمالي قيمة الورديات</span></div><div style="background:#fdecec;color:#c62828"><b>${busMoney(tot.ded)}</b><span>إجمالي خصم التأخير</span></div><div style="background:#e6f5ea;color:#1b7a3d"><b>${busMoney(tot.val-tot.ded)}</b><span>الصافي المستحق</span></div></div>
-  ${byCo.size>1?`<div class="bt"><table style="min-width:420px"><thead><tr><th>الشركة</th><th>عدد التحضيرات</th><th>القيمة</th><th>الخصم</th><th>الصافي</th></tr></thead><tbody>${[...byCo.entries()].map(([n,o])=>`<tr><td><b>${esc(n)}</b></td><td>${o.n}</td><td>${busMoney(o.val)}</td><td class="${o.ded?'bad':''}">${busMoney(o.ded)}</td><td>${busMoney(o.val-o.ded)}</td></tr>`).join('')}</tbody></table></div>`:''}
-  <div class="bt"><table><thead><tr><th>التاريخ</th><th>الشركة</th><th>الخط</th><th>الوردية</th><th>النوع</th><th>مفروض (حضور–انصراف)</th><th>فعلي (حضور–انصراف)</th><th>التأخير</th><th>نسبة الخصم</th><th>القيمة</th><th>الخصم</th><th>الصافي</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr ${r.acc?'style="background:#fff8e6"':r.ded>0?'style="background:#fdecec"':''}><td>${busDate(r.date)}<br><small class="muted">${busDow(r.date)}</small></td><td>${esc(r.coName)}</td><td><b>${esc(r.lineName)}</b>${r.note?`<br><small class="muted">${esc(r.note)}</small>`:''}</td><td>${busLbl(r)}</td><td>${busVtL(r)||'—'}</td><td>${esc(r.sIn||'—')} – ${esc(r.sOut||'—')}</td><td>${esc(r.aIn||'—')} – ${esc(r.aOut||'—')}</td><td class="${r.late>0&&!r.acc?'bad':''}">${r.late>0?r.late+' د':(r.late===null?'—':'في الميعاد')}${r.acc?'<br><small>حادث — مذكرة معتمدة</small>':''}</td><td>${r.acc?'0%':(r.pct||0)+'%'}</td><td>${busMoney(r.val)}</td><td class="${r.ded?'bad':''}">${r.ded?busMoney(r.ded):'—'}</td><td><b>${busMoney((+r.val||0)-(+r.ded||0))}</b></td><td style="white-space:nowrap">${canEd?`<button class="btn sm" data-bue="${esc(r.id)}" type="button">تعديل</button> `:''}${canDel?`<button class="btn sm" data-bud="${esc(r.id)}" type="button">حذف</button>`:''}</td></tr>`).join('')||'<tr><td colspan="13" class="muted">لا توجد تحضيرات في الفترة المختارة</td></tr>'}${rows.length?`<tr class="tot"><td colspan="9">الإجمالي</td><td>${busMoney(tot.val)}</td><td>${busMoney(tot.ded)}</td><td>${busMoney(tot.val-tot.ded)}</td><td></td></tr>`:''}</tbody></table></div>`; }
+   <div style="display:flex;gap:6px">${advL.bal>0&&(canAdd||canEd)?'<button class="btn" id="bus_advded" type="button">💵 خصم سلفة من الفترة</button>':''}<button class="btn" id="bus_xl" type="button">تصدير Excel</button><button class="btn" id="bus_pr" type="button">🖨 طباعة</button></div></div>
+  <div class="bst"><div><b>${tot.n}</b><span>تحضير مسجّل</span></div><div><b class="${tot.late?'bad':''}">${tot.late}</b><span>مرات تأخير (بدون حوادث)</span></div><div><b>${busMoney(tot.val)}</b><span>إجمالي قيمة الورديات</span></div><div style="background:#fdecec;color:#c62828"><b>${busMoney(tot.ded)}</b><span>إجمالي خصم التأخير</span></div><div style="background:#e6f5ea;color:#1b7a3d"><b>${busMoney(tot.val-tot.ded)}</b><span>الصافي المستحق</span></div>${advL.bal>0?`<div style="background:#fdecec;color:#c62828"><b>${busMoney(advL.bal)}</b><span>سلف متبقية على الشركات</span></div><div style="background:#e6f5ea;color:#1b7a3d"><b>${busMoney(tot.val-tot.ded-advL.take)}</b><span>الصافي بعد خصم السلف (${busMoney(advL.take)})</span></div>`:''}</div>
+  ${byCo.size>1?`<div class="bt"><table style="min-width:420px"><thead><tr><th>الشركة</th><th>عدد التحضيرات</th><th>القيمة</th><th>الخصم</th><th>الصافي</th><th>سلفة متبقية</th><th>الصافي بعد السلفة</th></tr></thead><tbody>${[...byCo.entries()].map(([id,o])=>{ const b=advBal(ADV.bus,id).bal, nt=o.val-o.ded; return `<tr><td><b>${esc(o.name)}</b></td><td>${o.n}</td><td>${busMoney(o.val)}</td><td class="${o.ded?'bad':''}">${busMoney(o.ded)}</td><td>${busMoney(nt)}</td><td class="${b>0?'bad':''}">${b>0?busMoney(b):'—'}</td><td>${busMoney(nt-Math.min(Math.max(b,0),nt))}</td></tr>`; }).join('')}</tbody></table></div>`:''}
+  <div class="bt"><table><thead><tr><th>التاريخ</th><th>الشركة</th><th>الخط</th><th>الوردية</th><th>النوع</th><th>مفروض (حضور–انصراف)</th><th>فعلي (حضور–انصراف)</th><th>التأخير</th><th>نسبة الخصم</th><th>القيمة</th><th>الخصم</th><th>الصافي</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr ${r.acc?'style="background:#fff8e6"':r.ded>0?'style="background:#fdecec"':''}><td>${busDate(r.date)}<br><small class="muted">${busDow(r.date)}</small></td><td>${esc(r.coName)}</td><td><b>${esc(r.lineName)}</b>${r.note?`<br><small class="muted">${esc(r.note)}</small>`:''}</td><td>${busLbl(r)}</td><td>${busVtL(r)||'—'}</td><td>${esc(r.sIn||'—')} – ${esc(r.sOut||'—')}</td><td>${esc(r.aIn||'—')} – ${esc(r.aOut||'—')}</td><td class="${r.late>0&&!r.acc?'bad':''}">${r.late>0?r.late+' د':(r.late===null?'—':'في الميعاد')}${r.acc?'<br><small>حادث — مذكرة معتمدة</small>':''}</td><td>${r.acc?'0%':(r.pct||0)+'%'}</td><td>${busMoney(r.val)}</td><td class="${r.ded?'bad':''}">${r.ded?busMoney(r.ded):'—'}</td><td><b>${busMoney((+r.val||0)-(+r.ded||0))}</b></td><td style="white-space:nowrap">${canEd?`<button class="btn sm" data-bue="${esc(r.id)}" type="button">تعديل</button> `:''}${canDel?`<button class="btn sm" data-bud="${esc(r.id)}" type="button">حذف</button>`:''}</td></tr>`).join('')||'<tr><td colspan="13" class="muted">لا توجد تحضيرات في الفترة المختارة</td></tr>'}${rows.length?`<tr class="tot"><td colspan="9">الإجمالي</td><td>${busMoney(tot.val)}</td><td>${busMoney(tot.ded)}</td><td>${busMoney(tot.val-tot.ded)}</td><td></td></tr>`:''}</tbody></table></div>
+  <details id="bus_advd" ${BUS.advOpen?'open':''}><summary style="cursor:pointer;font-weight:800;margin:6px 0 10px">💵 السلف والخصم من المستحقات</summary><div id="advbox_bus">${advHtml(busAdvOpt())}</div></details>`; }
 function busEff(){ const sel=busGetLine($('bus_l').value); if(!sel) return null; const sys=$('bus_sys').value||'8'; let sh=$('bus_sh').value; if(!sh||sh==='auto') sh=busDetect(sel.line,sys,$('bus_ai').value,$('bus_ao').value); return {sel,sys,sh,cfg:sh?busShOf(sel.line,sys)[sh]||{}:null}; }
 function busPreview(){ const pv=$('bus_pv'); if(!pv) return; const e=busEff(); if(!e){ pv.textContent=''; return; }
   const auto=$('bus_sh').value==='auto'||!$('bus_sh').value; 
@@ -3349,14 +3386,21 @@ function busDayBind(){ const q=id=>$(id); const E0=BUS.edit?(BUS.log.find(x=>x.i
   const rd=()=>busDraw(); if(q('busf_c')){ q('busf_c').onchange=()=>{ BUS.fc=q('busf_c').value; rd(); }; q('busf_l').onchange=()=>{ BUS.fl=q('busf_l').value; rd(); }; q('busf_s').onchange=()=>{ BUS.fs=q('busf_s').value; rd(); }; q('busf_f').onchange=()=>{ BUS.from=q('busf_f').value; rd(); }; q('busf_t').onchange=()=>{ BUS.to=q('busf_t').value; rd(); }; }
   document.querySelectorAll('[data-bue]').forEach(b=>b.onclick=()=>{ BUS.edit=b.dataset.bue; busDraw(); window.scrollTo({top:0,behavior:'smooth'}); });
   document.querySelectorAll('[data-bud]').forEach(b=>b.onclick=async()=>{ if(!confirm('حذف التحضير ده؟')) return; try{ await BE.rcDel('busLog',b.dataset.bud); toast('تم الحذف'); await busMount('bus'); }catch(e){ toast(authMsg(e),true); } });
-  if(q('bus_xl')) q('bus_xl').onclick=busExport; if(q('bus_pr')) q('bus_pr').onclick=busPrint; }
+  if(q('bus_xl')) q('bus_xl').onclick=busExport; if(q('bus_pr')) q('bus_pr').onclick=busPrint;
+  if(q('bus_advd')) q('bus_advd').addEventListener('toggle',()=>{ BUS.advOpen=q('bus_advd').open; });
+  { const ab=q('advbox_bus'); if(ab) advBind(busAdvOpt(),ab); }
+  if(q('bus_advded')) q('bus_advded').onclick=async()=>{ const m=busByCo(busRows()), ded=[];
+    for(const [id,o] of m){ const b=advBal(ADV.bus,id).bal, nt=o.val-o.ded; if(b>0){ const v=prompt(`«${o.name}» عليها سلفة متبقية ${busMoney(b)} جنيه.\nصافي مستحقها في الفترة دي ${busMoney(nt)} جنيه.\nاكتب المبلغ اللي هيتخصم (0 = بدون خصم):`,String(advR(Math.min(b,Math.max(0,nt))))); if(v===null) return; const a=Math.min(b,Math.max(0,parseFloat(v)||0)); if(a>0) ded.push({ref:id,type:'ded',date:advToday(),amt:advR(a),note:`خصم عن الفترة ${busDate(BUS.from)} إلى ${busDate(BUS.to)}`}); } }
+    if(!ded.length){ toast('مفيش مبلغ للخصم'); return; } try{ for(const d of ded) await advPut('bus','busAdv',d); BUS.advOpen=true; toast(`تم خصم سلف ${busMoney(ded.reduce((s,x)=>s+x.amt,0))} جنيه ✓`); busDraw(); }catch(e){ toast(authMsg(e),true); } }; }
 async function busExport(){ const rows=busRows(); if(!rows.length){ toast('لا توجد بيانات',true); return; } await loadXLSX();
   const data=rows.map(r=>({'التاريخ':busDate(r.date),'اليوم':busDow(r.date),'الشركة':r.coName,'الخط':r.lineName,'الوردية':busShN(r.shift),'نظام الوردية':r.sys==='12'?'12 ساعة':'8 ساعات','نوع الباص':busVtL(r),'الحضور المفروض':r.sIn,'الانصراف المفروض':r.sOut,'الحضور الفعلي':r.aIn,'الانصراف الفعلي':r.aOut,'دقائق التأخير':r.late>0?r.late:0,'حادث بمذكرة':r.acc?'نعم':'','نسبة الخصم %':r.acc?0:r.pct,'قيمة الوردية':r.val,'الخصم':r.ded,'الصافي':Math.round(((+r.val||0)-(+r.ded||0))*100)/100,'ملاحظات':r.note||''}));
-  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data),'تحضير الباصات'); XLSX.writeFile(wb,'تحضير_الباصات.xlsx'); }
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data),'تحضير الباصات');
+  { const sd=[...busByCo(rows).entries()].map(([id,o])=>{ const b=advBal(ADV.bus,id), nt=o.val-o.ded; return {'الشركة':o.name,'عدد التحضيرات':o.n,'القيمة':advR(o.val),'خصم التأخير':advR(o.ded),'الصافي':advR(nt),'إجمالي السلف':b.adv,'المخصوم من السلف':b.ded,'السلفة المتبقية':b.bal,'الصافي بعد خصم السلفة':advR(nt-Math.min(Math.max(b.bal,0),Math.max(0,nt)))}; }); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(sd),'ملخص وسلف'); }
+  XLSX.writeFile(wb,'تحضير_الباصات.xlsx'); }
 function busPrint(){ const rows=busRows(); if(!rows.length){ toast('لا توجد بيانات للطباعة',true); return; }
-  const tot=rows.reduce((s,r)=>({val:s.val+(+r.val||0),ded:s.ded+(+r.ded||0)}),{val:0,ded:0});
+  const tot=rows.reduce((s,r)=>({val:s.val+(+r.val||0),ded:s.ded+(+r.ded||0)}),{val:0,ded:0}), byCo=busByCo(rows), advL=busAdvLeft(byCo);
   const body=rows.map(r=>`<tr class="${r.acc?'ac':r.ded>0?'ld':''}"><td>${busDate(r.date)}<br><small>${busDow(r.date)}</small></td><td>${esc(r.coName)}</td><td class="t">${esc(r.lineName)}${r.note?`<br><small>${esc(r.note)}</small>`:''}</td><td>${busLbl(r)}</td><td>${busVtL(r)||'—'}</td><td>${esc(r.sIn||'—')} – ${esc(r.sOut||'—')}</td><td>${esc(r.aIn||'—')} – ${esc(r.aOut||'—')}</td><td>${r.late>0?r.late+' د':'في الميعاد'}${r.acc?'<br><small>حادث بمذكرة</small>':''}</td><td>${r.acc?0:r.pct}%</td><td>${busMoney(r.val)}</td><td>${r.ded?busMoney(r.ded):'—'}</td><td class="t">${busMoney((+r.val||0)-(+r.ded||0))}</td></tr>`).join('');
-  const html=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تحضير الباصات</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{margin:0;direction:rtl;font-family:"Segoe UI",Tahoma,Arial,sans-serif;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.tp{display:flex;justify-content:space-between;border-bottom:2px solid #d71920;padding-bottom:4px;margin-bottom:6px}.tp h1{margin:0;font-size:17px}table{width:100%;border-collapse:collapse}thead{display:table-header-group}th{background:#1f2a44;color:#fff;padding:4px 5px;text-align:right}td{border:1px solid #cbd5e1;padding:3px 5px;vertical-align:top}td.t{font-weight:700}small{color:#555;font-size:9.5px}tr{break-inside:avoid}tr.ld td{background:#fdecec}tr.ac td{background:#fff8e6}tr.tot td{font-weight:800;background:#eef1f6}.pl{margin-top:8px;font-size:10px;color:#333;line-height:1.6;border:1px solid #cbd5e1;padding:5px 8px}</style></head><body><div class="tp"><h1>كشف تحضير الباصات</h1><span>${busDate(BUS.from)} إلى ${busDate(BUS.to)}</span></div><table><thead><tr><th>التاريخ</th><th>الشركة</th><th>الخط</th><th>الوردية</th><th>النوع</th><th>مفروض</th><th>فعلي</th><th>التأخير</th><th>الخصم %</th><th>القيمة</th><th>الخصم</th><th>الصافي</th></tr></thead><tbody>${body}<tr class="tot"><td colspan="9">الإجمالي</td><td>${busMoney(tot.val)}</td><td>${busMoney(tot.ded)}</td><td>${busMoney(tot.val-tot.ded)}</td></tr></tbody></table><div class="pl"><b>سياسة التأخير:</b> ${esc((BUS.cfg&&BUS.cfg.text)||BUS_POL0)}</div></body></html>`;
+  const html=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تحضير الباصات</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{margin:0;direction:rtl;font-family:"Segoe UI",Tahoma,Arial,sans-serif;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.tp{display:flex;justify-content:space-between;border-bottom:2px solid #d71920;padding-bottom:4px;margin-bottom:6px}.tp h1{margin:0;font-size:17px}table{width:100%;border-collapse:collapse}thead{display:table-header-group}th{background:#1f2a44;color:#fff;padding:4px 5px;text-align:right}td{border:1px solid #cbd5e1;padding:3px 5px;vertical-align:top}td.t{font-weight:700}small{color:#555;font-size:9.5px}tr{break-inside:avoid}tr.ld td{background:#fdecec}tr.ac td{background:#fff8e6}tr.tot td{font-weight:800;background:#eef1f6}.pl{margin-top:8px;font-size:10px;color:#333;line-height:1.6;border:1px solid #cbd5e1;padding:5px 8px}</style></head><body><div class="tp"><h1>كشف تحضير الباصات</h1><span>${busDate(BUS.from)} إلى ${busDate(BUS.to)}</span></div><table><thead><tr><th>التاريخ</th><th>الشركة</th><th>الخط</th><th>الوردية</th><th>النوع</th><th>مفروض</th><th>فعلي</th><th>التأخير</th><th>الخصم %</th><th>القيمة</th><th>الخصم</th><th>الصافي</th></tr></thead><tbody>${body}<tr class="tot"><td colspan="9">الإجمالي</td><td>${busMoney(tot.val)}</td><td>${busMoney(tot.ded)}</td><td>${busMoney(tot.val-tot.ded)}</td></tr></tbody></table>${advL.bal>0?`<div class="pl"><b>السلف:</b> ${[...byCo.entries()].map(([id,o])=>{ const b=advBal(ADV.bus,id).bal, nt=o.val-o.ded; return b>0?`${esc(o.name)}: سلفة متبقية ${busMoney(b)} — الصافي بعد الخصم ${busMoney(nt-Math.min(b,Math.max(0,nt)))}`:''; }).filter(Boolean).join(' &nbsp;|&nbsp; ')}</div>`:''}<div class="pl"><b>سياسة التأخير:</b> ${esc((BUS.cfg&&BUS.cfg.text)||BUS_POL0)}</div></body></html>`;
   const fr=document.createElement('iframe'); fr.style.cssText='position:fixed;left:-10000px;top:0;width:1062px;height:733px;border:0;visibility:hidden'; fr.srcdoc=html; fr.onload=()=>setTimeout(()=>{ try{ fr.contentWindow.focus(); fr.contentWindow.print(); }catch(e){ toast('تعذر فتح الطباعة',true); } setTimeout(()=>fr.remove(),60000); },300); document.body.appendChild(fr); }
 /* ---------- تاب التهيئة ---------- */
 const busValsTxt=s=>busTypesOf(s).map(t=>`${BUS_VT[t]} <b>${busMoney(busVal(s,t))}</b>`).join(' · ')||'—';
@@ -3603,6 +3647,154 @@ function atRepPrint(){ const R=AT.rep, pairs=atPairs(R.rows.filter(r=>!R.k||r.k=
   const body=pairs.map(p=>{ const h=p.inR&&p.outR?(atMs(p.outR)-atMs(p.inR))/3600000:null; return `<tr><td><b>${esc(p.n)}</b></td><td>${atDate(p.date)}</td><td>${p.inR?atTime(atMs(p.inR)):'—'}</td><td>${p.outR?atTime(atMs(p.outR)):'لم ينصرف'}</td><td>${h===null?'—':Math.floor(h)+'س '+Math.round((h%1)*60)+'د'}</td><td>${esc(p.inR?p.inR.loc||'—':'')}</td><td>${esc(p.outR?p.outR.loc||'—':'')}</td></tr>`; }).join('');
   const html=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير الحضور</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{margin:0;direction:rtl;font-family:"Segoe UI",Tahoma,Arial,sans-serif;font-size:11px}.tp{display:flex;justify-content:space-between;border-bottom:2px solid #d71920;padding-bottom:4px;margin-bottom:6px}.tp h1{margin:0;font-size:17px}table{width:100%;border-collapse:collapse}thead{display:table-header-group}th{background:#1f2a44;color:#fff;padding:4px 5px;text-align:right}td{border:1px solid #cbd5e1;padding:3px 5px}tr{break-inside:avoid}</style></head><body><div class="tp"><h1>تقرير الحضور والانصراف</h1><span>${atDate(R.from)} إلى ${atDate(R.to)}</span></div><table><thead><tr><th>الموظف</th><th>التاريخ</th><th>دخول</th><th>انصراف</th><th>المدة</th><th>موقع الدخول</th><th>موقع الانصراف</th></tr></thead><tbody>${body}</tbody></table></body></html>`;
   const fr=document.createElement('iframe'); fr.style.cssText='position:fixed;left:-10000px;top:0;width:1062px;height:733px;border:0;visibility:hidden'; fr.srcdoc=html; fr.onload=()=>setTimeout(()=>{ try{ fr.contentWindow.focus(); fr.contentWindow.print(); }catch(e){ toast('تعذر فتح الطباعة',true); } setTimeout(()=>fr.remove(),60000); },300); document.body.appendChild(fr); }
+
+/* ---------------- ربط BioTime (سحب البصمات) ---------------- */
+const BIO={cfg:{proto:'http',host:'',port:'8000',api:'auto',user:'',via:'proxy',proxy:'http://localhost:8765',mode:'state'},tok:null,loaded:false};
+const BIO_PROXY_PY=String.raw`#!/usr/bin/env python3
+# وسيط محلي بسيط بين موقع الحضور وسيرفر BioTime (بيحل مشكلة HTTP/HTTPS و CORS).
+# التشغيل (على أي كمبيوتر في نفس شبكة سيرفر BioTime، ويفضل يفضل شغال):
+#     python biotime_proxy.py 192.168.1.50:8000
+# حيث 192.168.1.50:8000 = IP و Port سيرفر BioTime. اختياري: رقم بورت الوسيط (الافتراضي 8765)
+#     python biotime_proxy.py 192.168.1.50:8000 8765
+# بعدها في الموقع اختار «وسيط محلي» وخلّي العنوان http://localhost:8765
+import sys, urllib.request, urllib.parse, urllib.error
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+if len(sys.argv) < 2:
+    print("الاستخدام: python biotime_proxy.py IP:PORT [بورت_الوسيط]"); sys.exit(1)
+ALLOWED = sys.argv[1].strip().lower()
+PORT = int(sys.argv[2]) if len(sys.argv) > 2 else 8765
+
+class H(BaseHTTPRequestHandler):
+    def _cors(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Private-Network", "true")
+        self.send_header("Access-Control-Max-Age", "600")
+
+    def _reply(self, code, body=b"", ctype="application/json; charset=utf-8"):
+        self.send_response(code); self._cors()
+        self.send_header("Content-Type", ctype); self.send_header("Content-Length", str(len(body)))
+        self.end_headers(); self.wfile.write(body)
+
+    def do_OPTIONS(self):
+        self._reply(204)
+
+    def _fwd(self):
+        q = urllib.parse.urlparse(self.path)
+        if q.path != "/p":
+            return self._reply(404, b'{"detail":"not found"}')
+        target = urllib.parse.parse_qs(q.query).get("u", [""])[0]
+        t = urllib.parse.urlparse(target)
+        if t.scheme not in ("http", "https") or t.netloc.lower() != ALLOWED:
+            return self._reply(403, ('{"detail":"target not allowed; this proxy only serves %s"}' % ALLOWED).encode())
+        n = int(self.headers.get("Content-Length") or 0)
+        data = self.rfile.read(n) if n else None
+        h = {}
+        for k in ("Content-Type", "Authorization"):
+            if self.headers.get(k): h[k] = self.headers[k]
+        req = urllib.request.Request(target, data=data, method=self.command, headers=h)
+        try:
+            r = urllib.request.urlopen(req, timeout=60)
+        except urllib.error.HTTPError as e:
+            r = e
+        except Exception as e:
+            return self._reply(502, ('{"detail":"cannot reach BioTime: %s"}' % str(e).replace('"', "'")).encode())
+        body = r.read()
+        self._reply(r.status if hasattr(r, "status") else r.code, body, r.headers.get("Content-Type", "application/json"))
+
+    do_GET = _fwd
+    do_POST = _fwd
+
+    def log_message(self, fmt, *a):
+        print(self.address_string(), fmt % a)
+
+print("الوسيط شغال على http://localhost:%d  ->  %s   (اقفل النافذة دي لإيقافه)" % (PORT, ALLOWED))
+ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()
+`;
+const bioPw=()=>{ try{ return localStorage.getItem('at_bio_pw')||''; }catch(e){ return ''; } };
+const bioCode=s=>String(s??'').trim().replace(/^0+(?=\d)/,'');
+function bioReqUrl(path){ const C=BIO.cfg, base=`${C.proto}://${C.host.trim()}${String(C.port||'').trim()?':'+String(C.port).trim():''}`, url=base+path; return C.via==='proxy'?String(C.proxy||'').replace(/\/+$/,'')+'/p?u='+encodeURIComponent(url):url; }
+async function bioReq(path,opt){
+  const C=BIO.cfg; if(!C.host.trim()) throw new Error('اكتب الـ IP بتاع سيرفر BioTime');
+  if(C.via!=='proxy'&&location.protocol==='https:'&&C.proto==='http'&&!/^(localhost|127\.)/.test(C.host.trim())) throw new Error('الموقع شغال HTTPS والمتصفح بيمنع الاتصال المباشر بسيرفر HTTP. اختار «وسيط محلي» (أو شغّل BioTime على HTTPS).');
+  const ctl=new AbortController(), t=setTimeout(()=>ctl.abort(),25000);
+  try{ return await fetch(bioReqUrl(path),{...opt,signal:ctl.signal}); }
+  catch(e){ throw new Error(C.via==='proxy'?'مفيش رد من الوسيط المحلي ('+C.proxy+') — تأكد إنه شغّال على الكمبيوتر ده':'تعذر الوصول لسيرفر BioTime — راجع الـ IP والـ Port والشبكة (أو جرّب «وسيط محلي»)'); }
+  finally{ clearTimeout(t); }
+}
+async function bioLogin(){
+  const C=BIO.cfg, pw=bioPw(); if(!C.user.trim()||!pw) throw new Error('اكتب اسم المستخدم وكلمة المرور');
+  const tries=C.api==='jwt'?[['/jwt-api-token-auth/','JWT']]:C.api==='token'?[['/api-token-auth/','Token']]:[['/jwt-api-token-auth/','JWT'],['/api-token-auth/','Token']];
+  for(const [p,sch] of tries){
+    const r=await bioReq(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:C.user.trim(),password:pw})});
+    if(r.status===404) continue; let j=null; try{ j=await r.json(); }catch(e){}
+    if(r.ok&&j&&j.token){ BIO.tok=sch+' '+j.token; return; }
+    throw new Error(r.status>=400&&r.status<500?'اسم المستخدم أو كلمة المرور غلط (أو الحساب مش مسموح له بالـ API)':'رد غير متوقع من BioTime ('+r.status+')');
+  }
+  throw new Error('مسار تسجيل الدخول مش موجود على السيرفر — راجع الـ IP والـ Port ونسخة الـ API');
+}
+async function bioPage(q){
+  if(!BIO.tok) await bioLogin();
+  let r=await bioReq('/iclock/api/transactions/'+q,{headers:{Authorization:BIO.tok}});
+  if(r.status===401||r.status===403){ await bioLogin(); r=await bioReq('/iclock/api/transactions/'+q,{headers:{Authorization:BIO.tok}}); }
+  if(!r.ok) throw new Error('BioTime رد بخطأ '+r.status+' عند سحب البصمات'); return r.json();
+}
+async function bioPull(from,to,prog){
+  const out=[]; for(let page=1;page<=400;page++){
+    const j=await bioPage(`?page=${page}&page_size=500&start_time=${encodeURIComponent(from+' 00:00:00')}&end_time=${encodeURIComponent(to+' 23:59:59')}`);
+    const arr=Array.isArray(j)?j:(j.data||j.results||[]); out.push(...arr); if(prog) prog(out.length,j.count);
+    if(Array.isArray(j)||!j.next||!arr.length) break; }
+  return out;
+}
+function bioConvert(punches,emps,mode){
+  const byCode=new Map(); emps.forEach(e=>{ const c=bioCode(e.code); if(c) byCode.set(c,e); });
+  const seen=new Set(), grp=new Map(), unm=new Map(); let bad=0;
+  punches.forEach(p=>{ const m=String(p.punch_time||'').match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/); if(!m){ bad++; return; }
+    const code=bioCode(p.emp_code), ms=new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]).getTime(), key=code+'|'+ms; if(seen.has(key)) return; seen.add(key);
+    const e=byCode.get(code); if(!e){ const u=unm.get(code)||unm.set(code,{code,n:[p.first_name,p.last_name].filter(Boolean).join(' '),c:0}).get(code); u.c++; return; }
+    const g=e.k+'|'+m[1]+'-'+m[2]+'-'+m[3]; (grp.get(g)||grp.set(g,{e,date:`${m[1]}-${m[2]}-${m[3]}`,list:[]}).get(g)).list.push({ms,code,st:String(p.punch_state??'').trim(),term:p.terminal_alias||p.terminal_sn||p.area_alias||''}); });
+  const recs=[]; let skipped=0;
+  grp.forEach(g=>{ g.list.sort((a,b)=>a.ms-b.ms);
+    g.list.forEach((x,i)=>{ let type=null;
+      if(mode==='state'){ if(['0','4'].includes(x.st)) type='in'; else if(['1','5'].includes(x.st)) type='out'; else if(['2','3'].includes(x.st)){ skipped++; return; } }
+      if(!type){ type=i===0?'in':(i===g.list.length-1?'out':null); if(!type){ skipped++; return; } }
+      const d=new Date(x.ms), id=`bio_${x.code}_${x.ms}`;
+      recs.push({id,uid:'bio',src:'bio',k:g.e.k,n:g.e.n,code:x.code,type,date:g.date,ts:x.ms,loc:x.term?('بصمة — '+x.term):'بصمة',dist:null,by:''}); }); });
+  return {recs,unm:[...unm.values()].sort((a,b)=>b.c-a.c),bad,skipped};
+}
+function bioHtml(){ const tdy=atISO(new Date()), d2=atISO(new Date(Date.now()-2*864e5));
+  return `<h3 style="font-size:15px;margin:22px 0 6px">🔌 ربط BioTime (سحب البصمات من جهاز / سيرفر البصمة)</h3>
+  <div class="muted" style="font-size:12.5px;margin-bottom:8px">خيار اختياري: بيسحب البصمات من سيرفر BioTime على الـ IP والـ Port اللي تحددهم ويحفظها في الحضور (بيتربطوا بالموظف عن طريق «كود الموظف» في مديول الـ ID). السحب المتكرر آمن — البصمة المسحوبة قبل كده ما بتتكررش.</div>
+  <div class="atg"><div><label>البروتوكول</label><select id="bi_proto"><option value="http">http</option><option value="https">https</option></select></div><div><label>IP السيرفر (Static IP)</label><input id="bi_host" dir="ltr" placeholder="192.168.1.50"></div><div><label>Port</label><input id="bi_port" dir="ltr" placeholder="8000"></div>
+  <div><label>نسخة الـ API</label><select id="bi_api"><option value="auto">تلقائي</option><option value="jwt">JWT (BioTime 8)</option><option value="token">Token (BioTime 9 / ZKBio)</option></select></div></div>
+  <div class="atg"><div><label>اسم المستخدم</label><input id="bi_user" dir="ltr" autocomplete="off"></div><div><label>كلمة المرور (بتتحفظ على المتصفح ده بس)</label><input id="bi_pw" type="password" dir="ltr" autocomplete="new-password"></div>
+  <div><label>طريقة الاتصال</label><select id="bi_via"><option value="proxy">وسيط محلي (موصى به)</option><option value="direct">مباشر من المتصفح</option></select></div><div><label>عنوان الوسيط المحلي</label><input id="bi_proxy" dir="ltr" placeholder="http://localhost:8765"></div>
+  <div><label>تحديد دخول/انصراف</label><select id="bi_mode"><option value="state">حسب حالة البصمة في الجهاز (0=دخول، 1=خروج)</option><option value="fl">أول بصمة في اليوم دخول وآخر بصمة انصراف</option></select></div></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><button class="btn pri" id="bi_save" type="button">حفظ إعدادات الربط</button><button class="btn" id="bi_test" type="button">اختبار الاتصال</button><button class="btn" id="bi_dl" type="button">⬇ تنزيل برنامج الوسيط (Python)</button></div>
+  <div class="muted" style="font-size:12.5px;margin-bottom:8px">الموقع شغّال على HTTPS والمتصفح بيمنع الاتصال المباشر بسيرفر HTTP، فالوضع الموصى به «وسيط محلي»: نزّل الملف وشغّله على أي كمبيوتر في شبكة السيرفر بالأمر <code dir="ltr">python biotime_proxy.py IP:PORT</code> وسيبه شغّال وقت السحب.</div>
+  <div class="atg"><div><label>سحب من تاريخ</label><input type="date" id="bi_from" value="${d2}"></div><div><label>إلى تاريخ</label><input type="date" id="bi_to" value="${tdy}"></div><div style="display:flex;gap:6px"><button class="btn pri" id="bi_pull" type="button">⬇ سحب البصمات الآن</button></div></div>
+  <div id="bi_st" class="muted" style="margin-bottom:6px"></div><div id="bi_res"></div>`; }
+function bioRead(){ const C=BIO.cfg, v=i=>$(i).value; C.proto=v('bi_proto'); C.host=v('bi_host').trim().replace(/^https?:\/\//,'').replace(/[\/:].*$/,''); C.port=v('bi_port').trim(); C.api=v('bi_api'); C.user=v('bi_user').trim(); C.via=v('bi_via'); C.proxy=v('bi_proxy').trim()||'http://localhost:8765'; C.mode=v('bi_mode');
+  const pw=v('bi_pw'); if(pw){ try{ localStorage.setItem('at_bio_pw',pw); }catch(e){} } BIO.tok=null; }
+async function bioSaveCfg(){ bioRead(); const C=BIO.cfg; await BE.rcSet('attBio','main',{proto:C.proto,host:C.host,port:C.port,api:C.api,user:C.user,via:C.via,proxy:C.proxy,mode:C.mode}); }
+async function bioBind(){
+  try{ const d=await BE.docGet('attBio','main'); if(d) Object.assign(BIO.cfg,{proto:d.proto||'http',host:d.host||'',port:d.port||'',api:d.api||'auto',user:d.user||'',via:d.via||'proxy',proxy:d.proxy||'http://localhost:8765',mode:d.mode||'state'}); }catch(e){}
+  const C=BIO.cfg, s=(i,v)=>{ if($(i)) $(i).value=v; }; s('bi_proto',C.proto); s('bi_host',C.host); s('bi_port',C.port); s('bi_api',C.api); s('bi_user',C.user); s('bi_via',C.via); s('bi_proxy',C.proxy); s('bi_mode',C.mode); if(bioPw()) $('bi_pw').placeholder='••••••• (محفوظة)';
+  const st=t=>{ $('bi_st').innerHTML=t; };
+  $('bi_save').onclick=async()=>{ try{ await bioSaveCfg(); toast('تم حفظ إعدادات الربط ✓'); }catch(e){ toast(authMsg(e),true); } };
+  $('bi_dl').onclick=()=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([BIO_PROXY_PY],{type:'text/x-python'})); a.download='biotime_proxy.py'; document.body.appendChild(a); a.click(); a.remove(); };
+  $('bi_test').onclick=async()=>{ bioRead(); st('جارٍ الاتصال…'); try{ await bioLogin(); const j=await bioPage('?page=1&page_size=1'); st(`<span class="ok">✓ الاتصال شغّال — تسجيل الدخول نجح${j&&j.count!==undefined?' — إجمالي البصمات على السيرفر: '+j.count:''}</span>`); }catch(e){ st(`<span class="bad">⛔ ${esc(e.message)}</span>`); } };
+  $('bi_pull').onclick=async()=>{ bioRead(); const f=$('bi_from').value, t=$('bi_to').value; if(!f||!t||f>t){ toast('اختار فترة صحيحة',true); return; } const b=$('bi_pull'); b.disabled=true; $('bi_res').innerHTML='';
+    try{ st('جارٍ تسجيل الدخول…'); const raw=await bioPull(f,t,(n,c)=>st(`جارٍ سحب البصمات… ${n}${c?' / '+c:''}`));
+      const E=await BE.idGet('emps'); const emps=((E&&E.rows)||[]).map(r=>({k:r.k,n:r.n,code:r.code||''})); if(!emps.length) throw new Error('مفيش موظفين في مديول الـ ID لربط البصمات بيهم');
+      const R=bioConvert(raw,emps,BIO.cfg.mode); st(`جارٍ حفظ ${R.recs.length} بصمة…`); await BE.attBulk(R.recs);
+      st(`<span class="ok">✓ تم سحب ${raw.length} بصمة من BioTime وحفظ ${R.recs.length} في الحضور${R.skipped?' (تجاهل '+R.skipped+' بصمة وسطية/استراحة)':''}${R.bad?' — '+R.bad+' بصمة بتاريخ غير مفهوم':''}</span>`);
+      if(R.unm.length) $('bi_res').innerHTML=`<div class="bad" style="font-size:13px;margin:6px 0">⚠ ${R.unm.length} كود بصمة مش مطابق لأي موظف (ما اتحفظوش) — اكتب الكود ده كـ «كود الموظف» في مديول الـ ID:</div><div class="att"><table><thead><tr><th>كود BioTime</th><th>الاسم في BioTime</th><th>عدد البصمات</th></tr></thead><tbody>${R.unm.map(u=>`<tr><td dir="ltr" style="text-align:right">${esc(u.code)}</td><td>${esc(u.n)}</td><td>${u.c}</td></tr>`).join('')}</tbody></table></div>`;
+    }catch(e){ st(`<span class="bad">⛔ ${esc(e.message||String(e))}</span>`); } b.disabled=false; };
+}
+
 /* --- الإعدادات --- */
 function atCfgHtml(){ const C=AT.cfg;
   return `<h2>إعدادات الحضور</h2>
@@ -3617,7 +3809,7 @@ function atCfgHtml(){ const C=AT.cfg;
   <div style="margin-bottom:8px"><button class="btn pri" id="atf_go" type="button">⚙ تجهيز / تحديث بصمات الوجوه من صور الـ ID</button> <span id="atf_st" class="muted"></span></div><div id="atf_fail" style="font-size:12.5px;color:#c62828"></div>
   <h3 style="font-size:15px;margin:14px 0 6px">🔗 ربط المستخدمين بالموظفين</h3>
   <div class="muted" style="font-size:12.5px;margin-bottom:8px">كل مستخدم لازم يتربط بموظف عشان يتقارن وشه بصورته.</div>
-  <div style="margin-bottom:8px"><button class="btn" id="atu_auto" type="button">ربط تلقائي بالأسماء المتطابقة</button> <span id="atu_st" class="muted"></span></div><div id="atu_box" class="att"><div class="muted" style="padding:10px">جارٍ التحميل…</div></div>`; }
+  <div style="margin-bottom:8px"><button class="btn" id="atu_auto" type="button">ربط تلقائي بالأسماء المتطابقة</button> <span id="atu_st" class="muted"></span></div><div id="atu_box" class="att"><div class="muted" style="padding:10px">جارٍ التحميل…</div></div>${bioHtml()}`; }
 async function atLoadCfgData(){ try{ AT.faces=(await BE.rcList('attFaces')).map(f=>({k:f.id,n:f.n,code:f.code})).sort((a,b)=>String(a.n).localeCompare(String(b.n),'ar')); AT.fset=new Set(AT.faces.map(f=>f.k)); try{ const E=await BE.idGet('emps'); AT.emps=((E&&E.rows)||[]).map(r=>({k:r.k,n:r.n,code:r.code||''})).sort((a,b)=>String(a.n).localeCompare(String(b.n),'ar')); }catch(e){ AT.emps=AT.faces.slice(); } const c=$('atf_cnt'); if(c) c.textContent=AT.faces.length+' بصمة من '+AT.emps.length+' موظف في الـ ID';
     if(ME.isAdmin){ AT.users=await BE.listUsers(); const links=await BE.rcList('attLinks'); const lm=new Map(links.map(l=>[l.id,l])); AT.lm=lm; atUsersDraw(); } else { const b=$('atu_box'); if(b) b.innerHTML='<div class="muted" style="padding:10px">ربط المستخدمين متاح لمدير النظام فقط.</div>'; } }catch(e){ toast(authMsg(e),true); } }
 function atUsersDraw(){ const b=$('atu_box'); if(!b) return; const lm=AT.lm||new Map(), opts=(AT.emps||[]).map(f=>`<option value="${esc(f.k)}">${esc(f.n)}${f.code?' — '+esc(f.code):''}${AT.fset&&!AT.fset.has(f.k)?' (بدون بصمة)':''}</option>`).join('');
@@ -3653,7 +3845,7 @@ function atBind(){
     $('atu_auto').onclick=async()=>{ const nn=s=>ocN(s); let n=0; for(const u of AT.users){ if((AT.lm.get(u.uid)||{}).k) continue; const f=(AT.emps||[]).find(x=>nn(x.n)===nn(u.name)); if(f){ await atSaveLink(u.uid,f.k); n++; } } $('atu_st').textContent='تم ربط '+n+' مستخدم'; };
     $('atu_box').onclick=e=>{ const b=e.target.closest('[data-attm]'); if(b) atTeamModal(b.dataset.attm); };
     $('atu_box').onchange=e=>{ const s=e.target.closest('[data-atus]'); if(s) atSaveLink(s.dataset.atus,s.value); };
-    atLoadCfgData(); }
+    atLoadCfgData(); bioBind(); }
 }
 
 async function mountExtLabor(){
@@ -3663,7 +3855,7 @@ async function mountExtLabor(){
 #elx .elt{overflow-x:auto;border:1px solid var(--line);border-radius:10px}#elx table{border-collapse:collapse;width:100%;min-width:860px;font-size:13.5px}#elx th{background:var(--navy);color:#fff;padding:7px 8px;text-align:right;white-space:nowrap}#elx td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}
 #elx tr.ab td{background:#fdecec}#elx tr.tot td{font-weight:800;background:#eef1f6}#elx .bad{color:#c62828;font-weight:700}#elx .ok{color:#1b7a3d;font-weight:700}
 #elx .elst{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:12px 0}#elx .elst div{border-radius:10px;padding:10px 14px;background:#eef1f6;color:var(--navy)}#elx .elst b{display:block;font-size:22px}#elx .elst span{font-size:12.5px}`; document.head.appendChild(s); }
-  try{ const [c,d,rq]=await Promise.all([BE.rcList('extLaborContractors'),BE.rcList('extLaborDays'),BE.rcList('extLaborReqs').catch(()=>[])]); EL.cons=c.sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar')); EL.days=d; EL.cap=!!(rq.find(x=>x.id==='_cfg')||{}).cap; EL.reqs=rq.filter(x=>x.id!=='_cfg'&&x.date); }
+  try{ const [c,d,rq,av]=await Promise.all([BE.rcList('extLaborContractors'),BE.rcList('extLaborDays'),BE.rcList('extLaborReqs').catch(()=>[]),BE.rcList('extLaborAdv').catch(()=>[])]); ADV.el=av; EL.cons=c.sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar')); EL.days=d; EL.cap=!!(rq.find(x=>x.id==='_cfg')||{}).cap; EL.reqs=rq.filter(x=>x.id!=='_cfg'&&x.date); }
   catch(e){ $('view').innerHTML=`<div class="card bad">${esc(authMsg(e))}</div>`; return; }
   if(!EL.from){ const n=new Date(), f=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; EL.from=f(new Date(n.getFullYear(),n.getMonth(),1)); EL.to=f(new Date(n.getFullYear(),n.getMonth()+1,0)); }
   if(!can('extlabor','edit')&&EL.tab==='cfg') EL.tab='days'; elRender();
@@ -3706,8 +3898,10 @@ function elReqBind(){ const q=id=>$(id);
   document.querySelectorAll('[data-eqe]').forEach(b=>b.onclick=()=>{ EL.editReq=b.dataset.eqe; elRender(); window.scrollTo({top:0,behavior:'smooth'}); });
   document.querySelectorAll('[data-eqd]').forEach(b=>b.onclick=async()=>{ if(!confirm('حذف الطلب؟')) return; try{ await BE.rcDel('extLaborReqs',b.dataset.eqd); toast('تم الحذف'); mountExtLabor(); }catch(e){ toast(authMsg(e),true); } }); }
 
-function elTabs(){ const t=[{k:'days',t:'حساب اليوميات',on:EL.tab==='days'},{k:'req',t:'طلب عمالة',on:EL.tab==='req'}]; if(can('extlabor','edit')) t.push({k:'cfg',t:'التهيئة (المقاولين)',on:EL.tab==='cfg'}); hdrTabs(t,k=>{ EL.tab=k; EL.edit=null; EL.editReq=null; elRender(); }); }
-function elRender(){ elTabs(); $('view').innerHTML=`<div class="card" id="elx">${EL.tab==='cfg'?elCfgHtml():EL.tab==='req'?elReqHtml():elDaysHtml()}</div>`; if(EL.tab==='req') elReqBind(); else elBind(); }
+function elTabs(){ const t=[{k:'days',t:'حساب اليوميات',on:EL.tab==='days'},{k:'req',t:'طلب عمالة',on:EL.tab==='req'},{k:'adv',t:'السلف',on:EL.tab==='adv'}]; if(can('extlabor','edit')) t.push({k:'cfg',t:'التهيئة (المقاولين)',on:EL.tab==='cfg'}); hdrTabs(t,k=>{ EL.tab=k; EL.edit=null; EL.editReq=null; elRender(); }); }
+const elAdvOpt=()=>({key:'el',col:'extLaborAdv',label:'المقاول',refs:EL.cons.map(c=>({id:c.id,name:c.name})),canAdd:can('extlabor','add')||can('extlabor','edit'),canDel:can('extlabor','edit')});
+function elAdvLeft(rows){ const per=new Map(), cons=new Set(); rows.forEach(x=>{ cons.add(x.d.con); if(!x.d.paid) per.set(x.d.con,(per.get(x.d.con)||0)+x.r.net); }); let bal=0,take=0; cons.forEach(c=>{ const b=advBal(ADV.el,c).bal; if(b>0){ bal+=b; take+=Math.min(b,per.get(c)||0); } }); return {bal:advR(bal),take:advR(take)}; }
+function elRender(){ elTabs(); $('view').innerHTML=`<div class="card" id="elx">${EL.tab==='cfg'?elCfgHtml():EL.tab==='req'?elReqHtml():EL.tab==='adv'?'<h2>سلف المقاولين</h2><div id="advbox_el"></div>':elDaysHtml()}</div>`; if(EL.tab==='req') elReqBind(); else if(EL.tab==='adv'){ const b=$('advbox_el'), o=elAdvOpt(); b.innerHTML=advHtml(o); advBind(o,b); } else elBind(); }
 function elCfgHtml(){ const e=EL.cons.find(x=>x.id===EL.edit)||{};
   return `<h2>التهيئة — المقاولين واليوميات</h2>
   <div class="elg"><div><label>اسم المقاول</label><input id="elc_n" value="${esc(e.name||'')}"></div><div><label>قيمة اليومية (جنيه)</label><input id="elc_w" type="number" min="0" step="any" value="${e.wage??''}"></div>
@@ -3734,11 +3928,11 @@ function elDaysHtml(){ const canAdd=can('extlabor','add'), e=EL.days.find(x=>x.i
    <div style="margin-top:6px"><b style="font-size:13px">عمال بمواعيد مختلفة</b> <span class="muted" style="font-size:12px">— لو واحد أو أكتر من العمال اتأخر أو مشي بدري أو غاب غير الباقي، أضفه هنا والباقي بيتحاسبوا على الحضور/الانصراف الفعلي اللي فوق.</span>
    <div id="eld_exl">${((e&&e.ex)||[]).map(elExRow).join('')}</div><button class="btn sm" id="eld_exadd" type="button" style="margin-top:6px">+ إضافة عامل/عمال بمواعيد مختلفة</button></div>
    <div class="muted" style="font-size:12.5px;margin-top:6px">الحضور/الانصراف الفعلي لو اتساب فاضي بيتحسب اليوم كامل بدون خصم.</div></div>`:'';
-  const rows=elRows(); const tot=rows.reduce((s,x)=>({days:s.days+(x.r.absent?0:1),ab:s.ab+(x.r.absent?1:0),gross:s.gross+x.r.gross,ded:s.ded+x.r.ded,net:s.net+x.r.net,late:s.late+x.r.late,early:s.early+x.r.early,paidNet:s.paidNet+(x.d.paid?x.r.net:0),dueNet:s.dueNet+(x.d.paid?0:x.r.net)}),{days:0,ab:0,gross:0,ded:0,net:0,late:0,early:0,paidNet:0,dueNet:0});
+  const rows=elRows(), advL=elAdvLeft(rows); const tot=rows.reduce((s,x)=>({days:s.days+(x.r.absent?0:1),ab:s.ab+(x.r.absent?1:0),gross:s.gross+x.r.gross,ded:s.ded+x.r.ded,net:s.net+x.r.net,late:s.late+x.r.late,early:s.early+x.r.early,paidNet:s.paidNet+(x.d.paid?x.r.net:0),dueNet:s.dueNet+(x.d.paid?0:x.r.net)}),{days:0,ab:0,gross:0,ded:0,net:0,late:0,early:0,paidNet:0,dueNet:0});
   return `<h2>حساب عمالة خارجية</h2>${form}
    <div class="elg"><div><label>المقاول</label><select id="elf_c"><option value="">كل المقاولين</option>${cOpts(EL.con)}</select></div><div><label>الوردية</label><select id="elf_s"><option value="">كل الورديات</option><option value="day" ${EL.sh==='day'?'selected':''}>صباحية</option><option value="eve" ${EL.sh==='eve'?'selected':''}>مسائية</option><option value="night" ${EL.sh==='night'?'selected':''}>ليلية</option></select></div><div><label>حالة الصرف</label><select id="elf_p"><option value="">الكل</option><option value="due" ${EL.pd==='due'?'selected':''}>مستحق (لم يُصرف)</option><option value="paid" ${EL.pd==='paid'?'selected':''}>تم صرفه</option></select></div><div><label>من تاريخ</label><input type="date" id="elf_f" value="${esc(EL.from)}"></div><div><label>إلى تاريخ</label><input type="date" id="elf_t" value="${esc(EL.to)}"></div>
    <div style="display:flex;gap:6px;align-items:end;flex-wrap:wrap"><div><label>الطباعة / التصدير لـ</label><select id="el_pc"><option value="__f">حسب المقاول المختار فوق</option><option value="">كل المقاولين</option>${EL.cons.map(c=>`<option value="${esc(c.id)}">${esc(c.name)} فقط</option>`).join('')}</select></div>${can('extlabor','edit')?'<button class="btn" id="el_pay" type="button">✔ تعليم المعروض «مصروف»</button><button class="btn" id="el_unpay" type="button">↩ إلغاء الصرف للمعروض</button>':''}<button class="btn" id="el_xl" type="button">تصدير Excel</button><button class="btn" id="el_pr" type="button">🖨 طباعة</button></div></div>
-   <div class="elst"><div><b>${tot.days}</b><span>أيام عمل${tot.ab?` (+${tot.ab} غياب)`:''}</span></div><div><b>${elM(tot.gross)}</b><span>إجمالي اليوميات</span></div><div><b class="bad">${elM(tot.ded)}</b><span>خصم تأخير/خروج مبكر (${tot.late+tot.early} دقيقة×عامل)</span></div><div style="background:#e6f5ea;color:#1b7a3d"><b>${elM(tot.net)}</b><span>الصافي</span></div><div style="background:#fff4e0;color:#a15c00"><b>${elM(tot.dueNet)}</b><span>مستحق لم يُصرف</span></div><div style="background:#eef1f6"><b>${elM(tot.paidNet)}</b><span>تم صرفه</span></div></div>
+   <div class="elst"><div><b>${tot.days}</b><span>أيام عمل${tot.ab?` (+${tot.ab} غياب)`:''}</span></div><div><b>${elM(tot.gross)}</b><span>إجمالي اليوميات</span></div><div><b class="bad">${elM(tot.ded)}</b><span>خصم تأخير/خروج مبكر (${tot.late+tot.early} دقيقة×عامل)</span></div><div style="background:#e6f5ea;color:#1b7a3d"><b>${elM(tot.net)}</b><span>الصافي</span></div><div style="background:#fff4e0;color:#a15c00"><b>${elM(tot.dueNet)}</b><span>مستحق لم يُصرف</span></div><div style="background:#eef1f6"><b>${elM(tot.paidNet)}</b><span>تم صرفه</span></div>${advL.bal>0?`<div style="background:#fdecec;color:#c62828"><b>${elM(advL.bal)}</b><span>سلف متبقية على المقاولين</span></div><div style="background:#e6f5ea;color:#1b7a3d"><b>${elM(tot.dueNet-advL.take)}</b><span>المستحق بعد خصم السلف (${elM(advL.take)})</span></div>`:''}</div>
    <div class="elt"><table><thead><tr><th>التاريخ</th><th>المقاول</th><th>الوردية</th><th>العمال</th><th>الاعتماد</th><th>مفروض (حضور–انصراف)</th><th>فعلي (حضور–انصراف)</th><th title="دقائق × عدد العمال">تأخير (د×عامل)</th><th title="دقائق × عدد العمال">خروج مبكر (د×عامل)</th><th>اليومية</th><th>الخصم</th><th>الصافي</th><th>الصرف</th><th></th></tr></thead><tbody>
    ${rows.map(({d,c,r})=>`<tr class="${r.absent?'ab':''}"><td>${elDate(d.date)}<br><small class="muted">${elDay(d.date)}</small></td><td><b>${esc(c.name)}</b>${d.note?`<br><small class="muted">${esc(d.note)}</small>`:''}</td><td>${elSh(d.shift||'day')}</td><td>${r.n}</td><td style="font-size:12.5px">${elApprHtml(r)}</td><td>${esc(d.sIn||'—')} – ${esc(d.sOut||'—')}${r.sh!==null&&r.sh!==undefined?`<br><small class="muted">${+r.sh.toFixed(2)} ساعة${r.f<1?` من ${r.hrs} = ${Math.round(r.f*1000)/10}% من اليومية`:''}</small>`:''}</td><td>${r.absent?'<span class="bad">غياب</span>':(r.groups.length>1||r.absN?r.groups.map(g=>`<div style="white-space:nowrap">${g.cnt} عامل: ${g.absent?'<span class="bad">غياب</span>':esc(g.aIn||'—')+' – '+esc(g.aOut||'—')}</div>`).join(''):esc(d.aIn||'—')+' – '+esc(d.aOut||'—'))}</td><td class="${r.late?'bad':''}">${r.late||'—'}</td><td class="${r.early?'bad':''}">${r.early||'—'}</td><td>${elM(r.gross)}</td><td class="${r.ded?'bad':''}">${r.ded?elM(r.ded):'—'}</td><td><b>${elM(r.net)}</b></td><td style="white-space:nowrap">${can('extlabor','edit')?`<label style="margin:0;cursor:pointer"><input type="checkbox" data-elpd="${esc(d.id)}" ${d.paid?'checked':''} style="width:auto"> ${d.paid?'<span class="ok">مصروف</span>':'<span class="muted">مستحق</span>'}</label>`:(d.paid?'<span class="ok">مصروف</span>':'<span class="muted">مستحق</span>')}${d.paid&&d.paidAt?`<br><small class="muted">${elDate(d.paidAt)}</small>`:''}</td><td style="white-space:nowrap">${can('extlabor','edit')?`<button class="btn sm" data-elde="${esc(d.id)}" type="button">تعديل</button> `:''}${can('extlabor','delete')?`<button class="btn sm" data-eldd="${esc(d.id)}" type="button">حذف</button>`:''}</td></tr>`).join('')||'<tr><td colspan="14" class="muted">لا توجد أيام في الفترة المختارة</td></tr>'}
    ${rows.length?`<tr class="tot"><td colspan="7">الإجمالي</td><td>${tot.late}</td><td>${tot.early}</td><td>${elM(tot.gross)}</td><td>${elM(tot.ded)}</td><td>${elM(tot.net)}</td><td></td><td></td></tr>`:''}</tbody></table></div>`; }
@@ -3767,8 +3961,14 @@ function elBind(){ const q=id=>$(id);
   document.querySelectorAll('[data-elde]').forEach(b=>b.onclick=()=>{ EL.edit=b.dataset.elde; elRender(); window.scrollTo(0,0); });
   document.querySelectorAll('[data-eldd]').forEach(b=>b.onclick=async()=>{ if(!confirm('حذف اليوم ده؟')) return; try{ await BE.rcDel('extLaborDays',b.dataset.eldd); toast('تم الحذف'); mountExtLabor(); }catch(e){ toast(authMsg(e),true); } });
   document.querySelectorAll('[data-elpd]').forEach(c=>c.onchange=()=>elSetPaid([c.dataset.elpd],c.checked));
-  if(q('el_pay')) q('el_pay').onclick=()=>{ const ids=elRows().filter(x=>!x.d.paid).map(x=>x.d.id), net=elRows().filter(x=>!x.d.paid).reduce((s,x)=>s+x.r.net,0); if(!ids.length){ toast('مفيش أيام مستحقة في العرض الحالي',true); return; } if(confirm(`تعليم ${ids.length} يوم كمصروف (صافي ${elM(net)})؟`)) elSetPaid(ids,true); };
-  if(q('el_unpay')) q('el_unpay').onclick=()=>{ const ids=elRows().filter(x=>x.d.paid).map(x=>x.d.id); if(!ids.length){ toast('مفيش أيام مصروفة في العرض الحالي',true); return; } if(confirm(`إلغاء الصرف لـ ${ids.length} يوم؟`)) elSetPaid(ids,false); };
+  if(q('el_pay')) q('el_pay').onclick=async()=>{ const due=elRows().filter(x=>!x.d.paid), ids=due.map(x=>x.d.id), net=due.reduce((s,x)=>s+x.r.net,0); if(!ids.length){ toast('مفيش أيام مستحقة في العرض الحالي',true); return; } if(!confirm(`تعليم ${ids.length} يوم كمصروف (صافي ${elM(net)})؟`)) return;
+    const per=new Map(); due.forEach(x=>{ const o=per.get(x.d.con)||{net:0,ids:[]}; o.net+=x.r.net; o.ids.push(x.d.id); per.set(x.d.con,o); }); const ded=[];
+    for(const [c,o] of per){ const b=advBal(ADV.el,c).bal; if(b>0){ const nm=(EL.cons.find(z=>z.id===c)||{}).name||''; const v=prompt(`«${nm}» عليه سلفة متبقية ${elM(b)} جنيه.\nصافي مستحقه في الصرف ده ${elM(o.net)} جنيه.\nاكتب المبلغ اللي هيتخصم من الصرف ده (0 = بدون خصم):`,String(advR(Math.min(b,o.net)))); if(v===null) return; const a=Math.min(b,Math.max(0,parseFloat(v)||0)); if(a>0) ded.push({ref:c,type:'ded',date:advToday(),amt:advR(a),note:`خصم من صرف ${o.ids.length} يوم`,days:o.ids}); } }
+    try{ for(const d of ded) await advPut('el','extLaborAdv',d); }catch(e){ toast(authMsg(e),true); return; }
+    await elSetPaid(ids,true); if(ded.length) toast(`تم خصم سلف ${elM(ded.reduce((s,x)=>s+x.amt,0))} جنيه ✓`); };
+  if(q('el_unpay')) q('el_unpay').onclick=async()=>{ const ids=elRows().filter(x=>x.d.paid).map(x=>x.d.id); if(!ids.length){ toast('مفيش أيام مصروفة في العرض الحالي',true); return; } const link=ADV.el.filter(a=>a.type==='ded'&&(a.days||[]).some(i=>ids.includes(i)));
+    if(!confirm(`إلغاء الصرف لـ ${ids.length} يوم؟${link.length?`\nوهيتلغي كمان خصم السلف المرتبط بيها (${elM(link.reduce((s,x)=>s+(+x.amt||0),0))} جنيه) ويرجع على السلفة.`:''}`)) return;
+    try{ for(const a of link){ await BE.rcDel('extLaborAdv',a.id); ADV.el=ADV.el.filter(x=>x.id!==a.id); } }catch(e){ toast(authMsg(e),true); return; } elSetPaid(ids,false); };
   if(q('el_xl')) q('el_xl').onclick=elExport; if(q('el_pr')) q('el_pr').onclick=elPrint;
 }
 
@@ -3778,7 +3978,7 @@ async function elSetPaid(ids,on){ try{ const today=new Date(), iso=`${today.getF
 function elPrint(){
   const pcv=elPC(); const rows=elRows(pcv); if(!rows.length){ toast('لا توجد أيام للطباعة في الفترة المختارة',true); return; }
   const tot=rows.reduce((s,x)=>({days:s.days+(x.r.absent?0:1),ab:s.ab+(x.r.absent?1:0),gross:s.gross+x.r.gross,ded:s.ded+x.r.ded,net:s.net+x.r.net,late:s.late+x.r.late,early:s.early+x.r.early,paidNet:s.paidNet+(x.d.paid?x.r.net:0),dueNet:s.dueNet+(x.d.paid?0:x.r.net)}),{days:0,ab:0,gross:0,ded:0,net:0,late:0,early:0,paidNet:0,dueNet:0});
-  const con=pcv?(EL.cons.find(c=>c.id===pcv)||{}).name:'كل المقاولين', shn=EL.sh?elSh(EL.sh):'كل الورديات';
+  const advL=elAdvLeft(rows), con=pcv?(EL.cons.find(c=>c.id===pcv)||{}).name:'كل المقاولين', shn=EL.sh?elSh(EL.sh):'كل الورديات';
   const act=({d,r})=>r.absent?'غياب':(r.groups.length>1||r.absN?r.groups.map(g=>`${elM(g.cnt)} عامل: ${g.absent?'غياب':(esc(g.aIn||'—')+' – '+esc(g.aOut||'—'))}`).join('<br>'):esc(d.aIn||'—')+' – '+esc(d.aOut||'—'));
   const body=rows.map(({d,c,r})=>`<tr class="${r.absent?'ab':''}"><td>${elDate(d.date)}<br><small>${elDay(d.date)}</small></td><td class="t">${esc(c.name)}${d.note?`<br><small>${esc(d.note)}</small>`:''}</td><td>${elSh(d.shift||'day')}</td><td>${elM(r.n)}</td><td${r.ap&&r.ap.extra>0.001?' style="color:#c62828;font-weight:700"':''}>${elApprTxt(r)}</td><td>${esc(d.sIn||'—')} – ${esc(d.sOut||'—')}</td><td>${act({d,r})}</td><td>${r.late||'—'}</td><td>${r.early||'—'}</td><td>${elM(r.gross)}</td><td>${r.ded?elM(r.ded):'—'}</td><td class="t">${elM(r.net)}</td><td>${d.paid?'مصروف'+(d.paidAt?'<br><small>'+elDate(d.paidAt)+'</small>':''):'مستحق'}</td></tr>`).join('');
   const css=`@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}body{direction:rtl;font-family:"Segoe UI",Tahoma,Arial,sans-serif;color:#1b1b1f;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:11px}
@@ -3787,7 +3987,7 @@ function elPrint(){
   table{width:100%;border-collapse:collapse}thead{display:table-header-group}th{background:#1f2a44;color:#fff;padding:4px 5px;text-align:right;font-size:10.5px}td{border:1px solid #cbd5e1;padding:3px 5px;vertical-align:top}td.t{font-weight:700}small{color:#555;font-size:9.5px}tr{break-inside:avoid;page-break-inside:avoid}tr.ab td{background:#fdecec}tr.tot td{font-weight:800;background:#eef1f6}`;
   const html=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>حساب عمالة خارجية</title><style>${css}</style></head><body>
   <div class="tp"><h1>حساب عمالة خارجية — ${esc(con)}</h1><span>الفترة: ${elDate(EL.from)} إلى ${elDate(EL.to)} — ${esc(shn)} — طُبع ${new Date().toLocaleDateString('ar-EG')}</span></div>
-  <div class="sm"><div>أيام العمل<b>${tot.days}${tot.ab?` (+${tot.ab} غياب)`:''}</b></div><div>إجمالي اليوميات<b>${elM(tot.gross)}</b></div><div>خصم تأخير / خروج مبكر<b>${elM(tot.ded)}</b></div><div>الصافي<b>${elM(tot.net)}</b></div><div>مستحق لم يُصرف<b>${elM(tot.dueNet)}</b></div><div>تم صرفه<b>${elM(tot.paidNet)}</b></div></div>
+  <div class="sm"><div>أيام العمل<b>${tot.days}${tot.ab?` (+${tot.ab} غياب)`:''}</b></div><div>إجمالي اليوميات<b>${elM(tot.gross)}</b></div><div>خصم تأخير / خروج مبكر<b>${elM(tot.ded)}</b></div><div>الصافي<b>${elM(tot.net)}</b></div><div>مستحق لم يُصرف<b>${elM(tot.dueNet)}</b></div><div>تم صرفه<b>${elM(tot.paidNet)}</b></div>${advL.bal>0?`<div>سلف متبقية<b style="color:#c62828">${elM(advL.bal)}</b></div><div>المستحق بعد خصم السلف<b>${elM(tot.dueNet-advL.take)}</b></div>`:''}</div>
   <table><thead><tr><th>التاريخ</th><th>المقاول</th><th>الوردية</th><th>العمال</th><th>الاعتماد</th><th>مفروض</th><th>فعلي</th><th>تأخير (د×عامل)</th><th>خروج مبكر (د×عامل)</th><th>اليومية</th><th>الخصم</th><th>الصافي</th><th>الصرف</th></tr></thead><tbody>${body}
   <tr class="tot"><td colspan="7">الإجمالي</td><td>${tot.late}</td><td>${tot.early}</td><td>${elM(tot.gross)}</td><td>${elM(tot.ded)}</td><td>${elM(tot.net)}</td><td></td></tr></tbody></table></body></html>`;
   const fr=document.createElement('iframe'); fr.style.cssText='position:fixed;left:-10000px;top:0;width:1062px;height:733px;border:0;visibility:hidden'; fr.srcdoc=html;
@@ -3796,7 +3996,9 @@ function elPrint(){
 }
 async function elExport(){ const rows=elRows(elPC()); if(!rows.length){ toast('لا توجد بيانات',true); return; } await loadXLSX();
   const data=rows.map(({d,c,r})=>({'التاريخ':elDate(d.date),'المقاول':c.name,'الوردية':elSh(d.shift||'day'),'عدد العمال':r.n,'الاعتماد':elApprTxt(r),'الحضور المفروض':d.sIn||'','الانصراف المفروض':d.sOut||'','الحضور الفعلي':d.aIn||'','الانصراف الفعلي':d.aOut||'','غياب':r.absent?'نعم':'','دقائق التأخير':r.late,'دقائق الخروج المبكر':r.early,'اليومية':elR(r.gross),'الخصم':elR(r.ded),'الصافي':elR(r.net),'الصرف':d.paid?'مصروف':'مستحق','تاريخ الصرف':d.paidAt?elDate(d.paidAt):'','ملاحظات':d.note||''}));
-  const ws=XLSX.utils.json_to_sheet(data); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'عمالة خارجية'); XLSX.writeFile(wb,'حساب_عمالة_خارجية.xlsx'); }
+  const ws=XLSX.utils.json_to_sheet(data); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'عمالة خارجية');
+  { const per=new Map(); rows.forEach(({d,c,r})=>{ const o=per.get(c.id)||{n:c.name,net:0,due:0}; o.net+=r.net; if(!d.paid) o.due+=r.net; per.set(c.id,o); }); const sd=[...per.entries()].map(([id,o])=>{ const b=advBal(ADV.el,id); return {'المقاول':o.n,'الصافي':elR(o.net),'المستحق (لم يُصرف)':elR(o.due),'إجمالي السلف':b.adv,'المخصوم من السلف':b.ded,'السلفة المتبقية':b.bal,'المستحق بعد خصم السلف':elR(o.due-Math.min(Math.max(b.bal,0),o.due))}; }); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(sd),'ملخص وسلف'); }
+  XLSX.writeFile(wb,'حساب_عمالة_خارجية.xlsx'); }
 
 function mountDeduct(){ setLayout({view:true}); $('view').innerHTML=`<div class="card" id="dcx">
 <h2>فحص الاستقطاعات</h2>
