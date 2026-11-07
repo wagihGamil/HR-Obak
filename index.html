@@ -3904,8 +3904,8 @@ function elAdvLeft(rows,cv){ const per=new Map(), cons=new Set(), pn=new Map(); 
 /* ---- الجزاءات والخصومات ---- */
 function elPens(cv){ if(cv===undefined) cv=EL.con; const cs=new Set(EL.cons.map(c=>c.id)); return EL.pen.filter(p=>cs.has(p.con)&&(!cv||p.con===cv)&&(!EL.pd||(EL.pd==='paid')===!!p.paid)&&(!EL.from||p.date>=EL.from)&&(!EL.to||p.date<=EL.to)).sort((a,b)=>String(a.date).localeCompare(b.date)); }
 function elPenSum(cv){ const L=elPens(cv); return {n:L.length,all:advR(L.reduce((s,p)=>s+(+p.amt||0),0)),due:advR(L.filter(p=>!p.paid).reduce((s,p)=>s+(+p.amt||0),0))}; }
-const elPenTxt=p=>p.kind==='days'?`${advM(p.days)} يوم جزاء × ${advM(p.workers)} عامل${p.scope==='all'?' (كل حضور اليوم)':''} × يومية ${advM(p.wage)}`:'خصم بقيمة محددة';
-function elPenWorkers(con,date){ let n=0, found=false; EL.days.forEach(d=>{ if(d.con!==con||d.date!==date) return; const c=EL.cons.find(x=>x.id===con); if(!c) return; found=true; const r=elCalc(d,c); n+=Math.max(0,(+r.n||0)-(+r.absN||0)); }); return found?n:null; }
+const elPenTxt=p=>p.kind==='days'?`${advM(p.days)} يوم جزاء × ${advM(p.workers)} عامل${p.scope==='all'?' (كل حضور اليوم)':''} — ${p.shift?'الوردية '+elSh(p.shift):'كل الورديات'} × يومية ${advM(p.wage)}`:'خصم بقيمة محددة';
+function elPenWorkers(con,date,sh){ let n=0, found=false; EL.days.forEach(d=>{ if(d.con!==con||d.date!==date||(sh&&(d.shift||'day')!==sh)) return; const c=EL.cons.find(x=>x.id===con); if(!c) return; found=true; const r=elCalc(d,c); n+=Math.max(0,(+r.n||0)-(+r.absN||0)); }); return found?n:null; }
 function elPenHtml(){ const canAdd=can('extlabor','add')||can('extlabor','edit'), canDel=can('extlabor','edit');
   if(!EL.cons.length) return '<h2>الجزاءات والخصومات</h2><div class="muted">أضف المقاولين من «التهيئة» الأول.</div>';
   const cOpts=sel=>EL.cons.map(c=>`<option value="${esc(c.id)}" ${sel===c.id?'selected':''}>${esc(c.name)}</option>`).join('');
@@ -3917,6 +3917,7 @@ function elPenHtml(){ const canAdd=can('extlabor','add')||can('extlabor','edit')
    <div><label>النوع</label><select id="pn_k"><option value="days">جزاء أيام (على يوم معين)</option><option value="amt">خصم بقيمة محددة</option></select></div>
    <div><label>المقاول</label><select id="pn_c">${cOpts(EL.penCon||EL.cons[0].id)}</select></div><div><label>التاريخ</label><input type="date" id="pn_d" value="${advToday()}"></div>
    <div class="pn1"><label>عدد أيام الجزاء</label><input type="number" min="0" step="0.25" id="pn_days" value="1"></div>
+   <div class="pn1"><label>الوردية</label><select id="pn_sh"><option value="">كل الورديات</option><option value="day">الصباحية</option><option value="eve">المسائية</option><option value="night">الليلية</option></select></div>
    <div class="pn1"><label>ينطبق على</label><select id="pn_sc"><option value="all">كل الحضور في اليوم ده</option><option value="n">عدد معين من العمال</option></select></div>
    <div class="pn1" id="pn_nw" style="display:none"><label>عدد العمال</label><input type="number" min="0.01" step="any" id="pn_n" value="1"></div>
    <div class="pn2" style="display:none"><label>قيمة الخصم (جنيه)</label><input type="number" min="0" step="any" id="pn_a"></div>
@@ -3929,15 +3930,15 @@ function elPenCalc(){ const q=id=>$(id), k=q('pn_k').value, con=q('pn_c').value,
   if(!c||!date) return {ok:false,msg:'اختر المقاول والتاريخ'};
   if(k==='amt'){ const a=advR(parseFloat(q('pn_a').value)); return a>0?{ok:true,amt:a,msg:`خصم ${elM(a)} جنيه على ${c.name}`}:{ok:false,msg:'اكتب قيمة الخصم'}; }
   const days=parseFloat(q('pn_days').value), sc=q('pn_sc').value; if(!(days>0)) return {ok:false,msg:'اكتب عدد أيام الجزاء'};
-  let w; if(sc==='all'){ w=elPenWorkers(con,date); if(w===null) return {ok:false,msg:'مفيش يوم عمل مسجّل للمقاول ده في التاريخ ده — سجّل اليوم الأول أو اختار «عدد معين من العمال»'}; if(!(w>0)) return {ok:false,msg:'مفيش عمال حاضرين في اليوم ده'}; } else { w=parseFloat(q('pn_n').value); if(!(w>0)) return {ok:false,msg:'اكتب عدد العمال'}; }
-  const wage=+c.wage||0, amt=advR(days*wage*w); return {ok:true,amt,days,scope:sc,workers:w,wage,msg:`${elM(days)} يوم × ${elM(w)} عامل × يومية ${elM(wage)} = ${elM(amt)} جنيه`}; }
+  let w; if(sc==='all'){ const sh=q('pn_sh').value; w=elPenWorkers(con,date,sh); if(w===null) return {ok:false,msg:`مفيش يوم عمل مسجّل للمقاول ده في التاريخ ده${sh?' في الوردية '+elSh(sh):''} — سجّل اليوم الأول أو اختار «عدد معين من العمال»`}; if(!(w>0)) return {ok:false,msg:'مفيش عمال حاضرين في اليوم ده'}; } else { w=parseFloat(q('pn_n').value); if(!(w>0)) return {ok:false,msg:'اكتب عدد العمال'}; }
+  const wage=+c.wage||0, amt=advR(days*wage*w); return {ok:true,amt,days,scope:sc,workers:w,wage,shift:q('pn_sh').value,msg:`${elM(days)} يوم × ${elM(w)} عامل × يومية ${elM(wage)} = ${elM(amt)} جنيه`}; }
 function elPenBind(){ const q=id=>$(id);
   if(q('pn_f')) q('pn_f').onchange=()=>{ EL.penCon=q('pn_f').value; elRender(); };
   document.querySelectorAll('[data-pnd]').forEach(b=>b.onclick=async()=>{ const p=EL.pen.find(x=>x.id===b.dataset.pnd); if(!p||!confirm(p.paid?'الحركة دي اتسوّت مع صرف — متأكد تحذفها؟':'حذف الحركة دي؟')) return; try{ await BE.rcDel('extLaborPen',p.id); EL.pen=EL.pen.filter(x=>x.id!==p.id); toast('تم الحذف'); elRender(); }catch(e){ toast(authMsg(e),true); } });
   if(!q('pn_add')) return;
   const upd=()=>{ const k=q('pn_k').value; document.querySelectorAll('.pn1').forEach(e=>e.style.display=k==='days'?'':'none'); document.querySelectorAll('.pn2').forEach(e=>e.style.display=k==='amt'?'':'none'); if(k==='days') q('pn_nw').style.display=q('pn_sc').value==='n'?'':'none'; const r=elPenCalc(); q('pn_pv').innerHTML=r.ok?`<span class="bad">${esc(r.msg)}</span>`:`<span class="muted">${esc(r.msg)}</span>`; };
-  ['pn_k','pn_c','pn_d','pn_days','pn_sc','pn_n','pn_a'].forEach(i=>{ q(i).oninput=upd; q(i).onchange=upd; }); upd();
-  q('pn_add').onclick=async()=>{ const r=elPenCalc(); if(!r.ok){ toast(r.msg,true); return; } const k=q('pn_k').value, rec={con:q('pn_c').value,date:q('pn_d').value,kind:k,amt:r.amt,note:q('pn_t').value.trim(),at:Date.now()}; if(k==='days') Object.assign(rec,{days:r.days,scope:r.scope,workers:r.workers,wage:r.wage}); const id=advId();
+  ['pn_k','pn_c','pn_d','pn_days','pn_sh','pn_sc','pn_n','pn_a'].forEach(i=>{ q(i).oninput=upd; q(i).onchange=upd; }); upd();
+  q('pn_add').onclick=async()=>{ const r=elPenCalc(); if(!r.ok){ toast(r.msg,true); return; } const k=q('pn_k').value, rec={con:q('pn_c').value,date:q('pn_d').value,kind:k,amt:r.amt,note:q('pn_t').value.trim(),at:Date.now()}; if(k==='days') Object.assign(rec,{days:r.days,scope:r.scope,workers:r.workers,wage:r.wage,shift:r.shift||''}); const id=advId();
     try{ await BE.rcSet('extLaborPen',id,rec); EL.pen.push({id,...rec}); EL.penCon=rec.con; toast('تم التسجيل ✓'); elRender(); }catch(e){ toast(authMsg(e),true); } };
 }
 function elRender(){ elTabs(); $('view').innerHTML=`<div class="card" id="elx">${EL.tab==='cfg'?elCfgHtml():EL.tab==='req'?elReqHtml():EL.tab==='adv'?'<h2>سلف المقاولين</h2><div id="advbox_el"></div>':EL.tab==='pen'?elPenHtml():elDaysHtml()}</div>`; if(EL.tab==='req') elReqBind(); else if(EL.tab==='pen') elPenBind(); else if(EL.tab==='adv'){ const b=$('advbox_el'), o=elAdvOpt(); b.innerHTML=advHtml(o); advBind(o,b); } else elBind(); }
