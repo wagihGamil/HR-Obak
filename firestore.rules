@@ -327,6 +327,11 @@ service cloud.firestore {
       allow read:   if anyA('extlabor');
       allow create, update, delete: if canA('extlabor','edit');
     }
+    match /extLaborPen/{id} {
+      allow read:   if anyA('extlabor');
+      allow create: if canA('extlabor','add') || canA('extlabor','edit');
+      allow update, delete: if canA('extlabor','edit');
+    }
     match /extLaborAdv/{id} {
       allow read:   if anyA('extlabor');
       allow create: if canA('extlabor','add') || canA('extlabor','edit');
