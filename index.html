@@ -3336,7 +3336,7 @@ window.busMount=async function(k){ BUS.tab=k; const box=$(k==='cfg'?'cars-pane-c
   busDraw(); };
 function busDraw(){ if(BUS.tab==='cfg'){ const b=$('busc'); if(b){ b.innerHTML=busCfgHtml(); busCfgBind(); } } else { const b=$('busx'); if(b){ b.innerHTML=busDayHtml(); busDayBind(); } } }
 /* ---------- خيارات الخطوط من التهيئة ---------- */
-function busLineOpts(sel){ const o=[]; BUS.cos.forEach(c=>(c.lines||[]).forEach((l,i)=>o.push(`<option value="${esc(c.id)}|${i}" ${sel===c.id+'|'+i?'selected':''}>${esc(l.name)} — ${esc(c.name)}</option>`))); return o.join(''); }
+function busLineOpts(sel){ const o=[]; BUS.cos.forEach(c=>(c.lines||[]).forEach((l,i)=>o.push(`<option value="${esc(c.id)}|${i}" ${(sel===c.id+'|'+i||sel===c.id+'|'+l.name)?'selected':''}>${esc(l.name)} — ${esc(c.name)}</option>`))); return o.join(''); }
 function busGetLine(v){ const [id,i]=String(v||'').split('|'), c=BUS.cos.find(x=>x.id===id); return c&&c.lines&&c.lines[+i]?{co:c,line:c.lines[+i],idx:+i}:null; }
 /* ---------- تاب التحضير ---------- */
 function busRows(){ return BUS.log.filter(r=>(!BUS.from||r.date>=BUS.from)&&(!BUS.to||r.date<=BUS.to)&&(!BUS.fc||r.coId===BUS.fc)&&(!BUS.fl||r.lineKey===BUS.fl)&&(!BUS.fs||r.shift===BUS.fs)).sort((a,b)=>b.date.localeCompare(a.date)||String(a.lineName).localeCompare(String(b.lineName),'ar')); }
