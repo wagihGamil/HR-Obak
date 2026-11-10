@@ -118,8 +118,9 @@ service cloud.firestore {
     }
     match /busAdv/{id} {
       allow read:   if wr('cars');
-      allow create: if canA('cars','add') || canA('cars','edit');
-      allow update, delete: if canA('cars','edit') || canA('cars','delete');
+      allow create: if (canA('cars','add') || canA('cars','edit')) && (canA('cars','appr') || request.resource.data.get('st','') == 'pending');
+      allow update: if canA('cars','appr') || (canA('cars','edit') && request.resource.data.get('st','') == 'pending');
+      allow delete: if canA('cars','edit') || canA('cars','delete');
     }
     match /busCfg/{id} {
       allow read:  if wr('cars') || canA('cars','cfg');
@@ -127,8 +128,8 @@ service cloud.firestore {
     }
     match /busLog/{id} {
       allow read:   if wr('cars');
-      allow create: if canA('cars','add');
-      allow update: if canA('cars','edit');
+      allow create: if canA('cars','add') && (canA('cars','appr') || request.resource.data.get('st','') == 'pending');
+      allow update: if canA('cars','appr') || (canA('cars','edit') && request.resource.data.get('st','') == 'pending');
       allow delete: if canA('cars','delete');
     }
     match /carsFiles/{id} {
