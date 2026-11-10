@@ -2809,6 +2809,20 @@ const lSort=(a,b)=>((+a.ord||0)-(+b.ord||0))||String(a.title).localeCompare(Stri
 function lYT(u){ try{ const x=new URL(u); const h=x.hostname.replace(/^www\.|^m\./,'');
   if(h==='youtu.be') return x.pathname.slice(1).split('/')[0];
   if(h==='youtube.com'||h==='music.youtube.com'){ if(x.searchParams.get('v')) return x.searchParams.get('v'); const m=x.pathname.match(/^\/(?:shorts|embed|live)\/([\w-]{6,})/); if(m) return m[1]; } }catch(e){} return ''; }
+function lEmbed(u){ try{ const x=new URL(u), h=x.hostname.replace(/^www\./,''), p=x.pathname; let m;
+  if(h==='drive.google.com'){ if((m=p.match(/\/file\/d\/([\w-]+)/))) return 'https://drive.google.com/file/d/'+m[1]+'/preview';
+    if((m=p.match(/\/folders\/([\w-]+)/))) return 'https://drive.google.com/embeddedfolderview?id='+m[1]+'#list';
+    if(p==='/open'||p==='/uc'){ const id=x.searchParams.get('id'); if(id) return 'https://drive.google.com/file/d/'+id+'/preview'; } }
+  if(h==='docs.google.com'){ if((m=p.match(/^\/(document|spreadsheets)\/d\/([\w-]+)/))) return 'https://docs.google.com/'+m[1]+'/d/'+m[2]+'/preview';
+    if((m=p.match(/^\/presentation\/d\/([\w-]+)/))) return 'https://docs.google.com/presentation/d/'+m[1]+'/embed?start=false&loop=false';
+    if((m=p.match(/^\/forms\/d\/(?:e\/)?([\w-]+)/))) return /\/forms\/d\/e\//.test(p)?'https://docs.google.com/forms/d/e/'+m[1]+'/viewform?embedded=true':''; }
+  const yt=lYT(u); if(yt) return 'https://www.youtube.com/embed/'+yt;
+  }catch(e){} return ''; }
+function lView(x){ const src=lEmbed(x.url); if(!src) return; document.getElementById('lviewer')?.remove();
+  const m=document.createElement('div'); m.className='modal'; m.id='lviewer'; m.style.cssText+=';padding:10px';
+  m.innerHTML=`<div class="box" style="width:min(1100px,100%);height:92vh;max-height:92vh;display:flex;flex-direction:column;padding:12px"><div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><b style="flex:1;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.title)}</b><a class="btn sm" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">فتح في تبويب جديد ↗</a><button class="btn sm" id="lv_x" type="button">✕ إغلاق</button></div>
+   <div style="position:relative;flex:1;min-height:0;border:1px solid #d6dae3;border-radius:8px;overflow:hidden;background:#f4f6fa"><div class="muted" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px">جارٍ التحميل… لو فضل فاضي أو ظهرت رسالة «تحتاج إذن» يبقى الملف مش متشارَك — خلّي المشاركة «أي شخص معه الرابط» أو سجّل دخول بحساب جوجل ليه صلاحية.</div><iframe src="${esc(src)}" style="position:relative;width:100%;height:100%;border:0;background:transparent" allow="autoplay; fullscreen" allowfullscreen referrerpolicy="no-referrer"></iframe></div></div>`;
+  document.body.appendChild(m); m.querySelector('#lv_x').onclick=()=>m.remove(); m.addEventListener('mousedown',e=>{ if(e.target===m) m.remove(); }); }
 function lKind(u){ try{ const h=new URL(u).hostname.replace(/^www\./,'');
   if(lYT(u)||h.endsWith('youtube.com')||h==='youtu.be') return {k:'yt',t:'فيديو يوتيوب',c:'#d93025'};
   if(h==='drive.google.com') return {k:'dr',t:'ملف على درايف',c:'#1a73e8'};
@@ -2829,7 +2843,7 @@ function renderLinks(){
     return `<div class="fcard lkcard" style="border-top-color:${k.c}">${id?`<a class="lkthumb" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer"><img loading="lazy" alt="" src="https://img.youtube.com/vi/${esc(id)}/mqdefault.jpg" onerror="this.parentNode.style.display='none'"><span class="lkplay">▶</span></a>`:''}
       <div class="lkmeta"><span class="lkbadge" style="background:${k.c}">${esc(k.t)}</span>${x.cat?`<span class="lkcat">${esc(x.cat)}</span>`:''}</div>
       <div class="ft">${esc(x.title)}</div>${x.desc?`<div class="fd">${esc(x.desc)}</div>`:''}
-      <div class="fb"><a class="btn pri sm" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">فتح اللينك</a><button class="btn sm" type="button" data-lcopy="${esc(x.id)}">نسخ</button>
+      <div class="fb">${lEmbed(x.url)?`<button class="btn pri sm" type="button" data-lview="${esc(x.id)}">👁 عرض هنا</button>`:''}<a class="btn ${lEmbed(x.url)?'':'pri '}sm" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">فتح اللينك</a><button class="btn sm" type="button" data-lcopy="${esc(x.id)}">نسخ</button>
       ${cE?`<button class="btn sm" type="button" data-ledit="${esc(x.id)}">تعديل</button>`:''}${cD?`<button class="btn sm" type="button" data-ldel="${esc(x.id)}">حذف</button>`:''}</div></div>`; };
   $('view').innerHTML=`<div class="card"><div class="tb"><h2 style="margin:0">لينكات هامة</h2><input type="search" id="l_q" placeholder="بحث في اللينكات…" value="${esc(LQ)}">
     <span class="sp" style="flex:1"></span>${cA?'<button class="btn pri" id="l_new" type="button">+ لينك جديد</button>':''}</div>
@@ -2866,6 +2880,7 @@ function linkModal(x){
 function linksClick(t){
   if(CUR.mod!=='links') return false;
   if(t.closest('#l_new')){ if(can('links','add')) linkModal(null); return true; }
+  const v=t.closest('[data-lview]'); if(v){ const x=WLINKS.find(y=>y.id===v.dataset.lview); if(x) lView(x); return true; }
   const e=t.closest('[data-ledit]'); if(e){ if(can('links','edit')) linkModal(WLINKS.find(x=>x.id===e.dataset.ledit)); return true; }
   const d=t.closest('[data-ldel]'); if(d){ const x=WLINKS.find(y=>y.id===d.dataset.ldel); if(x&&can('links','delete')&&confirm(`حذف اللينك «${x.title}»؟`)) BE.deleteLink(x.id).then(()=>{ toast('تم الحذف'); return mountLinks(); }).catch(er=>toast(authMsg(er),true)); return true; }
   const c=t.closest('[data-lcopy]'); if(c){ const x=WLINKS.find(y=>y.id===c.dataset.lcopy); if(x){ const done=()=>toast('تم نسخ اللينك ✓'); try{ navigator.clipboard.writeText(x.url).then(done,()=>{ prompt('انسخ اللينك:',x.url); }); }catch(er){ prompt('انسخ اللينك:',x.url); } } return true; }
