@@ -281,7 +281,7 @@ service cloud.firestore {
 
     // ===== ID (كروت تصريح الدخول: الموظفون + الظهر + الصور) =====
     match /idCards/{id} {
-      allow read:  if can('idcard','view') || ((id == 'emps' || id == 'pw') && (anyA('resign') || anyA('hiring'))) || (id == 'cfg' && anyA('hiring')) || (id.matches('ph_.*') && anyA('hiring')) || ((id == 'emps' || id.matches('ph_.*')) && canA('attend','edit'));
+      allow read:  if can('idcard','view') || ((id == 'emps' || id == 'pw') && (anyA('resign') || anyA('hiring'))) || (id == 'cfg' && anyA('hiring')) || (id.matches('ph_.*') && anyA('hiring')) || ((id == 'emps' || id.matches('ph_.*')) && canA('attend','edit')) || (id == 'emps' && anyA('payroll'));
       allow write: if wr('idcard') || ((id == 'emps' || id.matches('ph_.*')) && canA('hiring','add'));
     }
 
@@ -311,7 +311,7 @@ service cloud.firestore {
       allow write: if canA('attend','edit');
     }
     match /attRecords/{id} {
-      allow read:   if (anyA('attend') && resource.data.uid == request.auth.uid) || canA('attend','report');
+      allow read:   if (anyA('attend') && resource.data.uid == request.auth.uid) || canA('attend','report') || anyA('payroll');
       // بصمات مسحوبة من BioTime (id ثابت = بصمة واحدة) — بيكتبها صاحب صلاحية الإعدادات
       allow create: if canA('attend','edit') && request.resource.data.src == 'bio';
       allow create: if anyA('attend') && request.resource.data.uid == request.auth.uid
@@ -323,6 +323,20 @@ service cloud.firestore {
     }
 
     // ===== حساب عمالة خارجية =====
+    // ===== مديول payroll: العقود + مدخلات المرتب + إعدادات الحساب =====
+    match /payContracts/{id} {
+      allow read:   if anyA('payroll');
+      allow create, update: if canA('payroll','edit');
+      allow delete: if canA('payroll','delete');
+    }
+    match /payInputs/{id} {
+      allow read:   if anyA('payroll');
+      allow create, update, delete: if canA('payroll','edit');
+    }
+    match /payCfg/{id} {
+      allow read:   if anyA('payroll');
+      allow create, update, delete: if canA('payroll','edit');
+    }
     match /extLaborContractors/{id} {
       allow read:   if anyA('extlabor');
       allow create, update, delete: if canA('extlabor','edit');

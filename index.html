@@ -2156,6 +2156,7 @@ const PERM = {
   links:{label:'لينكات هامة',acts:{view:'عرض اللينكات',edit:'إضافة وتعديل وحذف اللينكات'}},
   attend:{label:'الحضور',acts:{view:'تسجيل حضور وانصراف بالوجه (من موبايله)',report:'عرض تقارير حضور كل الموظفين',edit:'الإعدادات: المواقع وبصمات الوجوه وربط المستخدمين'}},
   extlabor:{label:'حساب عمالة خارجية',acts:{view:'دخول المديول وعرض الحسابات',add:'إضافة أيام عمل',edit:'تعديل الأيام + التهيئة (المقاولين واليوميات)',delete:'حذف الأيام'}},
+  payroll:{label:'المرتبات (payroll)',acts:{view:'دخول المديول وعرض العقود وحساب المرتبات',edit:'إنشاء وتعديل العقود + إدخال البدلات والخصومات + إعدادات الحساب',delete:'حذف العقود'}},
   payrev:{label:'مراجع المرتبات',acts:{view:'دخول المديول (فحص الاستقطاعات والإجازات ومطابقة المؤثرات وحضور في يوم إجازة)'}},
   orgchart:{label:'الهيكل التنظيمي',acts:{view:'عرض الهيكل وخطة التعيينات وطباعتها',edit:'رفع الشيتات وتعديل الهيكل والمراحل'}},
   idcard:{label:'ID',acts:{view:'عرض وطباعة كروت الدخول',edit:'رفع الشيت وتعديل البيانات والصور والظهر'}}
@@ -2187,6 +2188,7 @@ const ICONS={
   links:'<svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
   payrev:'<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/><path d="M9 15l2 2 4-4"/></svg>',
   attend:'<svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="4"/><path d="M4 21c0-4 3.5-6 8-6s8 2 8 6"/><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3"/></svg>',
+  payroll:'<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v.01M18 14.5v.01"/></svg>',
   extlabor:'<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/><circle cx="12" cy="14" r="2"/><path d="M8 19c0-2 2-3 4-3s4 1 4 3"/></svg>',
   orgchart:'<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="4" rx="1"/><rect x="3" y="17" width="6" height="4" rx="1"/><rect x="15" y="17" width="6" height="4" rx="1"/><path d="M12 7v5M6 17v-5h12v5"/></svg>',
   idcard:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6 16c.5-2 5.5-2 6 0M14 10h4M14 13h3"/></svg>'
@@ -2205,6 +2207,7 @@ const MODS={
   links:{title:'لينكات هامة',color:'linear-gradient(135deg,#1aa39a,#0b6b65)',subs:null},
   attend:{title:'الحضور',color:'linear-gradient(135deg,#1d7a4b,#0f4d2f)',subs:null},
   extlabor:{title:'حساب عمالة خارجية',color:'linear-gradient(135deg,#8a6d3b,#5a4220)',subs:null},
+  payroll:{title:'payroll — العقود والمرتبات',color:'linear-gradient(135deg,#0f766e,#134e4a)',subs:null},
   payrev:{title:'مراجع المرتبات',color:'linear-gradient(135deg,#2f8f83,#1b5a52)',subs:null},
   orgchart:{title:'الهيكل التنظيمي',color:'linear-gradient(135deg,#2f9e6f,#1f5fa8)',subs:null},
   idcard:{title:'ID',color:'linear-gradient(135deg,#e53935,#8e24aa)',subs:null},
@@ -3269,6 +3272,151 @@ async function alExport(){ if(!AL.res||!AL.res.rows.length) return toast('لا �
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'حضور في إجازة'); XLSX.writeFile(wb,'حضور_في_يوم_إجازة.xlsx'); }
 
 /* ===== تحضير الباصات (خطوط السير) ===== */
+/* ================= مديول payroll (العقود + المرتبات) ================= */
+const PAY={tab:'con',cons:[],emps:[],cfg:null,ym:'',inp:{},recs:null,q:'',res:[],loaded:false};
+const PAY_D={exempt:20000,maxIns:12600,empRate:0.11,coRate:0.1875,martyr:0.0005,days:30,hours:8,r1:1.35,r2:1.7,rh:2,weekOff:'5',holidays:'',otMin:30,otStep:0.5,absentDed:true};
+const payCfg=()=>({...PAY_D,...(PAY.cfg||{})});
+const payN=n=>Math.round((+n||0)*100)/100, payM=n=>payN(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const payD=s=>{ const [y,m,d]=String(s).split('-').map(Number); return Date.UTC(y,m-1,d); }, payIso=t=>new Date(t).toISOString().slice(0,10);
+const payCanE=()=>can('payroll','edit');
+function payMonth(ym){ const [y,m]=ym.split('-').map(Number), last=new Date(Date.UTC(y,m,0)).getUTCDate(); return {from:`${ym}-01`,to:`${ym}-${String(last).padStart(2,'0')}`,last}; }
+function payTax(Q){ let t;
+  if(Q<=40000) t=0; else if(Q<=55000) t=(Q-30000)*0.10; else if(Q<=70000) t=(Q-55000)*0.15+1500; else if(Q<=200000) t=(Q-70000)*0.20+1500+2250;
+  else if(Q<=400000) t=(Q-200000)*0.225+1500+2250+26000; else if(Q<=600000) t=(Q-400000)*0.25+1500+2250+26000+45000; else if(Q<=700000) t=(Q-400000)*0.25+5500+2250+26000+45000;
+  else if(Q<=800000) t=(Q-400000)*0.25+10500+26000+45000; else if(Q<=900000) t=(Q-400000)*0.25+40000+45000; else if(Q<=1200000) t=(Q-400000)*0.25+90000; else t=(Q-1200000)*0.275+300000;
+  return t/12; } // الضريبة الشهرية على الدخل السنوي Q (نفس معادلة الشيت)
+function payActive(c,mi){ const s=c.start>mi.from?c.start:mi.from, e=(c.exit&&c.exit<mi.to)?c.exit:mi.to; if(s>mi.to||e<mi.from||s>e) return null; return {s,e,days:Math.round((payD(e)-payD(s))/864e5)+1,full:s===mi.from&&e===mi.to}; }
+function paySessions(recs){ const out=[]; let open=null; recs.forEach(r=>{ const ms=atMs(r);
+  if(r.type==='in'){ if(open===null) open=ms; } else if(r.type==='out'&&open!==null){ if(ms>open&&ms-open<=20*36e5){ out.push({in:open,out:ms}); } else out.push({in:open,out:null}); open=null; } });
+  if(open!==null) out.push({in:open,out:null}); return out; }
+function payCompute(c,mi,recs,inp,cfg){
+  const act=payActive(c,mi); if(!act) return null; inp=inp||{};
+  const hol=new Set(String(cfg.holidays||'').split(/[\s,;]+/).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x))), off=new Set(String(cfg.weekOff||'').split('').map(Number));
+  const isOff=d=>off.has(new Date(payD(d)).getUTCDay())||hol.has(d);
+  let work=0; for(let t=payD(act.s);t<=payD(act.e);t+=864e5) if(!isOff(payIso(t))) work++;
+  const dates=new Set(); (recs||[]).forEach(r=>{ if(r.date>=act.s&&r.date<=act.e) dates.add(r.date); });
+  let presentWork=0; dates.forEach(d=>{ if(!isOff(d)) presentWork++; });
+  const day=new Map(); // تاريخ → دقائق إضافي لكل نوع
+  paySessions(recs||[]).forEach(s=>{ if(!s.out) return; const d=atISO(new Date(s.in)); if(d<act.s||d>act.e) return; const o=day.get(d)||{m1:0,m2:0,mh:0};
+    if(isOff(d)) o.mh+=Math.floor((s.out-s.in)/6e4);
+    else for(let t=s.in+cfg.hours*36e5;t<s.out;t+=6e4){ const h=new Date(t).getHours(); if(h>=8&&h<20) o.m1++; else o.m2++; }
+    day.set(d,o); });
+  const fl=m=>Math.floor((m/60)/cfg.otStep+1e-9)*cfg.otStep; let h1=0,h2=0,hh=0;
+  day.forEach(o=>{ if(o.m1+o.m2>0&&o.m1+o.m2>=cfg.otMin){ h1+=fl(o.m1); h2+=fl(o.m2); } if(o.mh>=cfg.otMin) hh+=fl(o.mh); });
+  const absAuto=Math.max(0,work-presentWork), absUsed=(inp.absOv!==undefined&&inp.absOv!==''&&inp.absOv!==null)?Math.max(0,+inp.absOv||0):absAuto;
+  const G=+c.gross||0, Geff=payN(act.full?G:G*Math.min(act.days,cfg.days)/cfg.days), dayRate=G/cfg.days, hourRate=dayRate/cfg.hours;
+  const I=+inp.allow||0, J=+inp.vac||0, K=+inp.back||0, L=+inp.bonus||0, M=payN(hourRate*(h1*cfg.r1+h2*cfg.r2+hh*cfg.rh));
+  const absDed=cfg.absentDed?payN(absUsed*dayRate):0, T=payN((+inp.ded||0)+absDed);
+  const H=Math.min(G,cfg.maxIns), N=Geff+I+J+K+L+M, O=H*cfg.empRate, P=N-O-cfg.exempt/12, Q=P*12, R=payTax(Q), S=cfg.martyr*N, U=H*cfg.coRate, V=N-O-R-S-T;
+  const W=Geff-O-cfg.exempt/12, X=payTax(W*12), Y=Geff-O-X;
+  return {c,act,work,present:presentWork,presentAll:dates.size,absAuto,absUsed,h1,h2,hh,absDed,G:Geff,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,noPunch:dates.size===0};
+}
+const PAY_COLS=[ // [المفتاح, العنوان, نوع: t نص / n رقم / i إدخال]
+ ['code','ID#','t'],['name','Full Name','t'],['job','Position','t'],['start','Start date','t'],['exit','Exit date','t'],
+ ['att','الحضور (فعلي / مستحق)','t'],['absUsed','الغياب (أيام)','i:absOv'],['ot','الإضافي (ساعات 1.35 / 1.7 / إجازة)','t'],
+ ['G','Basic Gross (without allowances)','n'],['H','Insured Salary','n'],['I','Gross allowance','i:allow'],['J','Gross Vacation','i:vac'],['K','Gross backpay after promotion/Hiring','i:back'],['L','Gross Bonus','i:bonus'],['M','Overtime','n'],
+ ['N','Gross salary all included','n'],['O','Social ins. Employee share','n'],['P','Taxable','n'],['Q','Annual taxable salary','n'],['R','Salary taxes to be paid','n'],['S','Martyrs Tax','n'],['T','Deductions (Not taxed)','i:ded'],['U','Social ins. Company share','n'],['V','Net salary','n'],
+ ['W','Taxable on basic gross salary','n'],['X','Salary taxes on basic gross','n'],['Y','Basic net salary','n'],['note','ملاحظات','i:note']];
+const PAY_SUM=['G','H','I','J','K','L','M','N','O','P','R','S','T','U','V','W','X','Y'];
+function payCell(r,col,ed){ const [k,,ty]=col, c=r.c;
+  if(ty.startsWith('i:')){ const f=ty.slice(2), inp=PAY.inp[PAY.ym+'_'+c.k]||{}; const v=inp[f]===undefined?'':inp[f];
+    if(f==='note') return `<td><input data-pf="${f}" data-pk="${esc(c.k)}" value="${esc(v)}" ${ed?'':'disabled'} style="width:130px"></td>`;
+    if(f==='ded'&&r.absDed>0) return `<td><input data-pf="${f}" data-pk="${esc(c.k)}" type="number" step="any" value="${esc(v)}" ${ed?'':'disabled'} title="مخصوم تلقائي للغياب: ${payM(r.absDed)}" style="width:90px"><div class="muted" style="font-size:10.5px">+ غياب ${payM(r.absDed)}</div></td>`;
+    return `<td><input data-pf="${f}" data-pk="${esc(c.k)}" type="number" step="any" ${f==='absOv'?`min="0" placeholder="${r.absAuto}"`:''} value="${esc(v)}" ${ed?'':'disabled'} style="width:${f==='absOv'?64:90}px"></td>`; }
+  let t; if(k==='code') t=esc(c.code||''); else if(k==='name') t=`<b>${esc(c.name)}</b>`; else if(k==='job') t=esc(c.job||''); else if(k==='start') t=advDate(c.start); else if(k==='exit') t=c.exit?advDate(c.exit):'—';
+  else if(k==='att') t=`<span data-f="att">${r.present} / ${r.work}</span>${r.noPunch?' <span class="bad" title="لا توجد بصمات للموظف في الشهر ده">⚠</span>':''}`;
+  else if(k==='ot') t=`<span data-f="ot">${r.h1} / ${r.h2} / ${r.hh}</span>`; else t=`<span data-f="${k}">${payM(r[k])}</span>`;
+  return `<td class="${k==='V'?'netc':''}">${t}</td>`; }
+function payRowHtml(r,ed){ return `<tr data-k="${esc(r.c.k)}" ${r.noPunch?'style="background:#fff5f5"':''}>${PAY_COLS.map(c=>payCell(r,c,ed)).join('')}</tr>`; }
+function payTotals(){ const S={}; PAY_SUM.forEach(k=>S[k]=PAY.res.reduce((s,r)=>s+(r[k]||0),0)); return S; }
+function payTotHtml(){ const S=payTotals(); return `<tr class="tot">${PAY_COLS.map(c=>c[0]==='name'?'<td>الإجمالي ('+PAY.res.length+')</td>':PAY_SUM.includes(c[0])?`<td data-tf="${c[0]}">${payM(S[c[0]])}</td>`:'<td></td>').join('')}</tr>`; }
+function payInit(){ if($('paystyle')) return; const s=document.createElement('style'); s.id='paystyle'; s.textContent=`#payx h2{margin:0 0 10px;font-size:18px;color:var(--navy)}#payx .pg{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;margin-bottom:12px}#payx label,.paym label{display:block;font-size:12.5px;font-weight:600;margin-bottom:3px}
+#payx input,#payx select,.paym input,.paym select{width:100%;font:inherit;font-size:13.5px;padding:6px 8px;border:1.5px solid #c3c6cf;border-radius:6px;background:#fff;box-sizing:border-box}#payx .pt{overflow:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:14px;background:#fff;max-height:72vh}
+#payx table{border-collapse:collapse;width:100%;font-size:13px}#payx th{background:var(--navy);color:#fff;padding:7px 8px;text-align:right;position:sticky;top:0;z-index:1;font-size:12px;line-height:1.25}#payx td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+#payx tr.tot td{font-weight:800;background:#eef1f6;position:sticky;bottom:0}#payx .netc{font-weight:800;color:#1b7a3d}#payx .bad{color:#c62828;font-weight:700}#payx .ok{color:#1b7a3d;font-weight:700}.paym .pg2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}.paym h3{margin:0 0 6px}`; document.head.appendChild(s); }
+function payTabs(){ hdrTabs([{k:'con',t:'العقود',on:PAY.tab==='con'},{k:'sal',t:'المرتبات',on:PAY.tab==='sal'}],k=>{ PAY.tab=k; payRender(); }); }
+async function mountPayroll(){
+  setLayout({view:true}); payInit(); $('view').innerHTML='<div class="card muted">جارٍ التحميل…</div>';
+  try{ const [c,e,cf]=await Promise.all([BE.rcList('payContracts'),BE.idGet('emps').catch(()=>null),BE.rcList('payCfg').catch(()=>[])]);
+    PAY.cons=c; PAY.emps=((e&&e.rows)||[]).slice().sort((a,b)=>String(a.n).localeCompare(String(b.n),'ar')); PAY.cfg=(cf.find(x=>x.id==='main')||null); }
+  catch(er){ $('view').innerHTML=`<div class="card bad">${esc(authMsg(er))}</div>`; return; }
+  if(!PAY.ym){ const n=new Date(); n.setDate(1); n.setMonth(n.getMonth()-1); PAY.ym=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`; }
+  PAY.recs=null; payRender(); }
+function payRender(){ payTabs(); $('view').innerHTML=`<div class="card" id="payx">${PAY.tab==='sal'?'<div class="muted">جارٍ التحميل…</div>':payConHtml()}</div>`; if(PAY.tab==='sal') paySalLoad(); else payConBind(); }
+/* ---------- تابة العقود ---------- */
+function payStatus(c){ const t=atISO(new Date()); return c.exit&&c.exit<t?'<span class="bad">منتهي</span>':(c.start>t?'<span class="muted">لم يبدأ</span>':'<span class="ok">ساري</span>'); }
+function payConRows(){ const q=lkNorm?lkNorm(PAY.q):PAY.q.trim().toLowerCase(); return PAY.cons.filter(c=>!q||(lkNorm?lkNorm([c.name,c.code,c.job].join(' ')):[c.name,c.code,c.job].join(' ').toLowerCase()).includes(q)).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar')||String(b.start).localeCompare(String(a.start))); }
+function payConHtml(){ const ed=payCanE(), rows=payConRows();
+  return `<h2>العقود</h2><div class="pg"><div><label>بحث</label><input id="pc_q" value="${esc(PAY.q)}" placeholder="اسم / كود / وظيفة"></div><div style="display:flex;gap:6px;flex-wrap:wrap">${ed?'<button class="btn pri" id="pc_new" type="button">+ Create contract</button>':''}<button class="btn" id="pc_xl" type="button">تصدير Excel</button></div></div>
+  <div class="pt"><table><thead><tr><th>#</th><th>Full Name</th><th>Position</th><th>Start date</th><th>Exit date</th><th>Basic Gross (without allowances)</th><th>الحالة</th><th></th></tr></thead><tbody>${rows.map((c,i)=>`<tr><td>${i+1}</td><td><b>${esc(c.name)}</b>${c.code?`<br><small class="muted">${esc(c.code)}</small>`:''}</td><td>${esc(c.job||'')}</td><td>${advDate(c.start)}</td><td>${c.exit?advDate(c.exit):'—'}</td><td><b>${payM(c.gross)}</b></td><td>${payStatus(c)}</td><td style="white-space:nowrap">${ed?`<button class="btn sm" data-pce="${esc(c.id)}" type="button">تعديل</button> `:''}${can('payroll','delete')?`<button class="btn sm" data-pcd="${esc(c.id)}" type="button">حذف</button>`:''}</td></tr>`).join('')||'<tr><td colspan="8" class="muted" style="text-align:center;padding:16px">لا توجد عقود'+(ed?' — اضغط Create contract':'')+'</td></tr>'}</tbody></table></div>`; }
+function payConBind(){ const q=id=>$(id);
+  if(q('pc_q')) q('pc_q').oninput=()=>{ PAY.q=q('pc_q').value; const pos=q('pc_q').selectionStart; payRender(); const n=$('pc_q'); n.focus(); n.setSelectionRange(pos,pos); };
+  if(q('pc_new')) q('pc_new').onclick=()=>payContractModal(null);
+  if(q('pc_xl')) q('pc_xl').onclick=payConExport;
+  document.querySelectorAll('[data-pce]').forEach(b=>b.onclick=()=>payContractModal(b.dataset.pce));
+  document.querySelectorAll('[data-pcd]').forEach(b=>b.onclick=async()=>{ if(!confirm('حذف العقد ده؟')) return; try{ await BE.rcDel('payContracts',b.dataset.pcd); PAY.cons=PAY.cons.filter(x=>x.id!==b.dataset.pcd); toast('تم الحذف'); payRender(); }catch(e){ toast(authMsg(e),true); } }); }
+function payContractModal(id){
+  const old=id?PAY.cons.find(c=>c.id===id):null; if(!old&&!PAY.emps.length){ toast('مفيش موظفين في مديول الـ ID — سجّل الموظفين هناك الأول',true); return; }
+  const m=ocModal(`<div class="paym"><h3>${old?'تعديل عقد':'Create contract'}</h3>
+   <div><label>Full Name (من مديول الـ ID)</label>${old?'':'<input id="pm_s" placeholder="ابحث بالاسم أو الكود…" style="margin-bottom:5px">'}<select id="pm_e" ${old?'disabled':''} size="${old?1:1}"></select></div>
+   <div class="pg2"><div><label>Position</label><input id="pm_j"></div><div><label>Start date</label><input type="date" id="pm_st"></div><div><label>Exit date (اختياري)</label><input type="date" id="pm_ex"></div><div><label>Basic Gross (without allowances)</label><input type="number" min="0" step="any" id="pm_g"></div></div>
+   <div id="pm_msg" class="bad" style="margin:8px 0"></div><div style="display:flex;gap:6px"><button class="btn pri" id="pm_save" type="button">${old?'حفظ التعديل':'حفظ العقد'}</button><button class="btn" data-ocx type="button">إلغاء</button></div></div>`,560);
+  const q=i=>m.querySelector('#'+i), sel=q('pm_e');
+  const fillList=()=>{ const f=q('pm_s')?q('pm_s').value.trim().toLowerCase():'', cur=sel.value; const L=PAY.emps.filter(e=>!f||[e.n,e.code].join(' ').toLowerCase().includes(f)); sel.innerHTML='<option value="">— اختر الموظف —</option>'+L.map(e=>`<option value="${esc(e.k)}">${esc(e.n)}${e.code?' — '+esc(e.code):''}</option>`).join(''); if(cur&&L.some(e=>e.k===cur)) sel.value=cur; };
+  const pick=()=>{ const e=PAY.emps.find(x=>x.k===sel.value); if(!e) return; q('pm_j').value=e.j||''; q('pm_st').value=/^\d{4}-\d{2}-\d{2}$/.test(e.t||'')?e.t:''; const has=PAY.cons.find(c=>c.k===e.k&&c.id!==id&&(!c.exit||c.exit>=atISO(new Date()))); q('pm_msg').textContent=has?'تنبيه: الموظف ده عنده عقد ساري بالفعل — العقد الأحدث هو اللي هيتحسب بيه المرتب':''; };
+  if(old){ sel.innerHTML=`<option value="${esc(old.k)}">${esc(old.name)}</option>`; q('pm_j').value=old.job||''; q('pm_st').value=old.start||''; q('pm_ex').value=old.exit||''; q('pm_g').value=old.gross||''; } else fillList();
+  if(q('pm_s')) q('pm_s').oninput=fillList; sel.onchange=pick;
+  q('pm_save').onclick=async()=>{ const k=sel.value, e=PAY.emps.find(x=>x.k===k)||(old?{k:old.k,n:old.name,code:old.code}:null), st=q('pm_st').value, ex=q('pm_ex').value, g=parseFloat(q('pm_g').value);
+    if(!e){ q('pm_msg').textContent='اختر الموظف'; return; } if(!st){ q('pm_msg').textContent='اكتب Start date'; return; } if(ex&&ex<st){ q('pm_msg').textContent='Exit date قبل Start date'; return; } if(!(g>0)){ q('pm_msg').textContent='اكتب الراتب الأساسي'; return; }
+    const rec={k:e.k,name:e.n||e.name,code:e.code||'',job:q('pm_j').value.trim(),start:st,exit:ex||'',gross:payN(g),at:old?old.at||Date.now():Date.now(),by:old?old.by||'':(ME.name||ME.email||''),upd:Date.now()}, cid=old?old.id:advId();
+    try{ await BE.rcSet('payContracts',cid,rec); if(old) Object.assign(old,rec); else PAY.cons.push({id:cid,...rec}); m.remove(); toast('تم حفظ العقد ✓'); payRender(); }catch(er){ q('pm_msg').textContent=authMsg(er); } };
+}
+async function payConExport(){ const rows=payConRows(); if(!rows.length){ toast('لا توجد عقود',true); return; } await loadXLSX();
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows.map(c=>({'ID#':c.code||'','Full Name':c.name,'Position':c.job||'','Start date':advDate(c.start),'Exit date':c.exit?advDate(c.exit):'','Basic Gross (without allowances)':c.gross}))),'Contracts'); XLSX.writeFile(wb,'العقود.xlsx'); }
+/* ---------- تابة المرتبات ---------- */
+async function paySalLoad(){
+  const box=$('payx'); const mi=payMonth(PAY.ym);
+  try{ const prev=payIso(payD(mi.from)-864e5), next=payIso(payD(mi.to)+864e5);
+    const [recs,inp]=await Promise.all([BE.attRange(prev,next).catch(e=>{ throw new Error(authMsg(e)+' — محتاج صلاحية قراءة الحضور'); }),BE.rcList('payInputs')]);
+    PAY.recs=recs; PAY.inp={}; inp.forEach(x=>{ PAY.inp[x.id]=x; }); }
+  catch(e){ if($('payx')) $('payx').innerHTML=`<h2>المرتبات</h2><div class="bad">${esc(e.message||String(e))}</div>`; return; }
+  if(PAY.tab!=='sal'||!$('payx')) return; paySalDraw(); }
+function payBuild(){ const cfg=payCfg(), mi=payMonth(PAY.ym), byK=new Map(); (PAY.recs||[]).forEach(r=>{ if(!r.k) return; (byK.get(r.k)||byK.set(r.k,[]).get(r.k)).push(r); }); byK.forEach(l=>l.sort((a,b)=>atMs(a)-atMs(b)));
+  const best=new Map(); PAY.cons.forEach(c=>{ if(!payActive(c,mi)) return; const o=best.get(c.k); if(!o||String(c.start)>String(o.start)) best.set(c.k,c); });
+  PAY.res=[...best.values()].map(c=>payCompute(c,mi,byK.get(c.k)||[],PAY.inp[PAY.ym+'_'+c.k],cfg)).filter(Boolean).sort((a,b)=>String(a.c.name).localeCompare(String(b.c.name),'ar')); }
+function paySalDraw(){ const box=$('payx'); if(!box) return; payBuild(); const ed=payCanE(), cfg=payCfg(), tot=payTotals(), nPun=PAY.res.filter(r=>r.noPunch).length, noC=PAY.cons.length?0:1;
+  box.innerHTML=`<h2>المرتبات</h2><div class="pg"><div><label>الشهر</label><input type="month" id="ps_m" value="${esc(PAY.ym)}"></div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:end"><button class="btn" id="ps_xl" type="button">تصدير Excel</button><button class="btn" id="ps_pr" type="button">🖨 طباعة</button>${ed?'<button class="btn" id="ps_cf" type="button">⚙ إعدادات الحساب</button>':''}</div></div>
+  <div class="muted" style="font-size:12.5px;margin-bottom:8px">بيحسب المرتبات للموظفين اللي ليهم عقد ساري في الشهر ده بس، من حضورهم في مديول الحضور: الغياب (أيام العمل من غير بصمة) بيتخصم في «Deductions»، والإضافي بيتحسب من البصمات (بعد ${cfg.hours} ساعات من أول بصمة). البدلات والإجازة والمكافأة والخصومات اليدوية بتتكتب في الخانات. لو الموظف عنده إجازة معتمدة اكتب أيام الغياب الصحيحة في خانة «الغياب».</div>
+  ${nPun?`<div class="bad" style="margin-bottom:8px">⚠ ${nPun} موظف ما لهمش أي بصمة في الشهر ده (متعلّمين بالأحمر) — اتحسب غيابهم كامل، راجع قبل الاعتماد.</div>`:''}
+  <div class="pt"><table><thead><tr>${PAY_COLS.map(c=>`<th>${esc(c[1])}</th>`).join('')}</tr></thead><tbody id="ps_tb">${PAY.res.map(r=>payRowHtml(r,ed)).join('')||`<tr><td colspan="${PAY_COLS.length}" class="muted" style="text-align:center;padding:16px">${noC?'لا توجد عقود — أضفها من تابة العقود':'مفيش عقود سارية في الشهر ده'}</td></tr>`}</tbody><tfoot id="ps_tf">${PAY.res.length?payTotHtml():''}</tfoot></table></div>`;
+  $('ps_m').onchange=()=>{ if($('ps_m').value){ PAY.ym=$('ps_m').value; payRender(); } };
+  $('ps_xl').onclick=payExport; $('ps_pr').onclick=payPrint; if($('ps_cf')) $('ps_cf').onclick=payCfgModal;
+  $('ps_tb').addEventListener('change',async e=>{ const el=e.target; if(!el.dataset.pf) return; const k=el.dataset.pk, f=el.dataset.pf, id=PAY.ym+'_'+k, o={...(PAY.inp[id]||{ym:PAY.ym,k})}; const v=f==='note'?el.value.trim():(el.value===''?'':parseFloat(el.value)||0); if(v==='') delete o[f]; else o[f]=v; delete o.id;
+    try{ await BE.rcSet('payInputs',id,o); PAY.inp[id]={id,...o}; }catch(er){ toast(authMsg(er),true); return; } payRefreshRow(k); }); }
+function payRefreshRow(k){ const cfg=payCfg(), mi=payMonth(PAY.ym), i=PAY.res.findIndex(r=>r.c.k===k); if(i<0) return; const r=payCompute(PAY.res[i].c,mi,(PAY.recs||[]).filter(x=>x.k===k).sort((a,b)=>atMs(a)-atMs(b)),PAY.inp[PAY.ym+'_'+k],cfg); if(!r) return; PAY.res[i]=r;
+  const tr=document.querySelector(`#ps_tb tr[data-k="${CSS.escape(k)}"]`); if(tr){ tr.querySelectorAll('[data-f]').forEach(s=>{ const f=s.dataset.f; s.textContent=f==='att'?`${r.present} / ${r.work}`:f==='ot'?`${r.h1} / ${r.h2} / ${r.hh}`:payM(r[f]); }); const dedIn=tr.querySelector('[data-pf="ded"]'); if(dedIn){ const nx=dedIn.nextElementSibling; if(r.absDed>0){ dedIn.title='مخصوم تلقائي للغياب: '+payM(r.absDed); if(nx) nx.textContent='+ غياب '+payM(r.absDed); else dedIn.insertAdjacentHTML('afterend',`<div class="muted" style="font-size:10.5px">+ غياب ${payM(r.absDed)}</div>`); } else if(nx&&nx.tagName==='DIV') nx.remove(); } }
+  const S=payTotals(); document.querySelectorAll('#ps_tf [data-tf]').forEach(td=>{ td.textContent=payM(S[td.dataset.tf]); }); }
+function payCfgModal(){ const c=payCfg(); const f=(k,l,step)=>`<div><label>${l}</label><input id="cf_${k}" type="number" step="${step||'any'}" value="${c[k]}"></div>`;
+  const m=ocModal(`<div class="paym"><h3>إعدادات حساب المرتبات (من شيت Input)</h3><div class="pg2">${f('exempt','الإعفاء الشخصي السنوي')}${f('maxIns','الحد الأقصى للأجر التأميني')}${f('empRate','نسبة تأمين الموظف (0.11)')}${f('coRate','نسبة تأمين الشركة (0.1875)')}${f('martyr','ضريبة الشهداء (0.0005)')}${f('days','أيام الشهر للراتب')}${f('hours','ساعات العمل القانونية/يوم')}${f('r1','معامل الإضافي 08:00–20:00')}${f('r2','معامل الإضافي 20:00–08:00')}${f('rh','معامل الإجازة الرسمية/الأسبوعية')}${f('otMin','أقل إضافي يوميًا يُحسب (دقيقة)')}${f('otStep','تقريب الإضافي لأسفل (ساعة)')}
+   <div><label>الإجازة الأسبوعية</label><select id="cf_weekOff"><option value="5">الجمعة</option><option value="56">الجمعة والسبت</option><option value="6">السبت</option><option value="">لا يوجد</option></select></div><div><label>خصم الغياب من الراتب</label><select id="cf_absentDed"><option value="1">نعم (يوم = الراتب ÷ أيام الشهر)</option><option value="0">لا</option></select></div></div>
+   <div style="margin-top:8px"><label>الإجازات الرسمية (تواريخ YYYY-MM-DD مفصولة بمسافة أو فاصلة)</label><input id="cf_holidays" dir="ltr" value="${esc(c.holidays)}"></div><div id="cf_msg" class="bad" style="margin:6px 0"></div>
+   <div style="display:flex;gap:6px"><button class="btn pri" id="cf_save" type="button">حفظ</button><button class="btn" data-ocx type="button">إلغاء</button></div></div>`,640);
+  m.querySelector('#cf_weekOff').value=c.weekOff; m.querySelector('#cf_absentDed').value=c.absentDed?'1':'0';
+  m.querySelector('#cf_save').onclick=async()=>{ const n={}; ['exempt','maxIns','empRate','coRate','martyr','days','hours','r1','r2','rh','otMin','otStep'].forEach(k=>{ n[k]=parseFloat(m.querySelector('#cf_'+k).value); });
+    if(Object.values(n).some(x=>!(x>=0))||!(n.days>0)||!(n.hours>0)||!(n.otStep>0)){ m.querySelector('#cf_msg').textContent='راجع القيم — لازم أرقام صحيحة'; return; }
+    n.weekOff=m.querySelector('#cf_weekOff').value; n.absentDed=m.querySelector('#cf_absentDed').value==='1'; n.holidays=m.querySelector('#cf_holidays').value.trim();
+    try{ await BE.rcSet('payCfg','main',n); PAY.cfg=n; m.remove(); toast('تم الحفظ ✓'); paySalDraw(); }catch(e){ m.querySelector('#cf_msg').textContent=authMsg(e); } }; }
+function payExportRows(){ return PAY.res.map(r=>({'ID#':r.c.code||'','Full Name':r.c.name,'Position':r.c.job||'','Start date':advDate(r.c.start),'Exit date':r.c.exit?advDate(r.c.exit):'','Basic Gross (without allowances)':payN(r.G),'Insured Salary':payN(r.H),'Gross allowance':payN(r.I),'Gross Vacation':payN(r.J),'Gross backpay after promotion/Hiring':payN(r.K),'Gross Bonus':payN(r.L),'Overtime':payN(r.M),'Gross salary all included':payN(r.N),'Social ins. Employee share':payN(r.O),'Taxable':payN(r.P),'Annual taxable salary':payN(r.Q),'Salary taxes to be paid':payN(r.R),'Martyrs Tax':payN(r.S),'Deductions (Not taxed)':payN(r.T),'Social ins. Company share':payN(r.U),'Net salary':payN(r.V),'Taxable on basic gross salary':payN(r.W),'Salary taxes on basic gross':payN(r.X),'Basic net salary':payN(r.Y)})); }
+async function payExport(){ if(!PAY.res.length){ toast('لا توجد مرتبات في الشهر ده',true); return; } await loadXLSX(); const wb=XLSX.utils.book_new(), rows=payExportRows(), S=payTotals();
+  rows.push({'Full Name':'Total','Basic Gross (without allowances)':payN(S.G),'Insured Salary':payN(S.H),'Gross allowance':payN(S.I),'Gross Vacation':payN(S.J),'Gross backpay after promotion/Hiring':payN(S.K),'Gross Bonus':payN(S.L),'Overtime':payN(S.M),'Gross salary all included':payN(S.N),'Social ins. Employee share':payN(S.O),'Taxable':payN(S.P),'Salary taxes to be paid':payN(S.R),'Martyrs Tax':payN(S.S),'Deductions (Not taxed)':payN(S.T),'Social ins. Company share':payN(S.U),'Net salary':payN(S.V),'Taxable on basic gross salary':payN(S.W),'Salary taxes on basic gross':payN(S.X),'Basic net salary':payN(S.Y)});
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Payroll');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(PAY.res.map(r=>({'ID#':r.c.code||'','Full Name':r.c.name,'أيام العمل المستحقة':r.work,'أيام الحضور':r.present,'غياب تلقائي':r.absAuto,'غياب مستخدم':r.absUsed,'خصم الغياب':payN(r.absDed),'إضافي 1.35 (ساعة)':r.h1,'إضافي 1.7 (ساعة)':r.h2,'إجازة رسمية/أسبوعية (ساعة)':r.hh,'بدون بصمات':r.noPunch?'نعم':'','ملاحظات':(PAY.inp[PAY.ym+'_'+r.c.k]||{}).note||''}))),'Attendance');
+  XLSX.writeFile(wb,`Payroll_${PAY.ym}.xlsx`); }
+function payPrint(){ if(!PAY.res.length){ toast('لا توجد مرتبات للطباعة',true); return; } const S=payTotals(), keys=['code','name','job','att','G','I','J','K','L','M','N','O','R','S','T','V'], hd={code:'ID#',name:'Full Name',job:'Position',att:'حضور/مستحق',G:'Basic Gross',I:'Allowance',J:'Vacation',K:'Backpay',L:'Bonus',M:'Overtime',N:'Gross all',O:'Social ins.',R:'Taxes',S:'Martyrs',T:'Deductions',V:'Net salary'};
+  const cell=(r,k)=>k==='code'?esc(r.c.code||''):k==='name'?`<b>${esc(r.c.name)}</b>`:k==='job'?esc(r.c.job||''):k==='att'?`${r.present}/${r.work}`:payM(r[k]);
+  const html=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>Payroll ${esc(PAY.ym)}</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{margin:0;direction:rtl;font-family:"Segoe UI",Tahoma,Arial,sans-serif;font-size:10.5px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.tp{display:flex;justify-content:space-between;border-bottom:2px solid #d71920;padding-bottom:4px;margin-bottom:6px}.tp h1{margin:0;font-size:16px}table{width:100%;border-collapse:collapse}thead{display:table-header-group}th{background:#1f2a44;color:#fff;padding:4px 5px;text-align:right}td{border:1px solid #cbd5e1;padding:3px 5px}tr{break-inside:avoid}tr.tot td{font-weight:800;background:#eef1f6}td.n{font-weight:800}</style></head><body><div class="tp"><h1>مرتبات شهر ${esc(PAY.ym)}</h1><span>In EGP</span></div><table><thead><tr>${keys.map(k=>`<th>${hd[k]}</th>`).join('')}</tr></thead><tbody>${PAY.res.map(r=>`<tr>${keys.map(k=>`<td class="${k==='V'?'n':''}">${cell(r,k)}</td>`).join('')}</tr>`).join('')}<tr class="tot">${keys.map(k=>k==='name'?'<td>الإجمالي</td>':['G','I','J','K','L','M','N','O','R','S','T','V'].includes(k)?`<td>${payM(S[k])}</td>`:'<td></td>').join('')}</tr></tbody></table></body></html>`;
+  const fr=document.createElement('iframe'); fr.style.cssText='position:fixed;left:-10000px;top:0;width:1062px;height:733px;border:0;visibility:hidden'; fr.srcdoc=html; fr.onload=()=>setTimeout(()=>{ try{ fr.contentWindow.focus(); fr.contentWindow.print(); }catch(e){ toast('تعذر فتح الطباعة',true); } setTimeout(()=>fr.remove(),60000); },300); document.body.appendChild(fr); }
+
 /* ---------------- السلف (مشترك: العمالة الخارجية + تحضير الباصات) ---------------- */
 const ADV={el:[],bus:[],sel:{el:'',bus:''}};
 const advR=n=>Math.round((+n||0)*100)/100, advM=n=>advR(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -3337,6 +3485,7 @@ window.busMount=async function(k){ BUS.tab=k; const box=$(k==='cfg'?'cars-pane-c
 function busDraw(){ if(BUS.tab==='cfg'){ const b=$('busc'); if(b){ b.innerHTML=busCfgHtml(); busCfgBind(); } } else { const b=$('busx'); if(b){ b.innerHTML=busDayHtml(); busDayBind(); } } }
 /* ---------- خيارات الخطوط من التهيئة ---------- */
 function busLineOpts(sel){ const o=[]; BUS.cos.forEach(c=>(c.lines||[]).forEach((l,i)=>o.push(`<option value="${esc(c.id)}|${i}" ${(sel===c.id+'|'+i||sel===c.id+'|'+l.name)?'selected':''}>${esc(l.name)} — ${esc(c.name)}</option>`))); return o.join(''); }
+function busLineSel(e){ if(!e) return ''; let hit=''; BUS.cos.forEach(c=>(c.lines||[]).forEach((l,i)=>{ if(!hit&&(e.lineKey===c.id+'|'+i||e.lineKey===c.id+'|'+l.name)) hit=c.id+'|'+i; })); if(hit) return hit; BUS.cos.forEach(c=>(c.lines||[]).forEach((l,i)=>{ if(!hit&&l.name===e.lineName&&(!e.coId||c.id===e.coId)) hit=c.id+'|'+i; })); BUS.cos.forEach(c=>(c.lines||[]).forEach((l,i)=>{ if(!hit&&l.name===e.lineName) hit=c.id+'|'+i; })); return hit; }
 function busGetLine(v){ const [id,i]=String(v||'').split('|'), c=BUS.cos.find(x=>x.id===id); return c&&c.lines&&c.lines[+i]?{co:c,line:c.lines[+i],idx:+i}:null; }
 /* ---------- تاب التحضير ---------- */
 function busRows(){ return BUS.log.filter(r=>(!BUS.from||r.date>=BUS.from)&&(!BUS.to||r.date<=BUS.to)&&(!BUS.fc||r.coId===BUS.fc)&&(!BUS.fl||r.lineKey===BUS.fl)&&(!BUS.fs||r.shift===BUS.fs)).sort((a,b)=>b.date.localeCompare(a.date)||String(a.lineName).localeCompare(String(b.lineName),'ar')); }
@@ -3346,8 +3495,8 @@ function busByCo(rows){ const m=new Map(); rows.forEach(r=>{ const o=m.get(r.coI
 function busDayHtml(){ const e=BUS.log.find(x=>x.id===BUS.edit)||null, canAdd=can('cars','add'), canEd=can('cars','edit'), canDel=can('cars','delete');
   if(!BUS.cos.some(c=>(c.lines||[]).length)) return `<h2>تحضير الباصات</h2><div class="muted">لسه مفيش خطوط في التهيئة. ${busCanCfg()?'روح لتابة «التهيئة» وأضف الشركة والخط ومواعيده وقيمة الوردية الأول.':'اطلب من المسؤول إضافة الشركات والخطوط من التهيئة.'}</div>`;
   const today=(()=>{ const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`; })();
-  const form=(canAdd||(e&&canEd))?`<div style="border:1.5px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px;background:#fafbfe"><b>${e?'تعديل تحضير':'تحضير باص'}</b>
-   <div class="bg" style="margin-top:8px"><div><label>خط السير</label><select id="bus_l"><option value="">— اختر الخط —</option>${busLineOpts(e?e.lineKey:'')}</select></div><div><label>نظام الورديات</label><select id="bus_sys"><option value="8">8 ساعات (3 ورديات)</option></select></div><div><label>الوردية</label><select id="bus_sh"><option value="auto">تلقائي</option></select></div><div><label>نوع الباص</label><select id="bus_vt"><option value="">—</option></select></div><div><label>الشركة</label><input id="bus_co" readonly style="background:#f1f3f8"></div><div><label>التاريخ</label><input type="date" id="bus_d" value="${esc(e?e.date:today)}"></div></div>
+  const form=(canAdd||(e&&canEd))?`<div style="border:1.5px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px;background:#fafbfe"><b>${e?'تعديل تحضير':'تحضير باص'}</b>${e&&!busLineSel(e)?`<div class="bad" style="margin-top:6px">الخط «${esc(e.lineName||'')}» (${esc(e.coName||'')}) مش موجود حاليًا في التهيئة — اختر الخط من القايمة وراجع باقي البيانات.</div>`:''}
+   <div class="bg" style="margin-top:8px"><div><label>خط السير</label><select id="bus_l"><option value="">— اختر الخط —</option>${busLineOpts(e?busLineSel(e):'')}</select></div><div><label>نظام الورديات</label><select id="bus_sys"><option value="8">8 ساعات (3 ورديات)</option></select></div><div><label>الوردية</label><select id="bus_sh"><option value="auto">تلقائي</option></select></div><div><label>نوع الباص</label><select id="bus_vt"><option value="">—</option></select></div><div><label>الشركة</label><input id="bus_co" readonly style="background:#f1f3f8"></div><div><label>التاريخ</label><input type="date" id="bus_d" value="${esc(e?e.date:today)}"></div></div>
    <div class="bg"><div><label>الحضور الفعلي للمصنع</label><input type="time" id="bus_ai" value="${esc(e?e.aIn||'':'')}"></div><div><label>الانصراف الفعلي</label><input type="time" id="bus_ao" value="${esc(e?e.aOut||'':'')}"></div></div>
    <div class="bg"><div style="grid-column:span 2"><label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin:0"><input type="checkbox" id="bus_acc" style="width:auto" ${e&&e.acc?'checked':''}> يوجد حادث — مذكرة معتمدة من مدير المصنع (لا خصم)</label></div><div style="grid-column:span 2"><label>ملاحظات</label><input id="bus_n" value="${esc(e?e.note||'':'')}"></div></div>
    <div id="bus_pv" style="margin:6px 0 10px;font-weight:700"></div>
@@ -7422,7 +7571,7 @@ document.addEventListener('click',e=>{ const a=e.target.closest&&e.target.closes
 document.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const a=e.target.closest&&e.target.closest('#pwaTile'); if(a){ e.preventDefault(); pwaInstall(); } } });
 
 /* ---------------- الموجّه / الشاشة الرئيسية ---------------- */
-const HOME_ORDER=['hiring','insurance','resign','housing','cars','tasks','forms','links','payrev','attend','extlabor','orgchart','idcard','users','buffet','stationery'];
+const HOME_ORDER=['hiring','insurance','resign','housing','cars','tasks','forms','links','payrev','payroll','attend','extlabor','orgchart','idcard','users','buffet','stationery'];
 function showHome(){
   CUR={mod:null,sub:null}; $('mod').hidden=true; $('adm').hidden=true; $('home').hidden=false; $('subnav').innerHTML=''; $('modTitle').textContent='أوباك — الموارد البشرية والشؤون الإدارية';
   const apps=HOME_ORDER.filter(k=>MODS[k]&&canMod(k));
@@ -7439,7 +7588,7 @@ function openModule(m,sub){
   $('adm').hidden=true; $('mod').hidden=false;
   const subs=MODS[m].subs?MODS[m].subs.filter(s=>can(m,s[2])):[];
   $('subnav').innerHTML=subs.map(s=>`<a data-sub="${s[0]}" href="#/${m}/${s[0]}">${s[1]}</a>`).join('');
-  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='users') mountUsers(); else if(m==='forms') mountForms(); else if(m==='links') mountLinks(); else if(m==='payrev') mountPayRev(sub); else if(m==='extlabor') mountExtLabor(); else if(m==='attend') mountAttend(); else if(m==='orgchart') mountOrg(); else if(m==='idcard') mountID();
+  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='users') mountUsers(); else if(m==='forms') mountForms(); else if(m==='links') mountLinks(); else if(m==='payrev') mountPayRev(sub); else if(m==='extlabor') mountExtLabor(); else if(m==='payroll') mountPayroll(); else if(m==='attend') mountAttend(); else if(m==='orgchart') mountOrg(); else if(m==='idcard') mountID();
   window.scrollTo(0,0);
 }
 function route(){
