@@ -9704,6 +9704,7 @@ window.deleteStAuth = id => {
 function tkVisible(t) { return !!P && (P.role === 'admin' || (t.assignees || []).length > 0 || t.createdBy === P.uid || String(t.id).startsWith('gcal_')); }
 S.tasks = [];
 const tkToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' });
+const tkCr = x => +((x.raw && x.raw.createdAt) || 0) || 0;
 function tkItems() {
   const today = tkToday();
   const mine = S.tasks.filter(t => !t.id.startsWith('gcal_')).map(t => ({ kind: 'task', id: t.id, title: t.title, notes: t.notes || '', due: t.due || '', done: !!t.done, doneAt: t.doneAt, assignees: t.assignees || [], doneByName: t.doneByName || '', raw: t }));
@@ -9747,9 +9748,9 @@ function renderTasks() {
   const f = $('tk-filter').value, src = $('tk-src').value, q = $('tk-search').value.trim().toLowerCase();
   const rows = all.filter(x => (f === 'all' || (f === 'open' && !x.done) || (f === 'focus' && (x.late || x.today)) || (f === 'late' && x.late) || (f === 'done' && x.done))
     && (src === 'all' || x.kind === src) && tkWhoOk(x) && (!q || (x.title + ' ' + x.notes).toLowerCase().includes(q)))
-    .sort((a, b) => (a.done - b.done) || (a.due || '9999').localeCompare(b.due || '9999') || (a.time || '').localeCompare(b.time || ''));
+    .sort((a, b) => (a.done - b.done) || (tkCr(b) - tkCr(a)) || (a.due || '9999').localeCompare(b.due || '9999') || (a.time || '').localeCompare(b.time || ''));
   const man = tkManual(); $('tk-sort').value = man ? 'manual' : 'auto';
-  if (man) { const ix = x => { const i = TK_ORD.indexOf(tkKey(x)); return i < 0 ? 1e9 : i; }; rows.sort((a, b) => (a.done - b.done) || (ix(a) - ix(b))); }
+  if (man) { const ix = x => { const i = TK_ORD.indexOf(tkKey(x)); return i < 0 ? -1 : i; }; rows.sort((a, b) => (a.done - b.done) || (ix(a) - ix(b)) || (tkCr(b) - tkCr(a))); }
   TK_ROWS = rows;
   const tkCard = x => {
     const dueCls = x.late ? 'bg-rose-100 text-rose-700' : x.today ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600';
