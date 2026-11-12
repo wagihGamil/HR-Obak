@@ -282,7 +282,7 @@ service cloud.firestore {
 
     // ===== ID (كروت تصريح الدخول: الموظفون + الظهر + الصور) =====
     match /idCards/{id} {
-      allow read:  if can('idcard','view') || ((id == 'emps' || id == 'pw') && (anyA('resign') || anyA('hiring'))) || (id == 'cfg' && anyA('hiring')) || (id.matches('ph_.*') && anyA('hiring')) || ((id == 'emps' || id.matches('ph_.*')) && canA('attend','edit')) || (id == 'emps' && anyA('payroll'));
+      allow read:  if can('idcard','view') || ((id == 'emps' || id == 'pw') && (anyA('resign') || anyA('hiring'))) || (id == 'cfg' && anyA('hiring')) || (id.matches('ph_.*') && anyA('hiring')) || ((id == 'emps' || id.matches('ph_.*')) && canA('attend','edit')) || (id == 'emps' && (anyA('payroll') || anyA('payrev')));
       allow write: if wr('idcard') || ((id == 'emps' || id.matches('ph_.*')) && canA('hiring','add'));
     }
 
@@ -333,6 +333,10 @@ service cloud.firestore {
     match /payInputs/{id} {
       allow read:   if anyA('payroll');
       allow create, update, delete: if canA('payroll','edit');
+    }
+    match /leaveOv/{id} {
+      allow read:  if anyA('payrev');
+      allow create, update, delete: if canA('payrev','ovr');
     }
     match /payCfg/{id} {
       allow read:   if anyA('payroll');

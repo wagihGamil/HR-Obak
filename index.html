@@ -2168,6 +2168,7 @@ const LV_BASE={hiring:['acks','kin','contract','policy'],resign:['rq','rf','er',
 const LV_XL={hiring:{add:'السجل: إضافة (حفظ موظف جديد)',edit:'السجل: تعديل (تحديث موظف محفوظ)',delete:'السجل: حذف موظف من السجل'},resign:{add:'السجل: إضافة (حفظ موظف جديد)',edit:'السجل: تعديل (تحديث موظف محفوظ)',delete:'السجل: حذف موظف من السجل'},forms:{add:'إضافة نماذج جديدة',edit:'تعديل النماذج',delete:'حذف نماذج'}};
 Object.keys(LV_BASE).forEach(m=>{ PERM[m].acts={...PERM[m].acts,...LV_XL[m],admin:LV_LBL.admin}; PERM[m].lv=true; PERM[m].base=LV_BASE[m]; PERM[m].vl=m==='forms'?'عرض كل النماذج فقط':'طباعة الأوراق فقط (السجل للعرض)'; });
 const lvPre=m=>{ const b=(PERM[m]&&PERM[m].base)||['view']; return {none:[],view:b,add:[...b,'add'],del:[...b,'delete'],ae:[...b,'add','edit'],admin:[...b,'add','edit','delete','admin']}; };
+PERM.payrev.acts.ovr='تعديل بيانات رصيد الإجازات (ليس أول سنة / فوق 50 / 10 سنين تأمين / تسوية)';
 PERM.cars.acts.appr='اعتماد تحضير الباصات (قبول/رفض الحضور والسلف ومذكرات الحوادث اللي المستخدمين بيرفعوها) — من غيرها كل اللي بيتسجل بيتبعت «للاعتماد»';
 PERM.cars.acts.cfg='تهيئة تحضير الباصات (الشركات والخطوط والأسعار وسياسة التأخير) — من غيرها التابة مخفية';
 ['buffet','stationery'].forEach(m=>{ PERM[m].acts.issueonly='صرف فقط — يخفي تاب الأصناف والرصيد ويفتح على تسجيل الصرف'; });
@@ -3693,10 +3694,80 @@ async function fxExport(){ if(!FX.res) return toast('اعمل المطابقة �
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'مطابقة المؤثرات');
   if(R.exSl.length||R.exOt.length) XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([...R.exSl.map(n=>({'الاسم':n,'ملاحظة':'في المرتبات وليس في الموظفين'})),...R.exOt.map(n=>({'الاسم':n,'ملاحظة':'في الإضافي وليس في الموظفين'}))]),'غير مطابق');
   XLSX.writeFile(wb,'مطابقة_المؤثرات.xlsx'); }
-function mountPayRev(sub){ if(['ded','lv','fx','al'].includes(sub)) PRT=sub; else if(location.hash.replace(/^#\/?/,'')==='payrev'&&!['ded','lv','fx','al'].includes(PRT)) PRT='ded';
+
+/* ===== مراجعة رصيد الإجازات ===== */
+const LB={emp:null,lv:null,lvM:[],ov:{},nid:null,asof:'',q:'',f:'all',rows:[],ovLoaded:false};
+const LB_MON={'يناير':1,'فبراير':2,'مارس':3,'ابريل':4,'مايو':5,'يونيو':6,'يوليو':7,'اغسطس':8,'سبتمبر':9,'اكتوبر':10,'نوفمبر':11,'ديسمبر':12};
+const lbIso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const lbR=n=>Math.round((+n||0)*100)/100;
+function lbAddM(d,n){ const x=new Date(d.getFullYear(),d.getMonth()+n,d.getDate()); if(x.getDate()!==d.getDate()) x.setDate(0); return x; }
+function lbMonths(h,a){ let n=(a.getFullYear()-h.getFullYear())*12+(a.getMonth()-h.getMonth()); if(a.getDate()<h.getDate()) n--; return Math.max(0,n); }
+function lbAge(nid,a){ const s=String(nid||'').replace(/\D/g,''); if(s.length!==14) return null; const c=s[0]==='2'?1900:s[0]==='3'?2000:0; if(!c) return null; const y=c+(+s.slice(1,3)), m=+s.slice(3,5), d=+s.slice(5,7); if(m<1||m>12||d<1||d>31) return null; let g=a.getFullYear()-y; if(a.getMonth()+1<m||(a.getMonth()+1===m&&a.getDate()<d)) g--; return g; }
+async function lbReadLeave(file){ await loadXLSX(); const wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array',cellDates:true}); const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null,raw:true});
+  const head=rows[0]||[], months=[]; head.forEach((c,i)=>{ if(i===0||c==null) return; const m=String(c).match(/(\S+)\s+(\d{4})/); if(!m) return; const mo=LB_MON[lkNorm(m[1])]; if(mo) months.push({i,y:+m[2],m:mo}); });
+  if(!months.length) throw new Error('مش لاقي أعمدة الشهور (مثال: «يناير 2026») في الصف الأول');
+  const map=new Map(); rows.slice(1).forEach(r=>{ const nm=String(r[0]==null?'':r[0]).trim(); if(!nm||/^المدة/.test(nm)) return; const vals=months.map(x=>Number(r[x.i])||0); const k=lkNorm(nm), o=map.get(k); if(o) o.vals=o.vals.map((v,j)=>v+vals[j]); else map.set(k,{name:nm,vals}); });
+  return {months,map}; }
+function lbCalc(){ if(!LB.emp) return; const E0=LB.emp[0]||{}, cN=lkCol(E0,/اسم الموظف|^الموظف|^employee|^name/i), cH=lkCol(E0,/تاريخ أول عقد|first contract|تاريخ التعيين|تاريخ البداية/i), cD=lkCol(E0,/القسم|department/i), cJ=lkCol(E0,/المنصب|job/i), cI=lkCol(E0,/رقم الهوية|الرقم القومي|national|identif/i), cC=lkCol(E0,/zk|كود|code/i);
+  if(!cN||!cH){ LB.err='⛔ شيت الموظفين لازم فيه عمود «اسم الموظف» و«تاريخ أول عقد»'; LB.rows=[]; return; } LB.err='';
+  const a=lkDate(LB.asof)||new Date(); const lvm=LB.lv?LB.lv.months:[], lvmap=LB.lv?LB.lv.map:new Map(), used=new Set(), cut=new Date(2026,3,1); const rows=[], later=[];
+  LB.emp.forEach(r=>{ const name=String(r[cN]==null?'':r[cN]).trim(); if(!name) return; const k=lkNorm(name), hire=lkDate(r[cH]); const o=LB.ov[k]||{};
+    if(hire&&hire>a){ later.push(name); used.add(k); return; }
+    const nid=(cI&&r[cI])?String(r[cI]):((LB.nid&&LB.nid.get(k))||''), age=lbAge(nid,a), auto50=age!==null&&age>=50;
+    const nf=!!o.nf, o50=o.o50!==undefined?!!o.o50:auto50, i10=!!o.i10, hi=o50||i10;
+    const mths=hire?lbMonths(hire,a):0, six=hire?lbAddM(hire,6):null, ok=!!hire&&a>=six;
+    let rate='—',ent=0; if(hire&&ok){ if(hi){ rate='2.5'; ent=2.5*mths; } else if(hire<cut){ rate='1.75'; ent=1.75*mths; } else { const f=Math.min(mths,12), x=Math.max(0,mths-12), r1=nf?1.75:1.25; ent=f*r1+x*1.75; rate=x?(r1===1.75?'1.75':'1.25 ← 1.75'):String(r1); } }
+    used.add(k); const L=lvmap.get(k); let cons=0, early=0, maybe=0, perM=[];
+    lvm.forEach((m,j)=>{ const v=L?L.vals[j]:0, ms=new Date(m.y,m.m-1,1), me=new Date(m.y,m.m,0); if(ms>a){ perM.push(null); return; } perM.push(v); cons+=v; if(v>0&&hire){ if(me<six) early+=v; else if(ms<=six) maybe+=v; } });
+    const adj=+o.adj||0; rows.push({k,name,code:cC?String(r[cC]==null?'':r[cC]):'',dept:cD?r[cD]:'',job:cJ?r[cJ]:'',hire,noHire:!hire,mths,six,ok,nf,o50,i10,auto50,age,rate,ent:lbR(ent),adj,cons:lbR(cons),bal:lbR(ent+adj-cons),early:lbR(early),maybe:lbR(maybe),perM}); });
+  const extra=[]; lvmap.forEach((v,k)=>{ if(!used.has(k)) extra.push(v.name); });
+  rows.sort((a,b)=>((b.early>0?4:0)+(b.bal<0?2:0)+(b.maybe>0?1:0))-((a.early>0?4:0)+(a.bal<0?2:0)+(a.maybe>0?1:0))||String(a.name).localeCompare(String(b.name),'ar'));
+  LB.rows=rows; LB.extra=extra; LB.later=later; }
+async function lbSave(){ try{ await BE.rcSet('leaveOv','main',{m:LB.ov,at:Date.now()}); }catch(e){ toast(authMsg(e),true); } }
+async function mountLeaveBal(){ setLayout({view:true}); if(!LB.asof) LB.asof=lbIso(new Date()); const ed=can('payrev','ovr');
+  $('view').innerHTML=`<div class="card" id="dcx"><h2>مراجعة رصيد الإجازات</h2>
+<p class="dc-sub">ارفع شيت الموظفين (الاسم + تاريخ أول عقد) وشيت ملخص الإجازات (شهر × موظف) والبرنامج يحسب المستحق والمستهلك والرصيد، وينبّهك لأي موظف أخد إجازة قبل ما يكمل 6 شهور.</p>
+<div class="dc-drops"><label class="dc-drop" id="lb_d1"><input type="file" accept=".xlsx,.xls,.csv"><b>1) الموظفون وتاريخ التعيين</b><span>hr.employee — اسم الموظف + تاريخ أول عقد (+ رقم الهوية لو موجود)</span></label>
+<label class="dc-drop" id="lb_d2"><input type="file" accept=".xlsx,.xls,.csv"><b>2) ملخص الإجازات</b><span>hr.leave — صف لكل موظف وأعمدة الشهور (بالأيام)</span></label></div>
+<div class="dc-set"><b>حساب الرصيد حتى تاريخ:</b><label><input type="date" id="lb_asof" value="${esc(LB.asof)}"></label><button class="btn sm" id="lb_today" type="button">اليوم</button><span>(حدد أي تاريخ — المستحق والمستهلك بيتحسبوا لحد التاريخ ده)</span></div>
+<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px"><input type="search" id="lb_q" placeholder="بحث باسم الموظف…" style="min-width:200px"><select id="lb_f"><option value="all">كل الموظفين</option><option value="early">⛔ أخد إجازة قبل 6 شهور</option><option value="maybe">⚠ محتمل (شهر إكمال الـ6)</option><option value="neg">رصيد سالب</option><option value="wait">لم يكمل 6 شهور</option><option value="o50">فوق 50 / 10 سنين تأمين</option></select><button class="btn" id="lb_exp" type="button">تصدير إلى Excel</button><span class="dc-calc" id="lb_msg">ارفع الشيتين.</span></div>
+<div id="lb_res" style="margin-top:14px"></div></div>`;
+  [['lb_d1','emp'],['lb_d2','lv']].forEach(([id,k])=>{ const lab=$(id), inp=lab.querySelector('input'); if(LB[k]){ lab.classList.add('dc-ok'); lab.querySelector('span').textContent='تم الرفع'; }
+    const take=async f=>{ if(!f) return; try{ if(k==='emp') LB.emp=await lkRead(f); else LB.lv=await lbReadLeave(f); lab.classList.add('dc-ok'); lab.querySelector('span').textContent=f.name; lbRun(); }catch(e){ $('lb_msg').textContent='تعذر قراءة الملف: '+(e.message||e); } };
+    inp.onchange=()=>take(inp.files[0]); lab.ondragover=e=>{e.preventDefault();lab.classList.add('dc-over');}; lab.ondragleave=()=>lab.classList.remove('dc-over'); lab.ondrop=e=>{e.preventDefault();lab.classList.remove('dc-over');take(e.dataTransfer.files[0]);}; });
+  $('lb_asof').onchange=()=>{ LB.asof=$('lb_asof').value||LB.asof; lbRun(); }; $('lb_today').onclick=()=>{ LB.asof=lbIso(new Date()); $('lb_asof').value=LB.asof; lbRun(); };
+  $('lb_q').oninput=()=>{ LB.q=$('lb_q').value; lbDraw(); }; $('lb_f').onchange=()=>{ LB.f=$('lb_f').value; lbDraw(); }; $('lb_exp').onclick=lbExport;
+  if(!LB.ovLoaded){ try{ const d=(await BE.rcList('leaveOv')).find(x=>x.id==='main'); LB.ov=(d&&d.m)||{}; }catch(e){ LB.ov={}; } LB.ovLoaded=true; }
+  if(LB.nid===null){ LB.nid=new Map(); try{ const E=await BE.idGet('emps'); ((E&&E.rows)||[]).forEach(r=>{ if(r.n&&r.nid) LB.nid.set(lkNorm(r.n),String(r.nid)); }); }catch(e){} }
+  lbRun(); }
+function lbRun(){ if(!$('lb_res')) return; if(!LB.emp){ $('lb_msg').textContent='ارفع شيت الموظفين'+(LB.lv?'':' وشيت الإجازات'); $('lb_res').innerHTML=''; return; } lbCalc(); lbDraw(); }
+function lbDraw(){ const box=$('lb_res'); if(!box) return; if(LB.err){ $('lb_msg').textContent=LB.err; box.innerHTML=''; return; }
+  const ed=can('payrev','ovr'), q=lkNorm(LB.q), f=LB.f, R=LB.rows;
+  const vis=R.filter(r=>(!q||lkNorm(r.name).includes(q))&&(f==='all'||(f==='early'&&r.early>0)||(f==='maybe'&&r.maybe>0)||(f==='neg'&&r.bal<0)||(f==='wait'&&!r.ok&&!r.noHire)||(f==='o50'&&(r.o50||r.i10))));
+  const nE=R.filter(r=>r.early>0).length, nM=R.filter(r=>r.maybe>0&&!r.early).length, nN=R.filter(r=>r.bal<0).length, nW=R.filter(r=>!r.ok&&!r.noHire).length;
+  $('lb_msg').textContent=`تم الحساب حتى ${lkFmt(lkDate(LB.asof))} — ${R.length} موظف${LB.lv?'':' (ارفع شيت الإجازات للمستهلك)'}`;
+  const bx=(l,v,c)=>`<div style="flex:1;min-width:150px;border:1px solid #dde2ea;border-radius:10px;padding:10px 12px;background:#fff"><div style="font-size:12px;color:#667085">${l}</div><div style="font-size:20px;font-weight:700;color:${c||'#1f2a44'}">${v}</div></div>`;
+  const tot=R.reduce((s,r)=>({e:s.e+r.ent+r.adj,c:s.c+r.cons}),{e:0,c:0});
+  const early=R.filter(r=>r.early>0);
+  box.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">${bx('موظفون',R.length)}${bx('أخدوا إجازة قبل 6 شهور',nE,nE?'#c62828':'#1b7a3d')}${bx('محتمل (شهر إكمال الـ6)',nM,nM?'#a15c00':'#1b7a3d')}${bx('رصيد سالب',nN,nN?'#c62828':'#1b7a3d')}${bx('لم يكملوا 6 شهور',nW,'#a15c00')}${bx('إجمالي المستحق / المستهلك',lbR(tot.e)+' / '+lbR(tot.c))}</div>
+  ${early.length?`<div class="dc-msg" style="display:block;border-color:#c62828;background:#fdecec;color:#8a1c1c">⛔ <b>تنبيه:</b> ${early.length} موظف أخدوا إجازات وهم لم يكملوا 6 شهور (من فلتر «⛔ أخد إجازة قبل 6 شهور» تشوفهم كلهم). أمثلة: ${early.slice(0,6).map(r=>esc(r.name)+' ('+r.early+' يوم)').join('، ')}${early.length>6?'…':''}</div>`:''}
+  ${LB.extra&&LB.extra.length?`<div class="dc-msg" style="display:block">⚠ في شيت الإجازات ومش في شيت الموظفين: ${LB.extra.slice(0,12).map(esc).join('، ')}${LB.extra.length>12?'…':''}</div>`:''}
+  ${LB.later&&LB.later.length?`<div class="dc-msg" style="display:block">ℹ استُبعد ${LB.later.length} موظف تاريخ تعيينهم بعد ${lkFmt(lkDate(LB.asof))}.</div>`:''}
+  <div class="dc-sub" style="margin:6px 0">القواعد: قبل 1/4/2026 ← 1.75 لكل شهر · بعد 1/4/2026 ← 1.25 لكل شهر في أول سنة و1.75 بعدها (أو لو متعلّم «ليس أول سنة») · فوق 50 سنة أو 10 سنين تأمين ← 2.5 · مفيش رصيد قبل إكمال 6 شهور، وبعدها بيتحسب من تاريخ التعيين. الشهور = شهور كاملة.</div>
+  <div class="dc-tw"><table><thead><tr><th>الموظف</th><th>القسم</th><th>تاريخ التعيين</th><th>الشهور</th><th>ليس أول سنة</th><th>فوق 50</th><th>10 سنين تأمين</th><th>المعدل/شهر</th><th>المستحق</th><th>تسوية</th><th>المستهلك</th><th>الرصيد</th><th>ملاحظات</th></tr></thead><tbody>${vis.map(r=>{ const cb=(t,v,tip)=>`<input type="checkbox" data-lbo="${esc(r.k)}|${t}" ${v?'checked':''} ${ed?'':'disabled'} title="${esc(tip||'')}">`;
+    const notes=[]; if(r.noHire) notes.push('<b style="color:#a15c00">بدون تاريخ تعيين</b>'); else if(!r.ok) notes.push(`لم ينزل له رصيد — يستحق من ${lkFmt(r.six)}`); if(r.early>0) notes.push(`<b style="color:#c62828">⛔ أخد ${r.early} يوم قبل إكمال 6 شهور</b>`); if(r.maybe>0) notes.push(`<span style="color:#a15c00">⚠ ${r.maybe} يوم في شهر إكمال الـ6 (محتمل)</span>`); if(r.bal<0) notes.push('<b style="color:#c62828">رصيد سالب</b>'); if(r.age!==null&&r.age>=50&&!r.auto50) {} if(r.auto50) notes.push(`<span style="color:#667085">السن ${r.age}</span>`);
+    return `<tr style="${r.early>0?'background:#fdecec':r.bal<0?'background:#fff4e0':!r.ok&&!r.noHire?'background:#f4f6fa':''}"><td><b>${esc(r.name)}</b></td><td style="font-size:12px">${esc(r.dept||'')}</td><td>${r.noHire?'—':lkFmt(r.hire)}</td><td>${r.noHire?'—':r.mths}</td><td style="text-align:center">${cb('nf',r.nf,'تجديد أو مش أول سنة تعيين → 1.75')}</td><td style="text-align:center">${cb('o50',r.o50,r.age!==null?'السن من الرقم القومي: '+r.age:'علّم لو فوق 50 سنة')}</td><td style="text-align:center">${cb('i10',r.i10,'له 10 سنين تأمين → 2.5')}</td><td>${esc(r.rate)}</td><td><b>${r.ok?r.ent:'0'}</b></td><td><input type="number" step="any" data-lbadj="${esc(r.k)}" value="${r.adj||''}" ${ed?'':'disabled'} style="width:64px"></td><td>${r.cons}</td><td dir="ltr" style="font-weight:800;text-align:right;color:${r.bal<0?'#c62828':'#1b7a3d'}">${r.bal}</td><td style="font-size:12px">${notes.join('<br>')}</td></tr>`; }).join('')||'<tr><td colspan="13" class="muted">لا نتائج</td></tr>'}</tbody></table></div>`;
+  if(ed){ box.querySelectorAll('[data-lbo]').forEach(c=>c.onchange=async()=>{ const [k,t]=c.dataset.lbo.split('|'); LB.ov[k]={...(LB.ov[k]||{}),[t]:c.checked}; await lbSave(); lbCalc(); lbDraw(); });
+    box.querySelectorAll('[data-lbadj]').forEach(c=>c.onchange=async()=>{ const k=c.dataset.lbadj; LB.ov[k]={...(LB.ov[k]||{}),adj:parseFloat(c.value)||0}; await lbSave(); lbCalc(); lbDraw(); }); } }
+async function lbExport(){ if(!LB.rows.length){ toast('ارفع الشيتات الأول',true); return; } await loadXLSX(); const mh=LB.lv?LB.lv.months.map(m=>`${m.m}/${m.y}`):[];
+  const data=LB.rows.map(r=>{ const o={'الموظف':r.name,'القسم':r.dept||'','الوظيفة':r.job||'','تاريخ التعيين':r.hire?lkFmt(r.hire):'','الشهور':r.mths,'تاريخ استحقاق الرصيد (بعد 6 شهور)':r.six?lkFmt(r.six):'','ليس أول سنة':r.nf?'نعم':'','فوق 50':r.o50?'نعم':'','10 سنين تأمين':r.i10?'نعم':'','المعدل/شهر':r.rate,'المستحق':r.ok?r.ent:0,'تسوية':r.adj,'المستهلك':r.cons,'الرصيد':r.bal,'إجازة قبل 6 شهور (يوم)':r.early,'محتمل (يوم)':r.maybe}; mh.forEach((h,j)=>o[h]=r.perM[j]===null?'':r.perM[j]); return o; });
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data),'رصيد الإجازات');
+  const v=LB.rows.filter(r=>r.early>0||r.maybe>0).map(r=>({'الموظف':r.name,'تاريخ التعيين':lkFmt(r.hire),'إكمال 6 شهور':lkFmt(r.six),'أيام قبل 6 شهور':r.early,'أيام محتملة':r.maybe})); if(v.length) XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(v),'إجازة قبل 6 شهور');
+  XLSX.writeFile(wb,'مراجعة_رصيد_الإجازات.xlsx'); }
+function mountPayRev(sub){ if(['ded','lv','fx','al','lb'].includes(sub)) PRT=sub; else if(location.hash.replace(/^#\/?/,'')==='payrev'&&!['ded','lv','fx','al','lb'].includes(PRT)) PRT='ded';
   prDraw(); }
-function prDraw(){ if(PRT==='lv') mountLeaveChk(); else if(PRT==='fx') mountFx(); else if(PRT==='al') mountAttLeave(); else mountDeduct();
-  hdrTabs([{k:'ded',t:'فحص الاستقطاعات',on:PRT==='ded'},{k:'lv',t:'فحص الإجازات',on:PRT==='lv'},{k:'fx',t:'مطابقة المؤثرات',on:PRT==='fx'},{k:'al',t:'حضور في يوم إجازة',on:PRT==='al'}],k=>{ PRT=k; prDraw(); }); }
+function prDraw(){ if(PRT==='lv') mountLeaveChk(); else if(PRT==='fx') mountFx(); else if(PRT==='al') mountAttLeave(); else if(PRT==='lb') mountLeaveBal(); else mountDeduct();
+  hdrTabs([{k:'ded',t:'فحص الاستقطاعات',on:PRT==='ded'},{k:'lv',t:'فحص الإجازات',on:PRT==='lv'},{k:'fx',t:'مطابقة المؤثرات',on:PRT==='fx'},{k:'al',t:'حضور في يوم إجازة',on:PRT==='al'},{k:'lb',t:'مراجعة رصيد الإجازات',on:PRT==='lb'}],k=>{ PRT=k; prDraw(); }); }
 
 
 /* ===== حساب عمالة خارجية ===== */
