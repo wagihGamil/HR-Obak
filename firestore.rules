@@ -364,8 +364,10 @@ service cloud.firestore {
     }
     match /extLaborDays/{id} {
       allow read:   if anyA('extlabor');
-      allow create: if canA('extlabor','add');
-      allow update: if canA('extlabor','edit');
+      allow create: if canA('extlabor','add') && (canA('extlabor','appr') || request.resource.data.get('st','') == 'pending');
+      allow update: if canA('extlabor','appr')
+                    || (canA('extlabor','edit') && request.resource.data.get('st','') == 'pending')
+                    || (canA('extlabor','edit') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paid','paidAt']));
       allow delete: if canA('extlabor','delete');
     }
 
