@@ -3374,6 +3374,41 @@ function recParse(raw,jobs){
     if(best&&bs>=3){ out.job=best.job; out.dept=best.dept; }
     else { let bd=null,ds=0; (jobs||[]).forEach(j=>{ const d=lkNorm(j.dept||'').toLowerCase(); if(d.length>=3&&has(top,d)&&(dsc[j.dept]||0)+3>ds){ ds=(dsc[j.dept]||0)+3; bd=j.dept; } }); if(bd) out.dept=bd; } }
   return out; }
+/* ---------- قراءة السيرة بالذكاء الاصطناعي (Gemini) ---------- */
+const recAiOn=()=>!!(REC.ai&&REC.ai.key);
+async function recAiCall(key,model,prompt,json){ let r; try{ r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model||'gemini-2.5-flash')+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0,...(json?{responseMimeType:'application/json'}:{})}})}); }catch(e){ throw new Error('مقدرتش أوصل لـ Gemini — راجع الإنترنت'); }
+  let j={}; try{ j=await r.json(); }catch(e){} if(!r.ok){ const m=(j.error&&j.error.message)||('خطأ '+r.status); throw new Error(r.status===400&&/API key/i.test(m)?'مفتاح Gemini غلط':r.status===429?'عدّيت الحد المجاني لـ Gemini — استنى شوية وجرّب':r.status===404?'اسم الموديل غلط ('+(model||'')+')':m); }
+  const t=j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts&&j.candidates[0].content.parts.map(x=>x.text||'').join(''); if(!t) throw new Error('Gemini مرجّعش رد (ممكن حجب المحتوى)'); return t; }
+async function recAi(text,jobs){ const list=(jobs||[]).map(j=>j.dept+' / '+j.job).join('\n')||'(لا يوجد)'; const today=atISO(new Date());
+  const prompt=`أنت مساعد موارد بشرية. اقرأ نص السيرة الذاتية التالية (ممكن يكون عربي أو إنجليزي أو مختلط، وممكن ترتيبه مبعثر) واستخرج البيانات. تاريخ اليوم: ${today}.
+ارجع JSON فقط بالمفاتيح دي بالظبط:
+{"name":"اسم المرشح","age":رقم أو null,"experience_years":رقم عشري أو null,"address":"المحافظة/المدينة أو العنوان المختصر أو \"\"","job":"","dept":""}
+القواعد:
+- age: السن بالسنين. لو فيه تاريخ ميلاد أو رقم قومي مصري (14 رقم) احسبه من تاريخ اليوم. لو مفيش أي دليل ارجع null (متخمّنش).
+- experience_years: إجمالي سنوات الخبرة العملية الفعلية (اجمع فترات العمل من غير ما تكرر الفترات المتداخلة، والفترة المستمرة لحد «الآن/Present» تتحسب لحد تاريخ اليوم، ومتحسبش التدريب الجامعي). لو مفيش خبرة ارجع 0. لو مقدرتش تحدد ارجع null.
+- address: محل الإقامة اللي في السيرة (مش عنوان الشركات).
+- job و dept: اختار الوظيفة اللي المرشح بيتقدم لها أو الأنسب لخبرته من القائمة التالية بالنص بالظبط (القسم / الوظيفة)، ولو مفيش مناسبة اتركهم "".
+القائمة:
+${list}
+
+نص السيرة:
+"""${String(text).slice(0,14000)}"""`;
+  const t=await recAiCall(REC.ai.key,REC.ai.model,prompt,true); let o; try{ o=JSON.parse(t.replace(/^```json|```$/g,'').trim()); }catch(e){ throw new Error('رد الذكاء الاصطناعي مش بصيغة مفهومة'); } return o; }
+function recAiMerge(P,o){ if(!o) return P; const num=v=>{ v=parseFloat(String(v==null?'':v).replace(',','.')); return isFinite(v)?v:null; };
+  const age=num(o.age); if(age!==null&&age>=16&&age<=70) P.age=Math.round(age);
+  const ex=num(o.experience_years); if(ex!==null&&ex>=0&&ex<=45) P.exp=Math.round(ex*10)/10;
+  if(o.address&&String(o.address).trim().length>=2) P.res=String(o.address).trim().slice(0,90);
+  if(o.name&&!P.n&&String(o.name).trim().length>=3) P.n=String(o.name).trim().slice(0,60);
+  const j=(REC.jobs||[]).find(x=>x.job===String(o.job||'').trim()&&(!o.dept||x.dept===String(o.dept).trim()))||(REC.jobs||[]).find(x=>x.job===String(o.job||'').trim()); if(j){ P.job=j.job; P.dept=j.dept; } else if(o.dept&&(REC.jobs||[]).some(x=>x.dept===String(o.dept).trim())&&!P.dept) P.dept=String(o.dept).trim();
+  return P; }
+function recAiModal(){ const c=REC.ai||{}; const m=ocModal(`<h3>🤖 قراءة السيرة بالذكاء الاصطناعي (Gemini)</h3><div class="muted" style="font-size:12.5px;margin-bottom:8px;line-height:1.7">1) افتح <b>aistudio.google.com/apikey</b> وسجّل بحساب جوجل، واضغط <b>Create API key</b>.<br>2) انسخ المفتاح والصقه هنا.<br>⚠ نص كل سيرة بيتبعت لجوجل علشان يتقرأ، وفي الباقة المجانية جوجل ممكن تستخدم البيانات لتحسين خدماتها. المفتاح بيتخزن في إعدادات التوظيف ويظهر لمستخدمي المديول.</div>
+  <label style="font-size:12.5px;font-weight:600">مفتاح Gemini API</label><input id="rai_k" dir="ltr" value="${esc(c.key||'')}" placeholder="AIza…" style="width:100%;box-sizing:border-box;padding:7px;border:1.5px solid #c3c6cf;border-radius:6px;margin-bottom:8px">
+  <label style="font-size:12.5px;font-weight:600">الموديل</label><input id="rai_m" dir="ltr" value="${esc(c.model||'gemini-2.5-flash')}" style="width:100%;box-sizing:border-box;padding:7px;border:1.5px solid #c3c6cf;border-radius:6px">
+  <div id="rai_s" style="margin:8px 0;min-height:20px;font-size:13px"></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn pri" id="rai_save" type="button">حفظ</button><button class="btn" id="rai_t" type="button">اختبار</button>${recAiOn()?'<button class="btn" id="rai_x" type="button">إيقاف</button>':''}<button class="btn" data-ocx type="button">إغلاق</button></div>`,560);
+  const say=(t,bad)=>{ const e=m.querySelector('#rai_s'); e.textContent=t; e.style.color=bad?'#c62828':'#1b7a3d'; }, rd=()=>({key:m.querySelector('#rai_k').value.trim(),model:m.querySelector('#rai_m').value.trim()||'gemini-2.5-flash'});
+  m.querySelector('#rai_t').onclick=async()=>{ const v=rd(); if(!v.key){ say('اكتب المفتاح',true); return; } say('جارٍ الاختبار…'); try{ const t=await recAiCall(v.key,v.model,'ارجع JSON فقط: {"ok":true}',true); say('✔ شغال'); }catch(e){ say(e.message,true); } };
+  m.querySelector('#rai_save').onclick=async()=>{ const v=rd(); if(!v.key){ say('اكتب المفتاح',true); return; } try{ await BE.rcSet('recCfg','ai',v); REC.ai=v; toast('اتفعّلت قراءة الذكاء الاصطناعي ✓'); m.remove(); recRender(); }catch(e){ say(authMsg(e),true); } };
+  const x=m.querySelector('#rai_x'); if(x) x.onclick=async()=>{ try{ await BE.rcDel('recCfg','ai'); REC.ai=null; toast('اتوقفت'); m.remove(); recRender(); }catch(e){ say(authMsg(e),true); } }; }
 /* ---------- حفظ السير على Google Drive (عن طريق Google Apps Script) ---------- */
 const recDrvMode=()=>REC.cfg?(REC.cfg.mode||(REC.cfg.url?'gas':'')):'';
 const recDrvOn=()=>recDrvMode()==='api'?!!(REC.cfg.clientId&&REC.cfg.rootId):recDrvMode()==='gas'?!!(REC.cfg.url&&REC.cfg.key):false;
@@ -3423,7 +3458,7 @@ function recCfgModal(){ const c=REC.cfg||{}, mode=recDrvMode()||'api'; const inp
   q('#rcg_s').onclick=async()=>{ const v=read(), er=valid(v); if(er){ say(er,true); return; } try{ await BE.rcSet('recCfg','main',v); REC.cfg=v; toast('تم حفظ إعداد Drive ✓'); m.remove(); recRender(); }catch(e){ say(authMsg(e),true); } };
   const x=q('#rcg_x'); if(x) x.onclick=async()=>{ try{ await BE.rcDel('recCfg','main'); REC.cfg=null; toast('اتوقف الربط'); m.remove(); recRender(); }catch(e){ say(authMsg(e),true); } }; }
 /* ---------- بيانات + شاشة ---------- */
-async function recLoad(){ const [c,p,cf]=await Promise.all([BE.rcList(REC_COL),BE.ocGet('planned').catch(()=>null),BE.rcList('recCfg').catch(()=>[])]); REC.cfg=cf.find(x=>x.id==='main')||null; if(!recDrvOn()) REC.cfg=null;
+async function recLoad(){ const [c,p,cf]=await Promise.all([BE.rcList(REC_COL),BE.ocGet('planned').catch(()=>null),BE.rcList('recCfg').catch(()=>[])]); REC.ai=cf.find(x=>x.id==='ai')||null; REC.cfg=cf.find(x=>x.id==='main')||null; if(!recDrvOn()) REC.cfg=null;
   REC.cands=c.sort((a,b)=>(b.at||0)-(a.at||0)); const seen=new Set(); REC.jobs=((p&&p.rows)||[]).filter(r=>r.job&&r.dept).filter(r=>{ const k=r.dept+'|'+r.job; if(seen.has(k)) return false; seen.add(k); return true; }).map(r=>({dept:r.dept,job:r.job})).sort((a,b)=>String(a.dept).localeCompare(String(b.dept),'ar')||String(a.job).localeCompare(String(b.job),'ar')); }
 function recInit(){ if($('recstyle')) return; const s=document.createElement('style'); s.id='recstyle'; s.textContent=`#recx h2{margin:0 0 6px;font-size:18px;color:var(--navy)}#recx .sub{color:#667085;font-size:13px;margin-bottom:12px}#recx .pg{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end;margin-bottom:12px}#recx label{display:block;font-size:12.5px;font-weight:600;margin-bottom:3px}
 #recx input,#recx select{width:100%;font:inherit;font-size:13px;padding:6px 8px;border:1.5px solid #c3c6cf;border-radius:6px;background:#fff;box-sizing:border-box}#recx .rt{overflow:auto;border:1px solid var(--line);border-radius:10px;background:#fff;max-height:72vh}#recx table{border-collapse:collapse;width:100%;font-size:13px;min-width:2100px}#recx th{background:var(--navy);color:#fff;padding:7px 8px;text-align:right;position:sticky;top:0;z-index:1;font-size:12px}#recx td{padding:4px 5px;border-bottom:1px solid var(--line);vertical-align:middle}#recx td input,#recx td select{padding:5px 6px;font-size:12.5px}
@@ -3439,11 +3474,12 @@ const recJobOpts=(dept,sel)=>{ const L=REC.jobs.filter(j=>!dept||j.dept===dept);
 function recUpHtml(){ const can_=recCan('add'); return `<h2>رفع السير الذاتية</h2><div class="sub">ارفع سيرة ذاتية واحدة أو مجموعة سير (PDF / Word docx / صور / txt) — البرنامج يستخرج البيانات ويحطها في تابة «المرشحين». <b>ملفات السير نفسها مبتتحفظش</b>، بيتحفظ بس الجدول.</div>
 ${REC.jobs.length?'':'<div class="warn" style="margin-bottom:10px">⚠ الهيكل التنظيمي مفيهوش وظائف لسه — قوائم القسم والوظيفة هتبقى فاضية لحد ما ترفع الهيكل في مديول الهيكل التنظيمي.</div>'}
 <div class="sub" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">☁ <b>حفظ السير على Google Drive:</b> ${recDrvOn()?(recDrvMode()==='api'?(recTok()?`<span class="ok">متصل ✔ ${esc((REC.tok&&REC.tok.em)||'')} — السير بتتحفظ في فولدر الوظيفة/الشهر وبتتربط بالمرشح</span>`:'<span class="warn">مفعّل — لازم تربط حسابك بجوجل قبل الرفع</span> <button class="btn sm pri" id="ru_auth0" type="button">🔑 ربط حسابي بجوجل</button>'):'<span class="ok">مفعّل ✔ — كل سيرة بتتحفظ في فولدر الوظيفة/الشهر وبتتربط بالمرشح</span>'):'<span class="warn">مش مفعّل — السير مش بتتحفظ</span>'} ${recCan('cfg')?'<button class="btn sm" id="ru_cfg" type="button">⚙ إعداد الربط</button>':''}</div>
+<div class="sub" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">🤖 <b>القراءة بالذكاء الاصطناعي:</b> ${recAiOn()?'<span class="ok">مفعّلة ✔ — السن والعنوان والخبرة والوظيفة بتتقرأ بـ Gemini</span>':'<span class="warn">مش مفعّلة — القراءة بالقواعد بس (أقل دقة)</span>'} ${recCan('cfg')?'<button class="btn sm" id="ru_ai" type="button">⚙ إعداد</button>':''}</div>
 <div class="pg"><div><label>القسم (اختياري — لكل السير في الدفعة دي)</label><select id="ru_d">${recDeptOpts(REC.ud)}</select></div><div><label>الوظيفة المرشحين ليها (اختياري)</label><select id="ru_j">${recJobOpts(REC.ud,REC.uj)}</select></div></div>
 ${can_?`<label class="drop" id="ru_drop"><input type="file" id="ru_f" multiple accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp"><b>اسحب السير هنا أو اضغط للاختيار</b><span>ينفع تختار عدة ملفات مرة واحدة • PDF / DOCX / صور (بتتقرا بالـ OCR)</span></label>`:'<div class="muted">محتاج صلاحية «إضافة» عشان ترفع.</div>'}
 <div id="ru_log" class="lg" ${REC.log.length?'':'hidden'}>${recLogHtml()}</div>`; }
 const recLogHtml=()=>REC.log.map(l=>`<div>${l.s==='ok'?'<span class="ok">✔</span>':l.s==='dup'?'<span class="warn">⚠</span>':l.s==='run'?'⏳':'<span class="bad">✖</span>'} <b>${esc(l.f)}</b> — ${l.m}</div>`).join('');
-function recUpBind(){ if($('ru_cfg')) $('ru_cfg').onclick=recCfgModal; if($('ru_auth0')) $('ru_auth0').onclick=async()=>{ try{ await recAuth(); toast('اتربط حسابك ✓'); recRender(); }catch(e){ toast(e.message,true); } }; const d=$('ru_d'), j=$('ru_j'); if(!d) return; d.onchange=()=>{ REC.ud=d.value; if(REC.uj&&!REC.jobs.some(x=>x.job===REC.uj&&(!REC.ud||x.dept===REC.ud))) REC.uj=''; j.innerHTML=recJobOpts(REC.ud,REC.uj); };
+function recUpBind(){ if($('ru_cfg')) $('ru_cfg').onclick=recCfgModal; if($('ru_ai')) $('ru_ai').onclick=recAiModal; if($('ru_auth0')) $('ru_auth0').onclick=async()=>{ try{ await recAuth(); toast('اتربط حسابك ✓'); recRender(); }catch(e){ toast(e.message,true); } }; const d=$('ru_d'), j=$('ru_j'); if(!d) return; d.onchange=()=>{ REC.ud=d.value; if(REC.uj&&!REC.jobs.some(x=>x.job===REC.uj&&(!REC.ud||x.dept===REC.ud))) REC.uj=''; j.innerHTML=recJobOpts(REC.ud,REC.uj); };
   j.onchange=()=>{ REC.uj=j.value; const x=REC.jobs.find(v=>v.job===REC.uj&&(!REC.ud||v.dept===REC.ud)); if(x&&!REC.ud){ REC.ud=x.dept; d.innerHTML=recDeptOpts(REC.ud); } };
   const inp=$('ru_f'), drop=$('ru_drop'); if(!inp) return; inp.onchange=()=>{ recProcess([...inp.files]); inp.value=''; };
   drop.ondragover=e=>{ e.preventDefault(); drop.classList.add('over'); }; drop.ondragleave=()=>drop.classList.remove('over'); drop.ondrop=e=>{ e.preventDefault(); drop.classList.remove('over'); recProcess([...e.dataTransfer.files]); }; }
@@ -3453,7 +3489,8 @@ async function recProcess(files,opt){ opt=opt||{}; if(!files.length||REC.busy) r
   REC.busy=true; REC.log=[]; REC.skipDrv=!!opt.noDrive; const draw=()=>{ box.hidden=false; box.innerHTML=recLogHtml(); }; let added=0;
   for(const f of files){ const l={f:f.name,s:'run',m:'جارٍ القراءة…'}; REC.log.push(l); draw();
     try{ const text=await recExtract(f); if(!text||text.replace(/\s/g,'').length<15) throw new Error('الملف مفيهوش نص مقروء');
-      const P=recParse(text,REC.jobs); const em=(P.em||'').toLowerCase(), ph=P.ph||''; const dup=REC.cands.find(c=>(em&&String(c.em||'').toLowerCase()===em)||(ph&&String(c.ph||'')===ph));
+      const P=recParse(text,REC.jobs); if(recAiOn()){ l.m='جارٍ القراءة بالذكاء الاصطناعي…'; draw(); try{ recAiMerge(P,await recAi(text,REC.jobs)); }catch(e){ l.ai=e.message; } }
+      const em=(P.em||'').toLowerCase(), ph=P.ph||''; const dup=REC.cands.find(c=>(em&&String(c.em||'').toLowerCase()===em)||(ph&&String(c.ph||'')===ph));
       if(dup){ l.s='dup'; l.m=`موجود قبل كده (${esc(dup.n||'')}) — اتخطّى`;
         if(recDrvOn()&&!REC.skipDrv&&!dup.cv){ try{ dup.cv=await recSendCv(f,dup); const r2={...dup}; delete r2.id; await BE.rcSet(REC_COL,dup.id,r2); l.m=`موجود قبل كده (${esc(dup.n||'')}) — اتربطت السيرة بيه على Drive ☁`; }catch(e){ l.m+=` — <span class="bad">ورفع السيرة لـ Drive فشل: ${esc(e.message)}</span>`; } }
         draw(); continue; }
@@ -3462,7 +3499,7 @@ async function recProcess(files,opt){ opt=opt||{}; if(!files.length||REC.busy) r
       let drvErr=''; if(recDrvOn()&&!REC.skipDrv){ try{ rec.cv=await recSendCv(f,rec); }catch(e){ drvErr=e.message; } }
       const id=recId(); await BE.rcSet(REC_COL,id,rec); REC.cands.unshift({...rec,id}); added++;
       const miss=[!rec.n&&'الاسم',!rec.ph&&'التليفون',!rec.em&&'الإيميل',rec.exp===''&&'الخبرة',!rec.res&&'الإقامة',rec.age===''&&'السن'].filter(Boolean);
-      l.s='ok'; l.m=`${esc(rec.n||'(بدون اسم)')}${rec.cv?' — ☁ اتحفظت على Drive':''}${miss.length?` — <span class="warn">ناقص: ${miss.join('، ')}</span>`:''}${drvErr?` — <span class="bad">اتحفظ في الجدول لكن رفع السيرة لـ Drive فشل: ${esc(drvErr)}</span>`:''}`; }
+      l.s='ok'; l.m=`${esc(rec.n||'(بدون اسم)')}${rec.cv?' — ☁ اتحفظت على Drive':''}${miss.length?` — <span class="warn">ناقص: ${miss.join('، ')}</span>`:''}${l.ai?` — <span class="bad">قراءة AI فشلت (اتقرأ بالقواعد): ${esc(l.ai)}</span>`:''}${drvErr?` — <span class="bad">اتحفظ في الجدول لكن رفع السيرة لـ Drive فشل: ${esc(drvErr)}</span>`:''}`; }
     catch(e){ l.s='err'; l.m=esc(e&&e.message?e.message:String(e)); } draw(); }
   REC.busy=false; if(added){ toast(`تمت إضافة ${added} مرشح ✓`); box.insertAdjacentHTML('beforeend',`<div><button class="btn pri" id="ru_go" type="button">اذهب لجدول المرشحين ←</button></div>`); $('ru_go').onclick=()=>{ REC.tab='tb'; recRender(); }; } }
 /* ---------- تابة المرشحين ---------- */
