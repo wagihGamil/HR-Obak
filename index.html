@@ -3338,7 +3338,8 @@ function recParse(raw,jobs){
   if(age===null){ m=text.match(/(?:date\s*of\s*birth|birth\s*date|birthdate|\bd\.?o\.?b\b|\bborn\b|تاريخ\s*الميلاد|الميلاد|مواليد)\s*[:：\-]?\s*([^\n]{0,32})/i);
     if(m){ const s=m[1]; let q=s.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.]((?:19|20)\d{2})/); if(q) age=recAge(+q[3],+q[2],+q[1]); else if(q=s.match(/((?:19|20)\d{2})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/)) age=recAge(+q[1],+q[2],+q[3]); else if(q=s.match(new RegExp('(\\d{1,2})?\\s*('+REC_MO+')[a-z]*[\\s,.\\-]*((?:19|20)\\d{2})','i'))){ const mn=REC_MN[q[2].toLowerCase().slice(0,3)]||REC_MN[q[2]]; age=recAge(+q[3],mn||0,+q[1]||1); } else if(q=s.match(/((?:19|20)\d{2})/)) age=recAge(+q[1],0,0); } }
   if(age===null){ m=text.match(/(?<!\d)([23])(\d{2})(\d{2})(\d{2})\d{7}(?!\d)/); if(m){ const y=(m[1]==='2'?1900:2000)+(+m[2]); if(+m[3]>=1&&+m[3]<=12&&+m[4]>=1&&+m[4]<=31) age=recAge(y,+m[3],+m[4]); } }
-  if(age!==null&&age>=16&&age<=70) out.age=age;
+  if(age===null){ const ed=text.match(/(?:bachelor|b\.?sc|faculty|university|graduat\w*|class\s*of|بكالوريوس|ليسانس|كلية|جامعة|تخرج|التخرج|دبلوم)[^\n]{0,80}?((?:19|20)\d{2})(?!\d)(?![^\n]{0,12}?(?:19|20)\d{2})/i)||text.match(/((?:19|20)\d{2})\s*[-–—]\s*((?:19|20)\d{2})[^\n]{0,60}(?:bachelor|faculty|university|بكالوريوس|كلية|جامعة)/i); if(ed){ const gy=+(ed[2]||ed[1]); if(gy>=1975&&gy<=new Date().getFullYear()+1){ age=new Date().getFullYear()-gy+22; out.ageEst=true; } } }
+  if(age!==null&&age>=16&&age<=70) out.age=age; else delete out.ageEst;
   /* residence */
   const LBL=/^(?:.*?)(?:address|location|residence|city|lives\s*in|place\s*of\s*residence|محل\s*الا?[إ]?قامة|مكان\s*الا?[إ]?قامة|الإقامة|الاقامة|العنوان|المحافظة|السكن)\s*[:：\-–]\s*(.{2,90})$/i;
   for(let i=0;i<lines.length;i++){ const q=lines[i].match(LBL); if(q){ out.res=q[1].replace(/(?:phone|mobile|tel|email|e-mail|موبايل|تليفون)\b.*$/i,'').replace(/[,;|\-–\s]+$/,'').trim(); break; } if(/^(?:address|location|العنوان|محل الإقامة|محل الاقامة)\s*[:：]?\s*$/i.test(lines[i])&&lines[i+1]){ out.res=lines[i+1].slice(0,90); break; } }
@@ -3356,9 +3357,22 @@ function recParse(raw,jobs){
     const rg=new RegExp('('+dt+')\\s*(?:-|–|—|to|until|till|الى|إلى|حتى|/)\\s*('+dt+'|'+cur+')','gi'), tok=(s,end)=>{ if(new RegExp('^'+cur+'$','i').test(s.trim())){ const n=new Date(); return n.getFullYear()*12+n.getMonth(); } const y=+(s.match(/(?:19|20)\d{2}/)||[0])[0]; let mo=null; const mn=s.match(new RegExp('('+REC_MO+')','i')); if(mn) mo=REC_MN[mn[1].toLowerCase().slice(0,3)]||REC_MN[mn[1]]; else { const dn=s.match(/(?:^|[^\d])(\d{1,2})[\s\/\-.,]+(?:19|20)\d{2}/); if(dn&&+dn[1]>=1&&+dn[1]<=12) mo=+dn[1]; } return y*12+((mo||6)-1); };
     const iv=[]; while((q=rg.exec(seg))){ const a=tok(q[1]), b=tok(q[2]); if(b>=a&&b-a<=45*12&&a>=1970*12) iv.push([a,b]); }
     iv.sort((x,y)=>x[0]-y[0]); let tot=0,cs=null,ce=null; iv.forEach(([a,b])=>{ if(cs===null){ cs=a; ce=b; } else if(a<=ce){ ce=Math.max(ce,b); } else { tot+=ce-cs; cs=a; ce=b; } }); if(cs!==null) tot+=ce-cs;
-    if(tot>0) out.exp=Math.round(tot/12*10)/10; }
-  /* وظيفة مقترحة من الهيكل (لو اسمها ظاهر أعلى السيرة) */
-  const head2=lkNorm(lines.slice(0,12).join(' ')).toLowerCase(); let best=null; (jobs||[]).forEach(j=>{ const n=lkNorm(j.job).toLowerCase(); if(n.length>=4&&head2.includes(n)&&(!best||n.length>lkNorm(best.job).length)) best=j; }); if(best){ out.job=best.job; out.dept=best.dept; }
+    if(tot>0) out.exp=Math.round(tot/12*10)/10;
+     else { const sn=[...seg.matchAll(/(?:since|from|منذ|من\s*عام|من)\s*((?:19|20)\d{2})(?!\d)/gi)].map(x=>+x[1]).filter(y=>y>=1975&&y<=new Date().getFullYear()); if(sn.length){ const v=new Date().getFullYear()-Math.min(...sn); if(v>0&&v<=45) out.exp=v; } } }
+  /* وظيفة/قسم مقترحين من الهيكل: نقاط حسب مكان ظهور اسم الوظيفة + تطابق كلمات */
+  { const STOP=new Set(['مهندس','مهندسه','مهندسة','engineer','senior','junior','specialist','officer','manager','assistant','مساعد','اخصائي','أخصائي','مسؤول','مدير','and','the','of','for','في','و','ال']);
+    const hd=lkNorm(lines.slice(0,14).join(' ')).toLowerCase(), top=lkNorm(lines.slice(0,40).join(' ')).toLowerCase(), all=lkNorm(text).toLowerCase();
+    const objL=lines.filter(l=>/(objective|applying\s*for|position|job\s*title|desired|target|seeking|الوظيفة|المسمى|المسمي|الهدف|أتقدم|اتقدم|أسعى|اسعى)/i.test(l)).map(l=>lkNorm(l).toLowerCase()).join(' ');
+    const SYN=[['انتاج','production|manufactur'],['جوده','quality|qc|qa'],['مبيعات','sales'],['محاسب','accountant|accounting'],['حسابات','accounts|accounting'],['موارد بشريه','human resources|hr '],['مشتريات','purchas|procurement'],['صيانه','maintenance'],['مخازن','warehouse|inventory|store'],['مخزن','warehouse|inventory|store'],['لوجست','logistic|supply chain'],['تسويق','marketing'],['امن صناعي','safety|hse'],['سلامه','safety|hse'],['كهرباء','electric'],['ميكانيك','mechanic'],['تكنولوجيا المعلومات','information technology|it support|it '],['دعم فني','technical support|it support'],['برمج','software|developer|programmer'],['سائق','driver'],['فني','technician'],['تمويل','finance|financial'],['ماليه','finance|financial'],['قانوني','legal|lawyer'],['سكرتير','secretary|administrative'],['خدمه عملاء','customer service|call center'],['تخطيط','planning'],['شؤون اداريه','administrat'],['ادار','administrat'],['تصميم','design']];
+    const synOf=j=>{ const t=lkNorm((j.job||'')+' '+(j.dept||'')).toLowerCase(), r=[]; SYN.forEach(([k,v])=>{ if(t.includes(lkNorm(k).toLowerCase())) v.split('|').forEach(x=>r.push(x)); }); return r; };
+    const has=(h,n)=>n.length>=3&&h.includes(n); let best=null,bs=0; const dsc={};
+    (jobs||[]).forEach(j=>{ const n=lkNorm(j.job).toLowerCase(); if(!n) return; let sc=0;
+      if(has(hd,n)) sc+=10; else if(has(objL,n)) sc+=9; else if(has(top,n)) sc+=6; else if(has(all,n)) sc+=3;
+      const ws=n.split(/\s+/).filter(w=>w.length>=3&&!STOP.has(w)); if(ws.length){ const hit=ws.filter(w=>has(top,w)).length; if(hit===ws.length) sc+=2+ws.length; else if(hit) sc+=hit/ws.length*2; }
+      { const sy=synOf(j); let ss=0; sy.forEach(x=>{ const v=has(hd,x)?7:has(top,x)?5:has(all,x)?2:0; if(v>ss) ss=v; }); sc=Math.max(sc,ss); }
+      if(sc>0) dsc[j.dept]=(dsc[j.dept]||0)+sc*0.3; if(sc>bs){ bs=sc; best=j; } });
+    if(best&&bs>=3){ out.job=best.job; out.dept=best.dept; }
+    else { let bd=null,ds=0; (jobs||[]).forEach(j=>{ const d=lkNorm(j.dept||'').toLowerCase(); if(d.length>=3&&has(top,d)&&(dsc[j.dept]||0)+3>ds){ ds=(dsc[j.dept]||0)+3; bd=j.dept; } }); if(bd) out.dept=bd; } }
   return out; }
 /* ---------- حفظ السير على Google Drive (عن طريق Google Apps Script) ---------- */
 const recDrvMode=()=>REC.cfg?(REC.cfg.mode||(REC.cfg.url?'gas':'')):'';
