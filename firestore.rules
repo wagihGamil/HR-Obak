@@ -276,7 +276,7 @@ service cloud.firestore {
     // ===== الهيكل التنظيمي (مخطط / موظفون / مراحل التعيين) =====
     // القراءة لمن عنده can('orgchart','view') والكتابة لمن عنده can('orgchart','edit') أو المدير.
     match /orgChart/{id} {
-      allow read:  if can('orgchart','view') || ((id == 'planned' || id == 'emps' || id == 'set') && anyA('hiring'));
+      allow read:  if can('orgchart','view') || ((id == 'planned' || id == 'emps' || id == 'set') && anyA('hiring')) || (id == 'planned' && anyA('recruiting'));
       allow write: if wr('orgchart') || (id == 'emps' && canA('hiring','add'));
     }
 
@@ -338,6 +338,19 @@ service cloud.firestore {
       allow read:  if anyA('payrev');
       allow create, update, delete: if canA('payrev','ovr');
     }
+    // ===== مديول التوظيف: جدول المرشحين (السير الذاتية نفسها مبتتخزنش) =====
+    match /recCandidates/{id} {
+      allow read:   if anyA('recruiting');
+      allow create: if canA('recruiting','add');
+      allow update: if canA('recruiting','edit');
+      allow delete: if canA('recruiting','delete');
+    }
+
+    match /recCfg/{id} {
+      allow read:  if anyA('recruiting');
+      allow write: if canA('recruiting','cfg');
+    }
+
     match /payCfg/{id} {
       allow read:   if anyA('payroll');
       allow create, update, delete: if canA('payroll','edit');

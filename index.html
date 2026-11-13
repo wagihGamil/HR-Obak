@@ -2156,6 +2156,7 @@ const PERM = {
   links:{label:'لينكات هامة',acts:{view:'عرض اللينكات',edit:'إضافة وتعديل وحذف اللينكات'}},
   attend:{label:'الحضور',acts:{view:'تسجيل حضور وانصراف بالوجه (من موبايله)',report:'عرض تقارير حضور كل الموظفين',edit:'الإعدادات: المواقع وبصمات الوجوه وربط المستخدمين'}},
   extlabor:{label:'حساب عمالة خارجية',acts:{view:'دخول المديول وعرض الحسابات',add:'إضافة أيام عمل',edit:'تعديل الأيام + التهيئة (المقاولين واليوميات)',delete:'حذف الأيام'}},
+  recruiting:{label:'التوظيف (السير الذاتية والمرشحين)',acts:{view:'دخول المديول وعرض المرشحين',add:'رفع سير ذاتية وإضافة مرشحين',edit:'تعديل بيانات المرشحين (ورفع سيرة لمرشح موجود)',delete:'حذف المرشحين',cfg:'إعداد الربط مع Google Drive (رابط السكربت والمفتاح)'}},
   payroll:{label:'المرتبات (payroll)',acts:{view:'دخول المديول وعرض العقود وحساب المرتبات',edit:'إنشاء وتعديل العقود + إدخال البدلات والخصومات + إعدادات الحساب',delete:'حذف العقود'}},
   payrev:{label:'مراجع المرتبات',acts:{view:'دخول المديول (فحص الاستقطاعات والإجازات ومطابقة المؤثرات وحضور في يوم إجازة)'}},
   orgchart:{label:'الهيكل التنظيمي',acts:{view:'عرض الهيكل وخطة التعيينات وطباعتها',edit:'رفع الشيتات وتعديل الهيكل والمراحل'}},
@@ -2191,6 +2192,7 @@ const ICONS={
   links:'<svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
   payrev:'<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/><path d="M9 15l2 2 4-4"/></svg>',
   attend:'<svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="4"/><path d="M4 21c0-4 3.5-6 8-6s8 2 8 6"/><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3"/></svg>',
+  recruiting:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.5-3.2 2.6-5 5.5-5s5 1.8 5.5 5"/><circle cx="17.5" cy="10" r="2.4"/><path d="M16 14.2c2.4-.3 4.2.9 4.8 3.3"/></svg>',
   payroll:'<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v.01M18 14.5v.01"/></svg>',
   extlabor:'<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/><circle cx="12" cy="14" r="2"/><path d="M8 19c0-2 2-3 4-3s4 1 4 3"/></svg>',
   orgchart:'<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="4" rx="1"/><rect x="3" y="17" width="6" height="4" rx="1"/><rect x="15" y="17" width="6" height="4" rx="1"/><path d="M12 7v5M6 17v-5h12v5"/></svg>',
@@ -2210,6 +2212,7 @@ const MODS={
   links:{title:'لينكات هامة',color:'linear-gradient(135deg,#1aa39a,#0b6b65)',subs:null},
   attend:{title:'الحضور',color:'linear-gradient(135deg,#1d7a4b,#0f4d2f)',subs:null},
   extlabor:{title:'حساب عمالة خارجية',color:'linear-gradient(135deg,#8a6d3b,#5a4220)',subs:null},
+  recruiting:{title:'التوظيف — السير الذاتية والمرشحين',color:'linear-gradient(135deg,#7c3aed,#4c1d95)',subs:null},
   payroll:{title:'payroll — العقود والمرتبات',color:'linear-gradient(135deg,#0f766e,#134e4a)',subs:null},
   payrev:{title:'مراجع المرتبات',color:'linear-gradient(135deg,#2f8f83,#1b5a52)',subs:null},
   orgchart:{title:'الهيكل التنظيمي',color:'linear-gradient(135deg,#2f9e6f,#1f5fa8)',subs:null},
@@ -3290,6 +3293,195 @@ async function alExport(){ if(!AL.res||!AL.res.rows.length) return toast('لا �
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'حضور في إجازة'); XLSX.writeFile(wb,'حضور_في_يوم_إجازة.xlsx'); }
 
 /* ===== تحضير الباصات (خطوط السير) ===== */
+/* ================= مديول التوظيف (recruiting): رفع السير الذاتية + جدول المرشحين ================= */
+const REC_ACT=['مقابلة بالتليفون','مقابلة شخصية','مقابلة أونلاين','حاولت التواصل ولم يرد','تم التواصل — في انتظار رده','أرسلت له رسالة / إيميل','مراجعة السيرة الذاتية','تم إرسال عرض'], REC_ST=['مقبول','مرفوض','خارج الميزانية','قيد المراجعة','مؤجل','لا يرد','اعتذر المرشح','تم التعيين'];
+const recStC=v=>/^مقبول|تم التعيين/.test(v||'')?'#1b7a3d':/^مرفوض|اعتذر/.test(v||'')?'#c62828':/ميزانية/.test(v||'')?'#a15c00':'#1f2a44';
+const REC={cfg:null,tab:'tb',cands:[],jobs:[],q:'',fd:'',fj:'',fs:'',ud:'',uj:'',busy:false,log:[]}, REC_COL='recCandidates';
+const recCan=a=>can('recruiting',a), recId=()=>'rc_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const recDig=s=>String(s==null?'':s).replace(/[٠-٩]/g,c=>'٠١٢٣٤٥٦٧٨٩'.indexOf(c)).replace(/[۰-۹]/g,c=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(c));
+/* ---------- استخراج النص من الملف ---------- */
+const recScr=(url,ok)=>new Promise((res,rej)=>{ if(ok()) return res(); const s=document.createElement('script'); s.src=url; s.onload=()=>ok()?res():rej(new Error('تعذّر تحميل مكتبة: '+url)); s.onerror=()=>rej(new Error('تعذّر تحميل مكتبة (تأكد من الإنترنت): '+url)); document.head.appendChild(s); });
+async function recOcr(src){ await recScr('https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.5/tesseract.min.js',()=>!!window.Tesseract); const r=await window.Tesseract.recognize(src,'ara+eng'); return (r&&r.data&&r.data.text)||''; }
+async function recPdf(file){ await loadPDFJS(); const pdf=await window.pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise; let text=''; const n=Math.min(pdf.numPages,6);
+  for(let p=1;p<=n;p++){ const pg=await pdf.getPage(p), tc=await pg.getTextContent(); const lines=[]; let cur=null,ly=null;
+    tc.items.forEach(it=>{ if(!it.str&&!it.hasEOL) return; const y=it.transform?it.transform[5]:0; if(cur===null||Math.abs(y-ly)>3){ if(cur!==null) lines.push(cur); cur=''; } ly=y; cur+=(cur&&it.str?' ':'')+it.str; }); if(cur!==null) lines.push(cur); text+=lines.join('\n')+'\n'; }
+  text=text.normalize('NFKC');
+  if(text.replace(/\s/g,'').length<40){ let o=''; for(let p=1;p<=Math.min(pdf.numPages,2);p++){ const pg=await pdf.getPage(p), vp=pg.getViewport({scale:2}), cv=document.createElement('canvas'); cv.width=vp.width; cv.height=vp.height; const cx=cv.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,cv.width,cv.height); await pg.render({canvasContext:cx,viewport:vp}).promise; o+=await recOcr(cv)+'\n'; cv.width=cv.height=0; } text=o; }
+  try{ await pdf.destroy(); }catch(e){} return text; }
+async function recExtract(file){ const ext=(file.name.split('.').pop()||'').toLowerCase();
+  if(ext==='txt') return file.text();
+  if(ext==='pdf') return recPdf(file);
+  if(ext==='docx'){ await recScr('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js',()=>!!window.mammoth); const r=await window.mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()}); return r.value||''; }
+  if(['png','jpg','jpeg','webp','bmp'].includes(ext)) return recOcr(file);
+  if(ext==='doc') throw new Error('ملفات Word القديمة (.doc) مش مدعومة — احفظها كـ docx أو PDF');
+  throw new Error('نوع الملف مش مدعوم ('+ext+')'); }
+/* ---------- تحليل نص السيرة الذاتية ---------- */
+const REC_MO='(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?|يناير|فبراير|مارس|[أإا]بريل|مايو|يونيو|يوليو|[أا]غسطس|سبتمبر|[أا]كتوبر|نوفمبر|ديسمبر)';
+const REC_MN={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12,'يناير':1,'فبراير':2,'مارس':3,'ابريل':4,'أبريل':4,'إبريل':4,'مايو':5,'يونيو':6,'يوليو':7,'اغسطس':8,'أغسطس':8,'سبتمبر':9,'اكتوبر':10,'أكتوبر':10,'نوفمبر':11,'ديسمبر':12};
+const REC_PLACES=['القاهرة الجديدة','القاهرة','الجيزة','الإسكندرية','الاسكندرية','الشرقية','الزقازيق','العاشر من رمضان','الدقهلية','المنصورة','الغربية','طنطا','القليوبية','بنها','شبرا الخيمة','شبرا','المنوفية','شبين الكوم','البحيرة','دمنهور','الفيوم','بني سويف','المنيا','أسيوط','اسيوط','سوهاج','قنا','الأقصر','الاقصر','أسوان','اسوان','الإسماعيلية','الاسماعيلية','بورسعيد','السويس','دمياط','كفر الشيخ','مرسى مطروح','الغردقة','البحر الأحمر','العبور','بدر','مدينة نصر','المعادي','مصر الجديدة','المهندسين','الدقي','العجوزة','الهرم','فيصل','6 أكتوبر','السادس من أكتوبر','الشيخ زايد','الشروق','مدينتي','الرحاب','التجمع','حلوان','المطرية','عين شمس','الزيتون','المرج','السلام','النزهة','التبين','15 مايو','أبو رواش','الخانكة','بلبيس',
+  'Cairo','Giza','Alexandria','Sharqia','Zagazig','Dakahlia','Mansoura','Gharbia','Tanta','Qalyubia','Qalyoubia','Banha','Shubra','Monufia','Menoufia','Beheira','Damanhour','Fayoum','Beni Suef','Minya','Assiut','Asyut','Sohag','Qena','Luxor','Aswan','Ismailia','Port Said','Suez','Damietta','10th of Ramadan','Tenth of Ramadan','Obour','Badr City','Nasr City','Maadi','Heliopolis','Mohandessin','Dokki','Haram','Faisal','6th of October','6 October','October City','Sheikh Zayed','New Cairo','Shorouk','Madinaty','Rehab','Tagamoa','Helwan','15th of May','Matareya','Ain Shams','Hurghada'];
+function recAge(y,m,d){ const n=new Date(); let a=n.getFullYear()-y; if(m&&(n.getMonth()+1<m||(n.getMonth()+1===m&&n.getDate()<(d||1)))) a--; return a; }
+function recParse(raw,jobs){
+  const text=recDig(raw).replace(/\u00a0/g,' ').replace(/[ \t]+/g,' '), lines=text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean), out={n:'',ph:'',em:'',exp:'',res:'',age:'',job:'',dept:''};
+  /* email */ const em=text.match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)+/); if(em) out.em=em[0].toLowerCase().replace(/[.,;]+$/,'');
+  /* phone */ let ph=text.match(/(?<!\d)(?:(?:\+|00)?20[\s\-]*)?0?1[0125][\s\-]?(?:\d[\s\-]?){7}\d(?!\d)/);
+  if(ph){ let d=ph[0].replace(/\D/g,''); if(d.startsWith('0020')) d=d.slice(4); else if(d.startsWith('20')&&d.length>=12) d=d.slice(2); if(d.length===10) d='0'+d; if(/^01[0125]\d{8}$/.test(d)) out.ph=d; }
+  if(!out.ph){ for(const l of lines){ if(/(phone|mobile|tel|cell|whats|موبايل|تليفون|هاتف|محمول|جوال|واتس|رقم)/i.test(l)){ const m=l.match(/\+?\d[\d\s\-().]{7,16}\d/); if(m){ out.ph=m[0].replace(/[^\d+]/g,''); break; } } } }
+  /* name */
+  const BAD=/(cv|resume|curriculum|vitae|سيرة|ذاتية|profile|summary|objective|contact|personal|information|address|phone|mobile|email|e-mail|experience|education|skills|languages|page|بيانات|اتصال|هدف|ملخص|الخبرات|المؤهلات|المهارات|تعريف|شخصية)/i;
+  for(const l of lines.slice(0,40)){ const m=l.match(/^(?:full\s*name|name|الاسم(?:\s*بالكامل)?|الاسم\s*ثلاثي|اسم\s*المرشح)\s*[:：\-]\s*(.{3,60})$/i); if(m){ out.n=m[1].trim(); break; } }
+  if(!out.n){ for(const l of lines.slice(0,15)){ if(l.length<4||l.length>60||/[@\d:\/]/.test(l)||BAD.test(l)) continue; if(!/^[A-Za-z\u0600-\u06FF][A-Za-z\u0600-\u06FF .'\-]+$/.test(l)) continue; const w=l.split(/\s+/); if(w.length<2||w.length>5) continue; out.n=l; break; } }
+  if(!out.n&&out.em){ out.n=out.em.split('@')[0].replace(/[._\-\d]+/g,' ').trim().replace(/\b\w/g,c=>c.toUpperCase()); }
+  out.n=out.n.replace(/\s{2,}/g,' ').replace(/[,;|]+$/,'').trim();
+  /* age */
+  let age=null; let m=text.match(/(?:\bage\b|السن|العمر)\s*[:：\-]?\s*(\d{2})(?!\d)/i); if(m) age=+m[1];
+  if(age===null){ m=text.match(/(?:date\s*of\s*birth|birth\s*date|birthdate|\bd\.?o\.?b\b|\bborn\b|تاريخ\s*الميلاد|الميلاد|مواليد)\s*[:：\-]?\s*([^\n]{0,32})/i);
+    if(m){ const s=m[1]; let q=s.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.]((?:19|20)\d{2})/); if(q) age=recAge(+q[3],+q[2],+q[1]); else if(q=s.match(/((?:19|20)\d{2})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/)) age=recAge(+q[1],+q[2],+q[3]); else if(q=s.match(new RegExp('(\\d{1,2})?\\s*('+REC_MO+')[a-z]*[\\s,.\\-]*((?:19|20)\\d{2})','i'))){ const mn=REC_MN[q[2].toLowerCase().slice(0,3)]||REC_MN[q[2]]; age=recAge(+q[3],mn||0,+q[1]||1); } else if(q=s.match(/((?:19|20)\d{2})/)) age=recAge(+q[1],0,0); } }
+  if(age===null){ m=text.match(/(?<!\d)([23])(\d{2})(\d{2})(\d{2})\d{7}(?!\d)/); if(m){ const y=(m[1]==='2'?1900:2000)+(+m[2]); if(+m[3]>=1&&+m[3]<=12&&+m[4]>=1&&+m[4]<=31) age=recAge(y,+m[3],+m[4]); } }
+  if(age!==null&&age>=16&&age<=70) out.age=age;
+  /* residence */
+  const LBL=/^(?:.*?)(?:address|location|residence|city|lives\s*in|place\s*of\s*residence|محل\s*الا?[إ]?قامة|مكان\s*الا?[إ]?قامة|الإقامة|الاقامة|العنوان|المحافظة|السكن)\s*[:：\-–]\s*(.{2,90})$/i;
+  for(let i=0;i<lines.length;i++){ const q=lines[i].match(LBL); if(q){ out.res=q[1].replace(/(?:phone|mobile|tel|email|e-mail|موبايل|تليفون)\b.*$/i,'').replace(/[,;|\-–\s]+$/,'').trim(); break; } if(/^(?:address|location|العنوان|محل الإقامة|محل الاقامة)\s*[:：]?\s*$/i.test(lines[i])&&lines[i+1]){ out.res=lines[i+1].slice(0,90); break; } }
+  if(!out.res){ const head=lines.slice(0,25).join(' | '); const hit=REC_PLACES.slice().sort((a,b)=>b.length-a.length).find(p=>head.toLowerCase().includes(p.toLowerCase())); if(hit) out.res=hit; }
+  /* experience */
+  const ex=[]; let q;
+  const r1=/(\d{1,2}(?:\.\d)?)\s*\+?\s*(?:years?|yrs?|سنوات|سنه|سنة|اعوام|أعوام|عام)\s*(?:of\s*)?(?:[A-Za-z\u0600-\u06FF]+\s+){0,2}(?:experience|exp\b|خبرة|خبره)/gi; while((q=r1.exec(text))) ex.push(+q[1]);
+  const r2=/(?:experience|خبرة|خبره|الخبرة|الخبره)[^\d\n]{0,25}(\d{1,2}(?:\.\d)?)\s*\+?\s*(?:years?|yrs?|سنوات|سنه|سنة|اعوام|أعوام|عام)/gi; while((q=r2.exec(text))) ex.push(+q[1]);
+  const okEx=ex.filter(v=>v>0&&v<=45); if(okEx.length) out.exp=Math.max(...okEx);
+  else { const H_EX=/^(?:work\s*|professional\s*)?(?:experience|employment(?:\s*history)?|work\s*history|career(?:\s*history)?)(?![A-Za-z؀-ۿ])|^(?:ال)?خبر[اة]ت?(?:\s*ال)?(?:عملية)?|^الخبره|^الخبرة/i, H_END=/^(?:education|academic|qualifications?|courses?|training|certifications?|skills|languages|references|projects|interests|المؤهلات?|التعليم|الدورات|المهارات|اللغات|الشهادات|التدريب|المراجع|الهوايات)(?![A-Za-z؀-ۿ])/i;
+    let st=lines.findIndex(l=>l.length<=40&&H_EX.test(l)), seg;
+    if(st>=0){ let en=lines.findIndex((l,i)=>i>st&&l.length<=40&&H_END.test(l)); seg=lines.slice(st+1,en>0?en:undefined).join('\n'); }
+    else { let es=lines.findIndex(l=>l.length<=40&&/^(?:education|academic|المؤهلات?|التعليم)(?![A-Za-z؀-ۿ])/i.test(l)), ee=es>=0?lines.findIndex((l,i)=>i>es&&l.length<=40&&H_END.test(l)&&!/^(?:education|academic|المؤهلات?|التعليم)(?![A-Za-z؀-ۿ])/i.test(l)):-1; seg=es>=0?lines.filter((l,i)=>!(i>=es&&(ee<0||i<ee))).join('\n'):text; }
+    const dt='(?:(?:'+REC_MO+'|\\d{1,2})[a-z]*[\\s\\/\\-.,]+)?(?:19|20)\\d{2}', cur='(?:present|current|now|till\\s*date|to\\s*date|ongoing|حتى\\s*ال[آا]ن|ال[آا]ن|حاليا|حاليًا|مستمر)';
+    const rg=new RegExp('('+dt+')\\s*(?:-|–|—|to|until|till|الى|إلى|حتى|/)\\s*('+dt+'|'+cur+')','gi'), tok=(s,end)=>{ if(new RegExp('^'+cur+'$','i').test(s.trim())){ const n=new Date(); return n.getFullYear()*12+n.getMonth(); } const y=+(s.match(/(?:19|20)\d{2}/)||[0])[0]; let mo=null; const mn=s.match(new RegExp('('+REC_MO+')','i')); if(mn) mo=REC_MN[mn[1].toLowerCase().slice(0,3)]||REC_MN[mn[1]]; else { const dn=s.match(/(?:^|[^\d])(\d{1,2})[\s\/\-.,]+(?:19|20)\d{2}/); if(dn&&+dn[1]>=1&&+dn[1]<=12) mo=+dn[1]; } return y*12+((mo||6)-1); };
+    const iv=[]; while((q=rg.exec(seg))){ const a=tok(q[1]), b=tok(q[2]); if(b>=a&&b-a<=45*12&&a>=1970*12) iv.push([a,b]); }
+    iv.sort((x,y)=>x[0]-y[0]); let tot=0,cs=null,ce=null; iv.forEach(([a,b])=>{ if(cs===null){ cs=a; ce=b; } else if(a<=ce){ ce=Math.max(ce,b); } else { tot+=ce-cs; cs=a; ce=b; } }); if(cs!==null) tot+=ce-cs;
+    if(tot>0) out.exp=Math.round(tot/12*10)/10; }
+  /* وظيفة مقترحة من الهيكل (لو اسمها ظاهر أعلى السيرة) */
+  const head2=lkNorm(lines.slice(0,12).join(' ')).toLowerCase(); let best=null; (jobs||[]).forEach(j=>{ const n=lkNorm(j.job).toLowerCase(); if(n.length>=4&&head2.includes(n)&&(!best||n.length>lkNorm(best.job).length)) best=j; }); if(best){ out.job=best.job; out.dept=best.dept; }
+  return out; }
+/* ---------- حفظ السير على Google Drive (عن طريق Google Apps Script) ---------- */
+const recDrvMode=()=>REC.cfg?(REC.cfg.mode||(REC.cfg.url?'gas':'')):'';
+const recDrvOn=()=>recDrvMode()==='api'?!!(REC.cfg.clientId&&REC.cfg.rootId):recDrvMode()==='gas'?!!(REC.cfg.url&&REC.cfg.key):false;
+const recB64=f=>new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(',')[1]||''); r.onerror=()=>rej(new Error('تعذّر قراءة الملف')); r.readAsDataURL(f); });
+async function recDrive(payload){ const c=REC.cfg; let r; try{ r=await fetch(c.url,{method:'POST',body:JSON.stringify({key:c.key,...payload})}); }catch(e){ throw new Error('مقدرتش أوصل لسكربت Google — راجع الرابط والإنترنت'); }
+  let j; try{ j=await r.json(); }catch(e){ throw new Error('الرد من السكربت مش مفهوم — اتأكد إن الـ Web App متنشر بصلاحية «Anyone» وإن الرابط بينتهي بـ /exec'); } if(!j||!j.ok) throw new Error((j&&j.error)||'فشل غير معروف من السكربت'); return j; }
+async function recSendCv(file,rec){ if(file.size>20*1024*1024) throw new Error('الملف أكبر من 20MB'); const ext=((file.name.split('.').pop())||'pdf').toLowerCase().replace(/[^a-z0-9]/g,''), base=String(rec.n||file.name.replace(/\.[^.]+$/,'')).replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim().slice(0,60)||'سيرة ذاتية', today=atISO(new Date());
+  const path=[(rec.job||rec.dept||'غير محدد').replace(/[\\/]+/g,'-'),today.slice(0,7)], nm=`${base} - ${today}.${ext}`;
+  if(recDrvMode()==='api'){ const j=await recApiUpload(file,nm,path); return {id:j.id,url:j.webViewLink||('https://drive.google.com/file/d/'+j.id+'/view'),name:j.name||nm,at:Date.now(),by:(REC.tok&&REC.tok.em)||''}; }
+  const j=await recDrive({action:'upload',name:nm,mime:file.type||'application/octet-stream',path,data:await recB64(file)});
+  return {id:j.id,url:j.url,name:j.name||file.name,at:Date.now()}; }
+/* --- وضع Google Drive API المباشر (تسجيل دخول جوجل لكل مستخدم) --- */
+const REC_SCOPE='https://www.googleapis.com/auth/drive';
+function recTokLoad(){ try{ const o=JSON.parse(sessionStorage.getItem('rec_gtok')||'null'); if(o&&o.exp>Date.now()) REC.tok=o; }catch(e){} }
+const recTok=()=>{ if(!REC.tok) recTokLoad(); return REC.tok&&REC.tok.exp>Date.now()?REC.tok.t:null; };
+const recFid=v=>{ const m=String(v||'').match(/folders\/([\w-]{10,})/)||String(v||'').match(/[?&]id=([\w-]{10,})/)||String(v||'').trim().match(/^([\w-]{10,})$/); return m?m[1]:''; };
+function recAuth(){ return new Promise(async(res,rej)=>{ try{ if(!REC.cfg||!REC.cfg.clientId) throw new Error('الـ Client ID مش متسجل — اطلب من المسؤول يضبط الربط');
+    await recScr('https://accounts.google.com/gsi/client',()=>!!(window.google&&google.accounts&&google.accounts.oauth2));
+    const tc=google.accounts.oauth2.initTokenClient({client_id:REC.cfg.clientId,scope:REC_SCOPE,
+      callback:async r=>{ if(r.error) return rej(new Error(r.error_description||r.error)); REC.tok={t:r.access_token,exp:Date.now()+Math.max(60,(+r.expires_in||3600)-90)*1000,em:''};
+        try{ const a=await fetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress,displayName)',{headers:{Authorization:'Bearer '+REC.tok.t}}).then(x=>x.json()); REC.tok.em=(a&&a.user&&(a.user.emailAddress||a.user.displayName))||''; }catch(e){}
+        try{ sessionStorage.setItem('rec_gtok',JSON.stringify(REC.tok)); }catch(e){} res(REC.tok.t); },
+      error_callback:e=>rej(new Error(e&&e.type==='popup_closed'?'اتقفلت نافذة تسجيل الدخول قبل ما تخلص':e&&e.type==='popup_failed_to_open'?'المتصفح منع نافذة جوجل — اسمح بالنوافذ المنبثقة للموقع وجرّب تاني':(e&&(e.message||e.type))||'فشل تسجيل الدخول'))});
+    tc.requestAccessToken({}); }catch(e){ rej(e); } }); }
+async function recGapi(path,opt){ const t=recTok(); if(!t) throw new Error('لازم تربط حسابك بجوجل الأول'); opt=opt||{}; const r=await fetch('https://www.googleapis.com/'+path,{...opt,headers:{Authorization:'Bearer '+t,...(opt.headers||{})}});
+  if(r.status===401){ REC.tok=null; try{ sessionStorage.removeItem('rec_gtok'); }catch(e){} throw new Error('انتهت صلاحية دخول جوجل — اربط حسابك تاني'); }
+  let j={}; try{ j=await r.json(); }catch(e){} if(!r.ok){ const m=(j&&j.error&&(j.error.message||j.error))||('خطأ '+r.status); throw new Error(r.status===404?'مش لاقي الفولدر الرئيسي أو حسابك ملوش صلاحية عليه — اطلب مشاركته معاك كـ Editor ('+m+')':r.status===403?'حسابك ملوش صلاحية الكتابة في فولدر السير ('+m+')':m); } return j; }
+const REC_FC={};
+async function recFolder(parent,name){ const key=parent+'/'+name; if(REC_FC[key]) return REC_FC[key]; const q=`'${parent}' in parents and name='${name.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const l=await recGapi('drive/v3/files?supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id,name)&q='+encodeURIComponent(q)); let id=l.files&&l.files[0]&&l.files[0].id;
+  if(!id){ const c=await recGapi('drive/v3/files?supportsAllDrives=true&fields=id',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,mimeType:'application/vnd.google-apps.folder',parents:[parent]})}); id=c.id; } REC_FC[key]=id; return id; }
+async function recApiUpload(file,name,path){ if(!recTok()) throw new Error('لازم تربط حسابك بجوجل الأول'); let parent=REC.cfg.rootId; for(const n of path) parent=await recFolder(parent,String(n).replace(/\s+/g,' ').trim()||'غير محدد');
+  const b='rcb'+Math.random().toString(36).slice(2), body=new Blob([`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({name,parents:[parent]})}\r\n--${b}\r\nContent-Type: ${file.type||'application/octet-stream'}\r\n\r\n`,file,`\r\n--${b}--`]);
+  return recGapi('upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body}); }
+function recCfgModal(){ const c=REC.cfg||{}, mode=recDrvMode()||'api'; const inp=(id,v,ph,ltr)=>`<input id="${id}" ${ltr?'dir="ltr"':''} value="${esc(v||'')}" placeholder="${esc(ph||'')}" style="width:100%;box-sizing:border-box;padding:7px;border:1.5px solid #c3c6cf;border-radius:6px">`, lb=t=>`<label style="font-size:12.5px;font-weight:600;display:block;margin-bottom:3px">${t}</label>`;
+  const m=ocModal(`<h3>ربط Google Drive</h3><div style="display:flex;gap:14px;margin-bottom:10px;flex-wrap:wrap"><label style="font-weight:600"><input type="radio" name="rcg_m" value="api" ${mode==='api'?'checked':''}> Google Drive API مباشر (كل مستخدم يسجّل دخول بحسابه)</label><label style="font-weight:600"><input type="radio" name="rcg_m" value="gas" ${mode==='gas'?'checked':''}> Apps Script (حساب واحد للشركة)</label></div>
+  <div id="rcg_api"><div class="muted" style="font-size:12.5px;margin-bottom:8px">اتبع خطوات «Google Cloud» اللي في الرد اللي بعتهولك. كل مستخدم بيضغط «ربط حسابي بجوجل» مرة وبيرفع بحسابه، والفولدر الرئيسي لازم يكون متشارك مع حسابه (Editor).</div><div style="display:grid;gap:8px">
+  <div>${lb('OAuth Client ID')}${inp('rcg_cid',c.clientId,'1234567890-xxxx.apps.googleusercontent.com',1)}</div><div>${lb('رابط (أو ID) الفولدر الرئيسي على Drive')}${inp('rcg_root',c.rootId?('https://drive.google.com/drive/folders/'+c.rootId):'','https://drive.google.com/drive/folders/…',1)}</div></div></div>
+  <div id="rcg_gas" hidden><div class="muted" style="font-size:12.5px;margin-bottom:8px">رابط الـ Web App (بينتهي بـ /exec) والمفتاح السري من ملف recruiting_drive.gs.</div><div style="display:grid;gap:8px"><div>${lb('رابط الـ Web App')}${inp('rcg_u',c.url,'https://script.google.com/macros/s/.../exec',1)}</div><div>${lb('المفتاح السري')}${inp('rcg_k',c.key,'',1)}</div></div></div>
+  <div id="rcg_m" style="margin:8px 0;min-height:20px;font-size:13px"></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn pri" id="rcg_s" type="button">حفظ</button><button class="btn" id="rcg_t" type="button">اختبار الاتصال</button>${recDrvOn()?'<button class="btn" id="rcg_x" type="button">إيقاف الربط</button>':''}<button class="btn" data-ocx type="button">إغلاق</button></div>`,600);
+  const q=sel=>m.querySelector(sel), mode_=()=>(m.querySelector('input[name=rcg_m]:checked')||{}).value||'api', say=(t,bad)=>{ const e=q('#rcg_m'); e.textContent=t; e.style.color=bad?'#c62828':'#1b7a3d'; };
+  const sync=()=>{ q('#rcg_api').hidden=mode_()!=='api'; q('#rcg_gas').hidden=mode_()!=='gas'; }; m.querySelectorAll('input[name=rcg_m]').forEach(r=>r.onchange=sync); sync();
+  const read=()=>mode_()==='api'?{mode:'api',clientId:q('#rcg_cid').value.trim(),rootId:recFid(q('#rcg_root').value)}:{mode:'gas',url:q('#rcg_u').value.trim(),key:q('#rcg_k').value.trim()};
+  const valid=v=>v.mode==='api'?(/\.apps\.googleusercontent\.com$/.test(v.clientId)&&v.rootId?'':'اكتب الـ Client ID (بينتهي بـ apps.googleusercontent.com) ولينك الفولدر الرئيسي'):(/^https:\/\/script\.google(?:usercontent)?\.com\//.test(v.url)&&v.key?'':'اكتب رابط الـ Web App (…/exec) والمفتاح');
+  q('#rcg_t').onclick=async()=>{ const v=read(), er=valid(v); if(er){ say(er,true); return; } const keep=REC.cfg; REC.cfg=v; say('جارٍ الاختبار…');
+    try{ if(v.mode==='gas'){ const j=await recDrive({action:'ping'}); say('✔ الاتصال شغال — المجلد الرئيسي: '+(j.root||'')); } else { if(!recTok()) await recAuth(); const f=await recGapi('drive/v3/files/'+v.rootId+'?supportsAllDrives=true&fields=name,capabilities(canAddChildren)'); say(f.capabilities&&f.capabilities.canAddChildren===false?'⚠ الفولدر «'+f.name+'» موجود لكن حسابك ملوش صلاحية الكتابة فيه':'✔ شغال — الفولدر الرئيسي: '+f.name+(REC.tok&&REC.tok.em?' (متصل كـ '+REC.tok.em+')':''), f.capabilities&&f.capabilities.canAddChildren===false); } }catch(e){ say(e.message,true); } REC.cfg=keep; };
+  q('#rcg_s').onclick=async()=>{ const v=read(), er=valid(v); if(er){ say(er,true); return; } try{ await BE.rcSet('recCfg','main',v); REC.cfg=v; toast('تم حفظ إعداد Drive ✓'); m.remove(); recRender(); }catch(e){ say(authMsg(e),true); } };
+  const x=q('#rcg_x'); if(x) x.onclick=async()=>{ try{ await BE.rcDel('recCfg','main'); REC.cfg=null; toast('اتوقف الربط'); m.remove(); recRender(); }catch(e){ say(authMsg(e),true); } }; }
+/* ---------- بيانات + شاشة ---------- */
+async function recLoad(){ const [c,p,cf]=await Promise.all([BE.rcList(REC_COL),BE.ocGet('planned').catch(()=>null),BE.rcList('recCfg').catch(()=>[])]); REC.cfg=cf.find(x=>x.id==='main')||null; if(!recDrvOn()) REC.cfg=null;
+  REC.cands=c.sort((a,b)=>(b.at||0)-(a.at||0)); const seen=new Set(); REC.jobs=((p&&p.rows)||[]).filter(r=>r.job&&r.dept).filter(r=>{ const k=r.dept+'|'+r.job; if(seen.has(k)) return false; seen.add(k); return true; }).map(r=>({dept:r.dept,job:r.job})).sort((a,b)=>String(a.dept).localeCompare(String(b.dept),'ar')||String(a.job).localeCompare(String(b.job),'ar')); }
+function recInit(){ if($('recstyle')) return; const s=document.createElement('style'); s.id='recstyle'; s.textContent=`#recx h2{margin:0 0 6px;font-size:18px;color:var(--navy)}#recx .sub{color:#667085;font-size:13px;margin-bottom:12px}#recx .pg{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end;margin-bottom:12px}#recx label{display:block;font-size:12.5px;font-weight:600;margin-bottom:3px}
+#recx input,#recx select{width:100%;font:inherit;font-size:13px;padding:6px 8px;border:1.5px solid #c3c6cf;border-radius:6px;background:#fff;box-sizing:border-box}#recx .rt{overflow:auto;border:1px solid var(--line);border-radius:10px;background:#fff;max-height:72vh}#recx table{border-collapse:collapse;width:100%;font-size:13px;min-width:2100px}#recx th{background:var(--navy);color:#fff;padding:7px 8px;text-align:right;position:sticky;top:0;z-index:1;font-size:12px}#recx td{padding:4px 5px;border-bottom:1px solid var(--line);vertical-align:middle}#recx td input,#recx td select{padding:5px 6px;font-size:12.5px}
+#recx .drop{display:block;border:2.5px dashed #9aa3b5;border-radius:14px;padding:30px 16px;text-align:center;background:#f7f9fc;cursor:pointer;margin-bottom:12px}#recx .drop.over{border-color:var(--red,#c62828);background:#fff5f5}#recx .drop b{display:block;font-size:16px;color:var(--navy);margin-bottom:4px}#recx .drop span{font-size:12.5px;color:#667085}#recx .drop input{display:none}
+#recx .lg{border:1px solid var(--line);border-radius:10px;background:#fff;margin-top:10px}#recx .lg div{padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px}#recx .lg div:last-child{border-bottom:0}#recx .ok{color:#1b7a3d;font-weight:700}#recx .bad{color:#c62828;font-weight:700}#recx .warn{color:#a15c00;font-weight:700}`; document.head.appendChild(s); }
+function recTabs(){ hdrTabs([{k:'up',t:'رفع السير الذاتية',on:REC.tab==='up'},{k:'tb',t:'المرشحين',on:REC.tab==='tb'}],k=>{ REC.tab=k; recRender(); }); }
+async function mountRecruiting(){ setLayout({view:true}); recInit(); $('view').innerHTML='<div class="card muted">جارٍ التحميل…</div>';
+  try{ await recLoad(); }catch(er){ $('view').innerHTML=`<div class="card" style="color:#c62828">${esc(authMsg(er))}</div>`; return; } recRender(); }
+function recRender(){ recTabs(); $('view').innerHTML=`<div class="card" id="recx">${REC.tab==='up'?recUpHtml():recTbHtml()}</div>`; if(REC.tab==='up') recUpBind(); else recTbBind(); }
+const recDeptOpts=(sel)=>'<option value="">— القسم —</option>'+[...new Set(REC.jobs.map(j=>j.dept))].concat(sel&&!REC.jobs.some(j=>j.dept===sel)?[sel]:[]).map(d=>`<option value="${esc(d)}" ${d===sel?'selected':''}>${esc(d)}</option>`).join('');
+const recJobOpts=(dept,sel)=>{ const L=REC.jobs.filter(j=>!dept||j.dept===dept); return '<option value="">— الوظيفة —</option>'+L.map(j=>`<option value="${esc(j.job)}" ${j.job===sel?'selected':''}>${esc(j.job)}${dept?'':' — '+esc(j.dept)}</option>`).join('')+(sel&&!L.some(j=>j.job===sel)?`<option value="${esc(sel)}" selected>${esc(sel)}</option>`:''); };
+/* ---------- تابة الرفع ---------- */
+function recUpHtml(){ const can_=recCan('add'); return `<h2>رفع السير الذاتية</h2><div class="sub">ارفع سيرة ذاتية واحدة أو مجموعة سير (PDF / Word docx / صور / txt) — البرنامج يستخرج البيانات ويحطها في تابة «المرشحين». <b>ملفات السير نفسها مبتتحفظش</b>، بيتحفظ بس الجدول.</div>
+${REC.jobs.length?'':'<div class="warn" style="margin-bottom:10px">⚠ الهيكل التنظيمي مفيهوش وظائف لسه — قوائم القسم والوظيفة هتبقى فاضية لحد ما ترفع الهيكل في مديول الهيكل التنظيمي.</div>'}
+<div class="sub" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">☁ <b>حفظ السير على Google Drive:</b> ${recDrvOn()?(recDrvMode()==='api'?(recTok()?`<span class="ok">متصل ✔ ${esc((REC.tok&&REC.tok.em)||'')} — السير بتتحفظ في فولدر الوظيفة/الشهر وبتتربط بالمرشح</span>`:'<span class="warn">مفعّل — لازم تربط حسابك بجوجل قبل الرفع</span> <button class="btn sm pri" id="ru_auth0" type="button">🔑 ربط حسابي بجوجل</button>'):'<span class="ok">مفعّل ✔ — كل سيرة بتتحفظ في فولدر الوظيفة/الشهر وبتتربط بالمرشح</span>'):'<span class="warn">مش مفعّل — السير مش بتتحفظ</span>'} ${recCan('cfg')?'<button class="btn sm" id="ru_cfg" type="button">⚙ إعداد الربط</button>':''}</div>
+<div class="pg"><div><label>القسم (اختياري — لكل السير في الدفعة دي)</label><select id="ru_d">${recDeptOpts(REC.ud)}</select></div><div><label>الوظيفة المرشحين ليها (اختياري)</label><select id="ru_j">${recJobOpts(REC.ud,REC.uj)}</select></div></div>
+${can_?`<label class="drop" id="ru_drop"><input type="file" id="ru_f" multiple accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp"><b>اسحب السير هنا أو اضغط للاختيار</b><span>ينفع تختار عدة ملفات مرة واحدة • PDF / DOCX / صور (بتتقرا بالـ OCR)</span></label>`:'<div class="muted">محتاج صلاحية «إضافة» عشان ترفع.</div>'}
+<div id="ru_log" class="lg" ${REC.log.length?'':'hidden'}>${recLogHtml()}</div>`; }
+const recLogHtml=()=>REC.log.map(l=>`<div>${l.s==='ok'?'<span class="ok">✔</span>':l.s==='dup'?'<span class="warn">⚠</span>':l.s==='run'?'⏳':'<span class="bad">✖</span>'} <b>${esc(l.f)}</b> — ${l.m}</div>`).join('');
+function recUpBind(){ if($('ru_cfg')) $('ru_cfg').onclick=recCfgModal; if($('ru_auth0')) $('ru_auth0').onclick=async()=>{ try{ await recAuth(); toast('اتربط حسابك ✓'); recRender(); }catch(e){ toast(e.message,true); } }; const d=$('ru_d'), j=$('ru_j'); if(!d) return; d.onchange=()=>{ REC.ud=d.value; if(REC.uj&&!REC.jobs.some(x=>x.job===REC.uj&&(!REC.ud||x.dept===REC.ud))) REC.uj=''; j.innerHTML=recJobOpts(REC.ud,REC.uj); };
+  j.onchange=()=>{ REC.uj=j.value; const x=REC.jobs.find(v=>v.job===REC.uj&&(!REC.ud||v.dept===REC.ud)); if(x&&!REC.ud){ REC.ud=x.dept; d.innerHTML=recDeptOpts(REC.ud); } };
+  const inp=$('ru_f'), drop=$('ru_drop'); if(!inp) return; inp.onchange=()=>{ recProcess([...inp.files]); inp.value=''; };
+  drop.ondragover=e=>{ e.preventDefault(); drop.classList.add('over'); }; drop.ondragleave=()=>drop.classList.remove('over'); drop.ondrop=e=>{ e.preventDefault(); drop.classList.remove('over'); recProcess([...e.dataTransfer.files]); }; }
+async function recProcess(files,opt){ opt=opt||{}; if(!files.length||REC.busy) return; const box=$('ru_log');
+  if(recDrvMode()==='api'&&!recTok()&&!opt.noDrive){ REC.pending=files; REC.log=[]; box.hidden=false; box.innerHTML=`<div><b class="warn">⚠ لازم تربط حسابك بجوجل علشان السير تتحفظ على Drive.</b> (${files.length} ملف مستني)<div id="ru_am" class="bad" style="margin-top:4px"></div><div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap"><button class="btn pri" id="ru_auth" type="button">🔑 سجّل دخول جوجل وكمّل</button><button class="btn" id="ru_nodrv" type="button">كمّل من غير حفظ على Drive</button></div></div>`;
+    $('ru_auth').onclick=async()=>{ try{ await recAuth(); recRender(); recProcess(REC.pending); }catch(e){ $('ru_am').textContent=e.message; } }; $('ru_nodrv').onclick=()=>recProcess(REC.pending,{noDrive:true}); return; }
+  REC.busy=true; REC.log=[]; REC.skipDrv=!!opt.noDrive; const draw=()=>{ box.hidden=false; box.innerHTML=recLogHtml(); }; let added=0;
+  for(const f of files){ const l={f:f.name,s:'run',m:'جارٍ القراءة…'}; REC.log.push(l); draw();
+    try{ const text=await recExtract(f); if(!text||text.replace(/\s/g,'').length<15) throw new Error('الملف مفيهوش نص مقروء');
+      const P=recParse(text,REC.jobs); const em=(P.em||'').toLowerCase(), ph=P.ph||''; const dup=REC.cands.find(c=>(em&&String(c.em||'').toLowerCase()===em)||(ph&&String(c.ph||'')===ph));
+      if(dup){ l.s='dup'; l.m=`موجود قبل كده (${esc(dup.n||'')}) — اتخطّى`;
+        if(recDrvOn()&&!REC.skipDrv&&!dup.cv){ try{ dup.cv=await recSendCv(f,dup); const r2={...dup}; delete r2.id; await BE.rcSet(REC_COL,dup.id,r2); l.m=`موجود قبل كده (${esc(dup.n||'')}) — اتربطت السيرة بيه على Drive ☁`; }catch(e){ l.m+=` — <span class="bad">ورفع السيرة لـ Drive فشل: ${esc(e.message)}</span>`; } }
+        draw(); continue; }
+      const rec={n:P.n,ph:P.ph,em:P.em,dept:REC.ud||P.dept||'',job:REC.uj||P.job||'',exp:P.exp,res:P.res,age:P.age,sal:'',idt:'',itm:'',act:'',st:'',adt:'',rv:true,at:Date.now()+added,by:(ME&&(ME.name||ME.email))||''};
+      if(rec.job&&!rec.dept){ const x=REC.jobs.find(v=>v.job===rec.job); if(x) rec.dept=x.dept; }
+      let drvErr=''; if(recDrvOn()&&!REC.skipDrv){ try{ rec.cv=await recSendCv(f,rec); }catch(e){ drvErr=e.message; } }
+      const id=recId(); await BE.rcSet(REC_COL,id,rec); REC.cands.unshift({...rec,id}); added++;
+      const miss=[!rec.n&&'الاسم',!rec.ph&&'التليفون',!rec.em&&'الإيميل',rec.exp===''&&'الخبرة',!rec.res&&'الإقامة',rec.age===''&&'السن'].filter(Boolean);
+      l.s='ok'; l.m=`${esc(rec.n||'(بدون اسم)')}${rec.cv?' — ☁ اتحفظت على Drive':''}${miss.length?` — <span class="warn">ناقص: ${miss.join('، ')}</span>`:''}${drvErr?` — <span class="bad">اتحفظ في الجدول لكن رفع السيرة لـ Drive فشل: ${esc(drvErr)}</span>`:''}`; }
+    catch(e){ l.s='err'; l.m=esc(e&&e.message?e.message:String(e)); } draw(); }
+  REC.busy=false; if(added){ toast(`تمت إضافة ${added} مرشح ✓`); box.insertAdjacentHTML('beforeend',`<div><button class="btn pri" id="ru_go" type="button">اذهب لجدول المرشحين ←</button></div>`); $('ru_go').onclick=()=>{ REC.tab='tb'; recRender(); }; } }
+/* ---------- تابة المرشحين ---------- */
+function recRows(){ const q=lkNorm(REC.q).toLowerCase(); return REC.cands.filter(c=>(!q||lkNorm([c.n,c.ph,c.em,c.res].join(' ')).toLowerCase().includes(q))&&(!REC.fd||c.dept===REC.fd)&&(!REC.fj||c.job===REC.fj)&&(!REC.fs||(REC.fs==='__none'?!c.st:c.st===REC.fs))); }
+function recRowHtml(c,i){ const ed=recCan('edit'), dis=ed?'':'disabled', f=(k,t,w,extra)=>`<td><input data-rid="${esc(c.id)}" data-f="${k}" type="${t||'text'}" value="${esc(c[k]==null?'':c[k])}" ${dis} ${extra||''} style="width:${w||130}px"></td>`;
+  return `<tr data-id="${esc(c.id)}" ${c.rv?'style="background:#fffbe9"':''}><td style="text-align:center;white-space:nowrap">${i+1}${c.rv?' <span title="اتقرأت تلقائيًا من السيرة — راجع البيانات (بيختفي التنبيه أول ما تعدّل)">🤖</span>':''}</td>${f('n','text',170)}${f('ph','text',115,'dir="ltr"')}${f('em','text',185,'dir="ltr"')}
+  <td><select data-rid="${esc(c.id)}" data-f="dept" ${dis} style="width:150px">${recDeptOpts(c.dept)}</select></td><td><select data-rid="${esc(c.id)}" data-f="job" ${dis} style="width:170px">${recJobOpts(c.dept,c.job)}</select></td>
+  ${f('exp','number',70,'min="0" step="any"')}${f('res','text',150)}${f('age','number',60,'min="14" max="80"')}${f('sal','number',100,'min="0" step="any"')}${f('idt','date',135)}${f('itm','time',100)}
+  <td><input data-rid="${esc(c.id)}" data-f="act" list="rec_act" value="${esc(c.act||'')}" ${dis} placeholder="اختار أو اكتب" style="width:190px"></td><td><input data-rid="${esc(c.id)}" data-f="st" list="rec_st" value="${esc(c.st||'')}" ${dis} placeholder="اختار أو اكتب" style="width:140px;font-weight:700;color:${recStC(c.st)}"></td>${f('adt','date',135)}
+  <td style="white-space:nowrap">${c.cv?`<button class="btn sm" data-rcvv="${esc(c.id)}" type="button" title="${esc(c.cv.name||'')}">📄 عرض</button> <a class="btn sm" href="${esc(c.cv.url)}" target="_blank" rel="noopener noreferrer">↗</a>`:(recDrvOn()&&recCan('edit')?(recDrvMode()==='api'&&!recTok()?`<button class="btn sm" data-rcauth="1" type="button" title="اربط حسابك بجوجل الأول">🔑 ربط جوجل</button>`:`<label class="btn sm" style="margin:0;cursor:pointer">⬆ رفع<input type="file" data-rcvu="${esc(c.id)}" accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.txt" hidden></label>`):'<span class="muted">—</span>')}</td>
+  <td style="white-space:nowrap">${recCan('delete')?`<button class="btn sm" data-rdel="${esc(c.id)}" type="button">حذف</button>`:''}</td></tr>`; }
+function recTbHtml(){ const rows=recRows(), depts=[...new Set(REC.cands.map(c=>c.dept).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar')), jobs=[...new Set(REC.cands.filter(c=>!REC.fd||c.dept===REC.fd).map(c=>c.job).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
+  return `<h2>المرشحين</h2><div class="sub">البيانات بتتحفظ تلقائيًا أول ما تعدّل أي خانة. الصفوف الصفراء 🤖 اتقرأت من سيرة ذاتية وتحتاج مراجعتك.</div>
+<div class="pg"><div><label>بحث</label><input id="rt_q" value="${esc(REC.q)}" placeholder="اسم / تليفون / إيميل / إقامة"></div><div><label>القسم</label><select id="rt_fd"><option value="">الكل</option>${depts.map(d=>`<option ${d===REC.fd?'selected':''}>${esc(d)}</option>`).join('')}</select></div><div><label>الوظيفة</label><select id="rt_fj"><option value="">الكل</option>${jobs.map(d=>`<option ${d===REC.fj?'selected':''}>${esc(d)}</option>`).join('')}</select></div>
+<div><label>الحالة</label><select id="rt_fs"><option value="">الكل</option><option value="__none" ${REC.fs==='__none'?'selected':''}>بدون حالة</option>${[...new Set(REC_ST.concat(REC.cands.map(c=>c.st).filter(Boolean)))].map(v=>`<option ${v===REC.fs?'selected':''}>${esc(v)}</option>`).join('')}</select></div>
+<div style="display:flex;gap:6px;flex-wrap:wrap">${recCan('add')?'<button class="btn pri" id="rt_new" type="button">+ مرشح</button>':''}<button class="btn" id="rt_xl" type="button">تصدير Excel</button></div></div>
+<datalist id="rec_act">${REC_ACT.concat([...new Set(REC.cands.map(c=>c.act).filter(v=>v&&!REC_ACT.includes(v)))]).map(v=>`<option value="${esc(v)}">`).join('')}</datalist><datalist id="rec_st">${REC_ST.concat([...new Set(REC.cands.map(c=>c.st).filter(v=>v&&!REC_ST.includes(v)))]).map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
+<div class="muted" style="margin-bottom:6px">${rows.length} مرشح${rows.length!==REC.cands.length?` (من ${REC.cands.length})`:''}</div>
+<div class="rt"><table><thead><tr><th>#</th><th>اسم المرشح</th><th>التليفون</th><th>الإيميل</th><th>القسم</th><th>الوظيفة المرشح لها</th><th>سنوات الخبرة</th><th>محل الإقامة</th><th>السن</th><th>الراتب المتوقع</th><th>معاد المقابلة</th><th>وقت المقابلة</th><th>الإجراء</th><th>الحالة</th><th>تاريخ الإجراء</th><th>السيرة الذاتية</th><th></th></tr></thead><tbody>${rows.map(recRowHtml).join('')||'<tr><td colspan="17" class="muted" style="padding:16px">لا يوجد مرشحين — ارفع سير ذاتية من التابة الأولى أو اضغط «+ مرشح».</td></tr>'}</tbody></table></div>`; }
+function recTbBind(){ const R=$('recx'); const rd=()=>{ const sc=R.querySelector('.rt'), st=sc?[sc.scrollLeft,sc.scrollTop]:null; recRender(); const s2=$('recx').querySelector('.rt'); if(st&&s2){ s2.scrollLeft=st[0]; s2.scrollTop=st[1]; } };
+  $('rt_q').oninput=()=>{ REC.q=$('rt_q').value; const pos=$('rt_q').selectionStart; rd(); const q=$('rt_q'); q.focus(); try{ q.setSelectionRange(pos,pos); }catch(e){} };
+  $('rt_fd').onchange=()=>{ REC.fd=$('rt_fd').value; REC.fj=''; rd(); }; $('rt_fj').onchange=()=>{ REC.fj=$('rt_fj').value; rd(); }; $('rt_fs').onchange=()=>{ REC.fs=$('rt_fs').value; rd(); }; $('rt_xl').onclick=recExport;
+  if($('rt_new')) $('rt_new').onclick=async()=>{ const rec={n:'',ph:'',em:'',dept:REC.fd||'',job:REC.fj||'',exp:'',res:'',age:'',sal:'',idt:'',itm:'',act:'',st:'',adt:'',rv:false,at:Date.now(),by:(ME&&(ME.name||ME.email))||''}, id=recId(); try{ await BE.rcSet(REC_COL,id,rec); REC.cands.unshift({...rec,id}); rd(); const i=R.querySelector(`[data-rid="${id}"][data-f="n"]`); if(i) i.focus(); }catch(e){ toast(authMsg(e),true); } };
+  R.querySelectorAll('[data-rid]').forEach(el=>el.onchange=async()=>{ const c=REC.cands.find(x=>x.id===el.dataset.rid); if(!c) return; const f=el.dataset.f; let v=el.value; if(['exp','age','sal'].includes(f)) v=v===''?'':+v; else if(typeof v==='string') v=v.trim();
+    const old={...c}; c[f]=v; if(f==='dept'&&c.job&&!REC.jobs.some(j=>j.job===c.job&&j.dept===c.dept)) c.job=''; if(f==='job'&&c.job){ const j=REC.jobs.find(x=>x.job===c.job&&(!c.dept||x.dept===c.dept))||REC.jobs.find(x=>x.job===c.job); if(j) c.dept=j.dept; } c.rv=false; if(f==='st'){ c.adt=v?atISO(new Date()):''; }
+    const rec={...c}; delete rec.id; try{ await BE.rcSet(REC_COL,c.id,rec); if(['dept','job','st'].includes(f)||old.rv) rd(); }catch(e){ Object.assign(c,old); toast(authMsg(e),true); rd(); } });
+  R.querySelectorAll('[data-rcvv]').forEach(b=>b.onclick=()=>{ const c=REC.cands.find(x=>x.id===b.dataset.rcvv); if(c&&c.cv) lView({title:c.n||'السيرة الذاتية',url:c.cv.url}); });
+  R.querySelectorAll('[data-rcauth]').forEach(b=>b.onclick=async()=>{ try{ await recAuth(); toast('اتربط حسابك ✓'); recRender(); }catch(e){ toast(e.message,true); } });
+  R.querySelectorAll('[data-rcvu]').forEach(i=>i.onchange=async()=>{ const c=REC.cands.find(x=>x.id===i.dataset.rcvu), f=i.files[0]; if(!c||!f) return; toast('جارٍ رفع السيرة لـ Drive…'); try{ c.cv=await recSendCv(f,c); const r2={...c}; delete r2.id; await BE.rcSet(REC_COL,c.id,r2); toast('اتحفظت السيرة على Drive ✓'); rd(); }catch(e){ delete c.cv; toast(e.message,true); } });
+  R.querySelectorAll('[data-rdel]').forEach(b=>b.onclick=async()=>{ const c=REC.cands.find(x=>x.id===b.dataset.rdel); if(!c||!confirm('حذف المرشح «'+(c.n||'بدون اسم')+'»؟'+(c.cv?'\n(ملف السيرة على Drive مش هيتحذف)':''))) return; try{ await BE.rcDel(REC_COL,c.id); REC.cands=REC.cands.filter(x=>x.id!==c.id); rd(); toast('تم الحذف'); }catch(e){ toast(authMsg(e),true); } }); }
+async function recExport(){ const rows=recRows(); if(!rows.length){ toast('مفيش مرشحين للتصدير',true); return; } await loadXLSX(); const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows.map(c=>({'اسم المرشح':c.n,'التليفون':c.ph,'الإيميل':c.em,'القسم':c.dept,'الوظيفة المرشح لها':c.job,'سنوات الخبرة':c.exp,'محل الإقامة':c.res,'السن':c.age,'الراتب المتوقع':c.sal,'معاد المقابلة':c.idt,'وقت المقابلة':c.itm,'الإجراء':c.act||'','الحالة':c.st||'','تاريخ الإجراء':c.adt||'','رابط السيرة':(c.cv&&c.cv.url)||''}))),'المرشحين'); XLSX.writeFile(wb,'المرشحين.xlsx'); }
+
 /* ================= مديول payroll (العقود + المرتبات) ================= */
 const PAY={tab:'con',cons:[],emps:[],cfg:null,ym:'',inp:{},recs:null,q:'',res:[],loaded:false};
 const PAY_D={exempt:20000,maxIns:12600,empRate:0.11,coRate:0.1875,martyr:0.0005,days:30,hours:8,r1:1.35,r2:1.7,rh:2,weekOff:'5',holidays:'',otMin:30,otStep:0.5,absentDed:true};
@@ -7698,7 +7890,7 @@ document.addEventListener('click',e=>{ const a=e.target.closest&&e.target.closes
 document.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const a=e.target.closest&&e.target.closest('#pwaTile'); if(a){ e.preventDefault(); pwaInstall(); } } });
 
 /* ---------------- الموجّه / الشاشة الرئيسية ---------------- */
-const HOME_ORDER=['hiring','insurance','resign','housing','cars','tasks','forms','links','payrev','payroll','attend','extlabor','orgchart','idcard','users','buffet','stationery'];
+const HOME_ORDER=['hiring','recruiting','insurance','resign','housing','cars','tasks','forms','links','payrev','payroll','attend','extlabor','orgchart','idcard','users','buffet','stationery'];
 function showHome(){
   CUR={mod:null,sub:null}; $('mod').hidden=true; $('adm').hidden=true; $('home').hidden=false; $('subnav').innerHTML=''; $('modTitle').textContent='أوباك — الموارد البشرية والشؤون الإدارية';
   const apps=HOME_ORDER.filter(k=>MODS[k]&&canMod(k));
@@ -7715,7 +7907,7 @@ function openModule(m,sub){
   $('adm').hidden=true; $('mod').hidden=false;
   const subs=MODS[m].subs?MODS[m].subs.filter(s=>can(m,s[2])):[];
   $('subnav').innerHTML=subs.map(s=>`<a data-sub="${s[0]}" href="#/${m}/${s[0]}">${s[1]}</a>`).join('');
-  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='users') mountUsers(); else if(m==='forms') mountForms(); else if(m==='links') mountLinks(); else if(m==='payrev') mountPayRev(sub); else if(m==='extlabor') mountExtLabor(); else if(m==='payroll') mountPayroll(); else if(m==='attend') mountAttend(); else if(m==='orgchart') mountOrg(); else if(m==='idcard') mountID();
+  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='users') mountUsers(); else if(m==='forms') mountForms(); else if(m==='links') mountLinks(); else if(m==='payrev') mountPayRev(sub); else if(m==='extlabor') mountExtLabor(); else if(m==='payroll') mountPayroll(); else if(m==='recruiting') mountRecruiting(); else if(m==='attend') mountAttend(); else if(m==='orgchart') mountOrg(); else if(m==='idcard') mountID();
   window.scrollTo(0,0);
 }
 function route(){
