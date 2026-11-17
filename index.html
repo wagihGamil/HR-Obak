@@ -2907,6 +2907,23 @@ const WF_FORMS=[
    <div class="wrw big" style="margin-top:6mm"><b>من الساعة :</b> ${wfT('from')} &nbsp;&nbsp;&nbsp; <b>إلى الساعة :</b> ${wfT('to')}</div>
    <div class="wrw big" style="margin-top:4mm"><b>السبب:</b></div>${wfTA('why',2)}
    <div style="margin-top:12mm">${wfSig('مدير الإدارة:','m1','62mm')}${wfSig('مدير الموارد البشرية:','m2','62mm')}</div>`},
+ {id:'salary',title:'شهادة تعريف بالراتب',desc:'شهادة للموظف بالوظيفة وصافي الدخل (وش وظهر)',land:false,dbl:true,
+  init:()=>({date:wfTodayISO()}),
+  html:()=>[`${wfHdr()}<div class="wrw big" style="margin-top:8mm;font-size:15pt"><b>السادة :</b> ${wfI('to','90mm')}</div>
+   <div class="wrw big" style="margin-top:8mm;padding-right:18mm">تحية طيبة وبعد..</div>
+   <div class="wrw big" style="margin-top:10mm"><b>نحيطكم علما بأن الموظف /</b> ${wfI('name','90mm')}</div>
+   <div class="wrw big">بطاقة رقم / ${wfI('nid','70mm','inputmode="numeric"')}</div>
+   <div class="wrw big"><b>يعمل لدينا بوظيفة /</b> ${wfI('job','80mm')}</div>
+   <div class="wrw big">وأن صافى الدخل الشهرى يبلغ ${wfI('net','60mm')}</div>
+   <div class="wrw big">وانه يعمل لدينا من يوم ${wfD('from')} حتي تاريخنا.</div>
+   <div class="wrw big" style="margin-top:10mm">وذلك تحريرا في يوم ${wfD('date')}</div>
+   <div class="wrw big" style="margin-top:6mm">وقد أعطيت هذه الشهادة بدون إدنى مسؤولية على الشركة.</div>
+   <div style="margin-top:26mm">${wfSig('التوقيع:','sg','70mm')}</div>`,
+   `${wfHdr()}<p class="wp" style="margin-top:22mm;line-height:1.9">يجب ان يمضي الموظف خلف الورقة بانه تم اعطائه هذه الورقة بناء على طلبه الشخصي وعلى سبيل المجاملة دون ادنى مسؤولية على الشركة</p>
+   <div style="height:62mm"></div><div class="wrw big">ملاحظات على مفردات المرتب :</div>
+   <div class="wrw big">1- يتم كتابة الاتي على صورة مفرادات المرتب</div>
+   <p class="wp" style="line-height:1.9;margin:2mm 0">استلمت انا ${wfI('rn','55mm')} أصل هذه الشهادة وأقر بأنها صدرت على الشركة على سبيل المجاملة بزيادة في الراتب لتسليمها الى جهة ${wfI('ent','55mm')}</p>
+   <div class="wrw big">ويتم امضاء الخطاب.</div><div class="wrw big">2 – لا يتم أعطاء الشهادة لمن ليس مسجل في التأمينات .</div>`]},
  {id:'shift',title:'نموذج إخطار تغيير شفت موظف',desc:'إخطار إدارة الموارد البشرية بتغيير شفت موظف',land:false,
   init:()=>({date:wfTodayISO()}),
   html:()=>`${wfHdr('إدارة الموارد البشرية.')}<div class="wtt">نموذج إخطار تغيير شفت موظف</div>
@@ -2923,6 +2940,7 @@ const WF_CSS=`.wfp{width:210mm;height:296mm;background:#fff;position:relative;ov
 .wfp.land{width:297mm;height:209mm;padding:10mm 14mm;font-size:11pt;line-height:1.55}
 .wfp.bdr::after{content:"";position:absolute;inset:6mm;border:.35mm solid #000;pointer-events:none}
 .wfp.bdr{padding:12mm 18mm}
+.wfp.dbl::after{content:"";position:absolute;inset:6mm;border:.35mm solid #000;pointer-events:none}.wfp.dbl::before{content:"";position:absolute;inset:8mm;border:.9mm solid #000;pointer-events:none;z-index:2}.wfp.dbl{padding:15mm 20mm}
 .wfp .wm{position:absolute;left:50%;top:54%;width:46%;transform:translate(-50%,-50%);z-index:0;pointer-events:none}
 .wfp.land .wm{width:36%}
 .wfp>*:not(.wm){position:relative;z-index:1}
@@ -2952,21 +2970,21 @@ function wfTabs(){ return wfAllowed()?`<div class="wftabs"><button type="button"
 const wfDef=id=>WF_FORMS.find(f=>f.id===id);
 function wfRender(){ wfCss(); const f=WF.cur&&wfDef(WF.cur); if(f){ wfEdit(f); return; }
   $('view').innerHTML=`<div class="card">${wfTabs()}<div class="tb"><h2 style="margin:0">نماذج العمل</h2></div><div class="muted" style="font-size:13px;margin-top:4px">اختار النموذج، املأ البيانات، وبعدين اضغط «طباعة / حفظ PDF».</div><div class="wfgrid">${WF_FORMS.map(f=>`<div class="wfc"><b>${esc(f.title)}</b><div class="d">${esc(f.desc)}</div><button class="btn pri" type="button" data-wfo="${f.id}">تعبئة وطباعة</button></div>`).join('')}</div></div>`; }
-function wfFit(){ const w=document.querySelector('.wfwrap'), p=w&&w.querySelector('.wfp'); if(!w||!p) return; const f=wfDef(WF.cur), pw=(f.land?297:210)*3.7795, ph=(f.land?209:296)*3.7795, av=Math.max(300,($('view').clientWidth||window.innerWidth)-40), s=Math.min(1,av/pw); w.style.width=(pw*s)+'px'; w.style.height=(ph*s)+'px'; p.style.transform=`scale(${s})`; }
+function wfFit(){ const f=wfDef(WF.cur); if(!f) return; const pw=(f.land?297:210)*3.7795, ph=(f.land?209:296)*3.7795, av=Math.max(300,($('view').clientWidth||window.innerWidth)-40), s=Math.min(1,av/pw); document.querySelectorAll('.wfwrap').forEach(w=>{ const p=w.querySelector('.wfp'); w.style.width=(pw*s)+'px'; w.style.height=(ph*s)+'px'; p.style.transform=`scale(${s})`; }); }
 function wfEdit(f){ if(!WF.vals[f.id]) WF.vals[f.id]=f.init();
-  $('view').innerHTML=`<div class="card"><div class="wfbar"><button class="btn" type="button" data-wfback="1">‹ رجوع للنماذج</button><b>${esc(f.title)}</b><span style="flex:1"></span><button class="btn" type="button" data-wfclr="1">مسح الحقول</button><button class="btn pri" type="button" data-wfprint="1">🖨 طباعة / حفظ PDF</button></div><div class="muted" style="font-size:12.5px;margin-bottom:8px">املأ الحقول الملوّنة مباشرة على الورقة. الحقول الفاضية بتتطبع كخط منقّط تكتب عليه بالقلم. ورق الطباعة A4${f.land?' بالعرض':' بالطول'}.</div><div class="wfwrap"><div class="wfp${f.land?' land':''}${f.border?' bdr':''}" id="wfp">${f.wm?`<img class="wm" src="${WF_WM}" alt="">`:''}${f.html()}</div></div></div>`;
-  const p=$('wfp'), V=WF.vals[f.id];
+  $('view').innerHTML=`<div class="card"><div class="wfbar"><button class="btn" type="button" data-wfback="1">‹ رجوع للنماذج</button><b>${esc(f.title)}</b><span style="flex:1"></span><button class="btn" type="button" data-wfclr="1">مسح الحقول</button><button class="btn pri" type="button" data-wfprint="1">🖨 طباعة / حفظ PDF</button></div><div class="muted" style="font-size:12.5px;margin-bottom:8px">املأ الحقول الملوّنة مباشرة على الورقة. الحقول الفاضية بتتطبع كخط منقّط تكتب عليه بالقلم. ورق الطباعة A4${f.land?' بالعرض':' بالطول'}.</div><div id="wfarea">${[].concat(f.html()).map((h,i)=>`<div class="wfwrap" style="${i?'margin-top:16px':''}"><div class="wfp${f.land?' land':''}${f.border?' bdr':''}${f.dbl?' dbl':''}">${f.wm?`<img class="wm" src="${WF_WM}" alt="">`:''}${h}</div></div>`).join('')}</div></div>`;
+  const p=$('wfarea'), V=WF.vals[f.id];
   p.querySelectorAll('[data-k]').forEach(el=>{ const k=el.dataset.k; if(el.type==='checkbox') el.checked=!!V[k]; else if(V[k]!==undefined) el.value=V[k]; });
   const save=e=>{ const el=e.target; if(!el.dataset||!el.dataset.k) return; V[el.dataset.k]=el.type==='checkbox'?el.checked:el.value; };
   p.addEventListener('input',save); p.addEventListener('change',save);
   wfFit(); }
-function wfPrint(){ const f=wfDef(WF.cur), p=$('wfp'); if(!f||!p) return; const c=p.cloneNode(true), src=p.querySelectorAll('input,textarea,select'), dst=c.querySelectorAll('input,textarea,select');
+function wfPrint(){ const f=wfDef(WF.cur), p=$('wfarea'); if(!f||!p) return; const c=p.cloneNode(true), src=p.querySelectorAll('input,textarea,select'), dst=c.querySelectorAll('input,textarea,select');
   src.forEach((s,i)=>{ const d=dst[i]; if(!d) return; if(s.type==='checkbox'){ const sp=document.createElement('span'); sp.className='cbx'; sp.textContent=s.checked?'✔':''; d.replaceWith(sp); return; }
     let v=s.tagName==='SELECT'?(s.selectedOptions[0]?s.selectedOptions[0].textContent:''):s.value; if(s.type==='date'&&v){ const q=v.split('-'); v=q[2]+'/'+q[1]+'/'+q[0]; }
     if(s.tagName==='TEXTAREA'){ const dv=document.createElement('div'); dv.className='wt wv'; dv.style.cssText='display:block;width:100%;border:0'; dv.textContent=v; d.replaceWith(dv); return; }
     const sp=document.createElement('span'); sp.className='wv'; sp.style.cssText=s.getAttribute('style')||''; sp.textContent=v||' '; d.replaceWith(sp); });
-  c.style.transform='none'; const fr=document.createElement('iframe'); fr.style.cssText='position:fixed;left:-10000px;top:0;width:1200px;height:900px;border:0;visibility:hidden';
-  fr.srcdoc=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(f.title)}</title><style>@page{size:A4 ${f.land?'landscape':'portrait'};margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}${WF_CSS}.wfp{position:relative;margin:0;page-break-after:avoid;break-after:avoid}.wfp .wi,.wfp .wv{background:transparent!important}</style></head><body>${c.outerHTML}</body></html>`;
+  c.querySelectorAll('.wfwrap').forEach(w=>{ w.removeAttribute('style'); w.className='wfpg'; w.querySelector('.wfp').style.transform='none'; }); const fr=document.createElement('iframe'); fr.style.cssText='position:fixed;left:-10000px;top:0;width:1200px;height:900px;border:0;visibility:hidden';
+  fr.srcdoc=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(f.title)}</title><style>@page{size:A4 ${f.land?'landscape':'portrait'};margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}${WF_CSS}.wfpg{break-after:page;page-break-after:always}.wfpg:last-child{break-after:auto;page-break-after:auto}.wfp{position:relative;margin:0}.wfp .wi,.wfp .wv{background:transparent!important}</style></head><body>${c.innerHTML}</body></html>`;
   fr.onload=()=>setTimeout(()=>{ try{ fr.contentWindow.focus(); fr.contentWindow.print(); }catch(e){ toast('تعذر فتح الطباعة',true); } setTimeout(()=>fr.remove(),60000); },350); document.body.appendChild(fr); }
 function wfClick(t){ if(CUR.mod!=='forms') return false;
   const tb=t.closest('[data-wft]'); if(tb){ WF.tab=tb.dataset.wft; WF.cur=null; renderForms(); return true; }
