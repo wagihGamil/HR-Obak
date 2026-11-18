@@ -2910,6 +2910,17 @@ const WF_FORMS=[
    <div class="wrw big" style="margin-top:6mm"><b>من الساعة :</b> ${wfT('from')} &nbsp;&nbsp;&nbsp; <b>إلى الساعة :</b> ${wfT('to')}</div>
    <div class="wrw big" style="margin-top:4mm"><b>السبب:</b></div>${wfTA('why',2)}
    <div style="margin-top:12mm">${wfSig('مدير الإدارة:','m1','62mm')}${wfSig('مدير الموارد البشرية:','m2','62mm')}</div>`},
+ {id:'expenses',title:'كشف مصروفات عن الاستاذ',desc:'كشف مصروفات (24 بند) بإجمالي ورصيد السلفة والباقي المستحق',land:false,
+  init:()=>({date:wfTodayISO()}),
+  calc:(root)=>{ const g=k=>root.querySelector(`[data-k="${k}"]`); let t=0; root.querySelectorAll('[data-k^="a"]').forEach(i=>{ if(/^a\d+$/.test(i.dataset.k)) t+=parseFloat(i.value)||0; }); const adv=parseFloat((g('adv')||{}).value)||0, f=n=>n?(Math.round(n*100)/100).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2}):'';
+    const T=g('tot'), R=g('rem'); if(T) T.value=f(t); if(R) R.value=(t||adv)?f(t-adv):''; return {tot:T&&T.value,rem:R&&R.value}; },
+  html:()=>{ const rows=Array.from({length:24},(_,i)=>`<tr><td class="c">${i+1}</td><td>${wfI('a'+i,'100%','type="number" min="0" step="any" inputmode="decimal"')}</td><td>${wfI('d'+i,'100%','type="date"')}</td><td>${wfI('b'+i,'100%')}</td></tr>`).join('');
+   return `<div class="wh"><div class="wht"><b>شركة اوباك للصناعات الغذائية</b></div></div>
+   <div class="wrw big" style="margin:1mm 0"><b>الرقم /</b> ${wfI('no','45mm')}</div><div class="wrw big" style="margin:1mm 0"><b>التاريخ /</b> ${wfD('date')}</div>
+   <div class="wtt" style="margin:2mm 0 2mm">كشف مصروفات عن الاستاذ / ${wfI('name','80mm')}</div>
+   <table class="wtb ex"><thead><tr><th style="width:20mm">المسلسل</th><th style="width:40mm">المبلغ</th><th style="width:38mm">التاريخ</th><th>بيان الصرف</th></tr></thead><tbody>${rows}</tbody></table>
+   <table class="wtb ex" style="width:60%;margin-top:4mm"><tbody><tr><td class="hd">اجمالى قيمه المصروفات</td><td>${wfI('tot','100%','readonly tabindex="-1" style="font-weight:700"')}</td></tr><tr><td class="hd">رصيد سلفه العمل</td><td>${wfI('adv','100%','type="number" min="0" step="any" inputmode="decimal"')}</td></tr><tr><td class="hd">باقى المبلغ المستحق</td><td>${wfI('rem','100%','readonly tabindex="-1" style="font-weight:700"')}</td></tr></tbody></table>
+   <div class="wsr" style="margin-top:12mm;font-size:10.5pt"><b>مقدم الكشف</b><b>المدير الاداري</b><b>محاسب الخزنه</b><b>مدير الحسابات</b><b>امر الصرف</b><b>معاون المدير العام</b></div>`; }},
  {id:'salary',title:'شهادة تعريف بالراتب',desc:'شهادة للموظف بالوظيفة وصافي الدخل (وش وظهر)',land:false,dbl:true,
   init:()=>({date:wfTodayISO()}),
   html:()=>[`${wfHdr()}<div class="wrw big" style="margin-top:8mm;font-size:15pt"><b>السادة :</b> ${wfI('to','90mm')}</div>
@@ -2965,7 +2976,7 @@ const WF_CSS=`.wfp{width:210mm;height:296mm;background:#fff;position:relative;ov
 .wfp textarea.wi{background-color:#f4f7ff}
 .wfp table.wtb{width:100%;border-collapse:collapse;margin-top:2mm;font-size:10pt;line-height:1.3}.wfp .wtb th,.wfp .wtb td{border:.25mm solid #000;padding:.6mm 1.2mm;vertical-align:middle}.wfp .wtb th{background:#f0f0f0;font-weight:800;text-align:center}.wfp .wtb td{height:8.4mm}.wfp .wtb td.c{text-align:center}
 .wfp .wtb td .wi,.wfp .wtb td .wv{border-bottom:0;background:transparent;width:100%}.wfp .wtb .wi:focus{background:#e3ecff}.wfp .wtb td.ft{white-space:nowrap;text-align:center;font-size:9pt}.wfp .wtb td.ft .wi,.wfp .wtb td.ft .wv{width:19mm}
-.wfp .wtb.v td{height:6.4mm;font-size:10pt}
+.wfp .wtb.v td{height:6.4mm;font-size:10pt}.wfp .wtb.ex td{height:6.6mm;font-size:10pt}.wfp .wtb.ex td.hd{background:#f0f0f0;font-weight:800;width:55%}.wfp .wtb.ex .wi[readonly]{background:transparent}
 .wfp .wck{width:4.5mm;height:4.5mm;margin:0;accent-color:#000}
 .wfp .cbx{display:inline-block;width:4.5mm;height:4.5mm;border:.3mm solid #000;line-height:4.2mm;text-align:center;font-size:10pt;vertical-align:middle}`;
 function wfCss(){ if($('wfcss')) return; const st=document.createElement('style'); st.id='wfcss'; st.textContent=WF_CSS+`.wfbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}.wfgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-top:12px}.wfc{border:1.5px solid var(--line);border-radius:12px;padding:14px;background:#fff;display:flex;flex-direction:column;gap:8px}.wfc b{font-size:15px;color:var(--navy)}.wfc .d{font-size:12.5px;color:#667085;flex:1}.wfwrap{position:relative;margin:0 auto;box-shadow:0 2px 12px rgba(0,0,0,.25)}.wfwrap .wfp{position:absolute;left:0;top:0;transform-origin:top left}.wftabs{display:flex;gap:6px;margin-bottom:12px}.wftabs button{padding:8px 16px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font:inherit;font-weight:700;cursor:pointer}.wftabs button.on{background:var(--navy);color:#fff;border-color:var(--navy)}`; document.head.appendChild(st); }
@@ -2978,8 +2989,9 @@ function wfEdit(f){ if(!WF.vals[f.id]) WF.vals[f.id]=f.init();
   $('view').innerHTML=`<div class="card"><div class="wfbar"><button class="btn" type="button" data-wfback="1">‹ رجوع للنماذج</button><b>${esc(f.title)}</b><span style="flex:1"></span><button class="btn" type="button" data-wfclr="1">مسح الحقول</button><button class="btn pri" type="button" data-wfprint="1">🖨 طباعة / حفظ PDF</button></div><div class="muted" style="font-size:12.5px;margin-bottom:8px">املأ الحقول الملوّنة مباشرة على الورقة. الحقول الفاضية بتتطبع كخط منقّط تكتب عليه بالقلم. ورق الطباعة A4${f.land?' بالعرض':' بالطول'}.</div><div id="wfarea">${[].concat(f.html()).map((h,i)=>`<div class="wfwrap" style="${i?'margin-top:16px':''}"><div class="wfp${f.land?' land':''}${f.border?' bdr':''}${f.dbl?' dbl':''}">${f.wm?`<img class="wm" src="${WF_WM}" alt="">`:''}${h}</div></div>`).join('')}</div></div>`;
   const p=$('wfarea'), V=WF.vals[f.id];
   p.querySelectorAll('[data-k]').forEach(el=>{ const k=el.dataset.k; if(el.type==='checkbox') el.checked=!!V[k]; else if(V[k]!==undefined) el.value=V[k]; });
-  const save=e=>{ const el=e.target; if(!el.dataset||!el.dataset.k) return; V[el.dataset.k]=el.type==='checkbox'?el.checked:el.value; };
-  p.addEventListener('input',save); p.addEventListener('change',save);
+  const calc=()=>{ if(!f.calc) return; const r=f.calc(p); if(r){ V.tot=r.tot; V.rem=r.rem; } };
+  const save=e=>{ const el=e.target; if(!el.dataset||!el.dataset.k) return; V[el.dataset.k]=el.type==='checkbox'?el.checked:el.value; calc(); };
+  p.addEventListener('input',save); p.addEventListener('change',save); calc();
   wfFit(); }
 function wfPrint(){ const f=wfDef(WF.cur), p=$('wfarea'); if(!f||!p) return; const c=p.cloneNode(true), src=p.querySelectorAll('input,textarea,select'), dst=c.querySelectorAll('input,textarea,select');
   src.forEach((s,i)=>{ const d=dst[i]; if(!d) return; if(s.type==='checkbox'){ const sp=document.createElement('span'); sp.className='cbx'; sp.textContent=s.checked?'✔':''; d.replaceWith(sp); return; }
