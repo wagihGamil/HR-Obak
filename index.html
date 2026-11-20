@@ -8868,7 +8868,7 @@ function renderBeds() {
       <div class="flex items-center justify-between border-b border-slate-200 pb-2">
         <div><span class="font-bold text-xs">${esc(a.number)}</span><span class="text-[11px] text-slate-500 block">${esc(a.location)}</span>${(a.whatsappLink || a.mapLink) ? `<span class="block mt-1">${linkBtns(a)}</span>` : ''}</div>
         <span class="text-[11px] font-bold px-2.5 py-1 rounded-lg ${typeClass(a.type)}">${esc(a.type)} (${occ.length}/${a.totalBeds})</span>
-      </div><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${slots}</div></div>`;
+      </div><button onclick="openApt3D('${a.id}')" class="w-full py-1.5 bg-cyan-100 hover:bg-cyan-200 text-cyan-800 font-bold rounded-lg text-xs">🧊 عرض ثلاثي الأبعاد (هولوجرام)</button><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${slots}</div></div>`;
   }).join('');
 }
 
@@ -9038,6 +9038,7 @@ function renderAptList() {
         <div class="col-span-2"><span class="text-slate-400">المشرف:</span> <strong>${esc(a.supervisorName || 'غير محدد')}</strong>${supWaBtn(a)}</div>
         <div class="col-span-2">${linkBtns(a) || '<span class="text-slate-400">لا يوجد رابط جروب واتساب</span>'}</div></div>
       <div class="flex gap-2 pt-1 border-t border-slate-200">
+        <button onclick="openApt3D('${a.id}')" class="py-1.5 px-3 bg-cyan-100 hover:bg-cyan-200 text-cyan-800 font-bold rounded-lg text-xs" title="عرض هولوجرام ثلاثي الأبعاد">🧊 3D</button>
         <button onclick="editApt('${a.id}')" class="flex-1 py-1.5 bg-slate-200 hover:bg-slate-300 font-bold rounded-lg text-xs"><i class="fa-solid fa-pen ml-1"></i> تعديل</button>
         <button onclick="deleteApt('${a.id}')" class="py-1.5 px-3 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold rounded-lg text-xs"><i class="fa-solid fa-trash"></i></button>
       </div></div>`;
@@ -9056,6 +9057,7 @@ $('apt-manage-form').addEventListener('submit', async e => {
   const sup = S.users.find(u => u.id === supUid);
   const data = { number: $('apt-number').value.trim(), type: $('apt-type').value, location: $('apt-location').value.trim() || 'غير محدد',
     totalBeds: beds, contractEnd: $('apt-contract-end').value, supervisorUid: supUid, supervisorName: sup ? sup.name : '', supervisorPhone: ($('apt-supphone').value.trim() || (sup && sup.phone) || ''), whatsappLink: waLink, mapLink };
+  { const a0 = id && S.apts.find(x => x.id === id); if (a0 && a0.layout) data.layout = a0.layout; }
   try {
     const ref = id ? doc(db, 'apartments', id) : doc(collection(db, 'apartments'));
     const batch = writeBatch(db);
@@ -9089,6 +9091,228 @@ window.deleteApt = id => {
 window.resetAptForm = () => {
   $('apt-manage-form').reset(); $('apt-id-hidden').value = ''; $('apt-form-title').textContent = 'إضافة شقة جديدة';
   $('apt-beds').value = 4; $('apt-rent').value = 8000;
+};
+
+/* ---------------------- مجسّم الشقة ثلاثي الأبعاد (هولوجرام) ---------------------- */
+let A3P = null, A3 = null;
+const A3_CSS = `.a3{position:fixed;inset:0;z-index:9500;background:#03111b;color:#bff6ff;display:flex;flex-direction:column}
+.a3 *{box-sizing:border-box}.a3-top{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #0e4a5c;background:#05202e;flex-wrap:wrap}
+.a3-top b{color:#5ff3ff;font-size:15px}.a3-top span{font-size:12px;opacity:.85}.a3-btns{margin-inline-start:auto;display:flex;gap:6px;flex-wrap:wrap}
+.a3 button{background:#07303f;border:1px solid #1a7a92;color:#bff6ff;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.a3 button:hover{background:#0b4558}.a3 button.on{background:#1a7a92;color:#fff}.a3 button.pri{background:#0f8f6a;border-color:#34ffa0;color:#fff}
+.a3-body{flex:1;display:flex;min-height:0}.a3-cv{flex:1;position:relative;min-width:0;min-height:0}
+.a3-cv canvas{width:100%;height:100%;display:block;touch-action:none;cursor:grab}.a3-cv canvas:active{cursor:grabbing}
+.a3-side{width:370px;overflow:auto;border-inline-start:1px solid #0e4a5c;background:#04192a;padding:10px;font-size:12px}
+.a3-side[hidden],.a3-info[hidden]{display:none}
+@media(max-width:800px){.a3-body{flex-direction:column}.a3-side{width:auto;max-height:50vh;border:0;border-top:1px solid #0e4a5c}}
+.a3-info{position:absolute;top:10px;inset-inline-start:10px;background:rgba(5,32,46,.94);border:1px solid #1a7a92;border-radius:10px;padding:10px 12px;font-size:12px;min-width:180px;line-height:1.7}
+.a3-leg{position:absolute;bottom:8px;inset-inline-end:10px;font-size:11px;display:flex;gap:12px;opacity:.9;pointer-events:none}
+.a3-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-inline-end:4px;vertical-align:middle}
+.a3-ld{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;color:#5ff3ff;text-align:center;padding:20px}
+.a3-h{opacity:.8;margin-bottom:6px;line-height:1.6}.a3-side input,.a3-side select{background:#031722;border:1px solid #1a7a92;color:#bff6ff;border-radius:6px;padding:4px 6px;width:100%;font-family:inherit;font-size:12px}
+.a3-g{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}.a3-g label{display:block;font-size:11px;opacity:.85}
+.a3-chips{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}.a3-chip{min-width:46px;text-align:center;line-height:1.2}.a3-chip small{display:block;font-size:9px;opacity:.8;max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.a3-chip.on{background:#1a7a92!important;color:#fff;border-color:#5ff3ff!important}.a3-chip.oth{opacity:.45}.a3-chip.no{border-style:dashed;border-color:#ff7a8a}
+.a3-row{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}`;
+function a3Load() {
+  if (window.THREE) return Promise.resolve();
+  return A3P || (A3P = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'; s.onload = res; s.onerror = () => { A3P = null; rej(new Error('تعذر تحميل مكتبة الـ3D — تأكد من الإنترنت')); }; document.head.appendChild(s); }));
+}
+function a3Dims(n) { n = Math.max(n, 1); const cols = Math.min(n, 3), rows = Math.ceil(n / 3); return { w: +(cols * 1.5 + .6).toFixed(1), d: +(rows * 2.5 + .6).toFixed(1) }; }
+function a3Auto(a) {
+  const N = Math.max(1, a.totalBeds | 0), per = N <= 3 ? N : (N <= 6 ? Math.ceil(N / 2) : 3), cnt = Math.ceil(N / per), rooms = []; let b = 1;
+  for (let i = 0; i < cnt; i++) { const k = Math.min(per, N - b + 1), d = a3Dims(k); rooms.push({ id: 'r' + (i + 1), name: 'غرفة ' + (i + 1), w: d.w, d: d.d, beds: Array.from({ length: k }, (_, j) => b + j), door: 's', x: 0, z: 0 }); b += k; }
+  const nt = Math.ceil(cnt / 2), top = rooms.slice(0, nt), bot = rooms.slice(nt), topD = Math.max(...top.map(r => r.d));
+  let x = 0; top.forEach(r => { r.x = x; r.z = topD - r.d; r.door = 's'; x += r.w; });
+  x = 0; bot.forEach(r => { r.x = x; r.z = topD + 1.4; r.door = 'n'; x += r.w; });
+  return { rooms };
+}
+function a3Bounds(L) {
+  if (!L.rooms.length) return { x0: 0, z0: 0, x1: 4, z1: 4 };
+  let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9;
+  L.rooms.forEach(r => { x0 = Math.min(x0, r.x); z0 = Math.min(z0, r.z); x1 = Math.max(x1, r.x + r.w); z1 = Math.max(z1, r.z + r.d); });
+  return { x0, z0, x1, z1 };
+}
+function a3Eff(a) {
+  const L = a.layout && a.layout.rooms && a.layout.rooms.length ? JSON.parse(JSON.stringify(a.layout)) : a3Auto(a), used = new Set();
+  L.rooms.forEach((r, i) => { r.id = r.id || 'r' + (i + 1); r.beds = (r.beds || []).filter(b => b >= 1 && b <= a.totalBeds && !used.has(b) && used.add(b)); r.door = r.door || 's'; });
+  const miss = []; for (let i = 1; i <= a.totalBeds; i++) if (!used.has(i)) miss.push(i);
+  if (miss.length) { const bb = a3Bounds(L), dm = a3Dims(miss.length); L.rooms.push({ id: 'rx', name: 'أسرّة غير موزعة', x: bb.x1 + 1, z: bb.z0, w: dm.w, d: dm.d, beds: miss, door: 'w' }); }
+  return L;
+}
+function a3BedPos(r) {
+  const n = r.beds.length; if (!n) return [];
+  let cols = Math.min(Math.max(1, Math.floor((r.w - .2) / 1.5)), n), rows = Math.max(Math.floor((r.d - .2) / 2.5), Math.ceil(n / cols), 1);
+  const sx = r.w / cols, sz = r.d / rows;
+  return r.beds.slice().sort((a, b) => a - b).map((b, k) => ({ bed: b, x: r.x + sx * ((k % cols) + .5), z: r.z + sz * (Math.floor(k / cols) + .5), bw: Math.min(1, sx * .7), bl: Math.min(2, sz * .8) }));
+}
+function a3Box(w, h, d, x, y, z, fill, fo, edge, eo) {
+  const g = new THREE.BoxGeometry(w, h, d), m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: fill, transparent: true, opacity: fo, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const l = new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color: edge, transparent: true, opacity: eo }));
+  const gr = new THREE.Group(); gr.add(m, l); gr.position.set(x, y, z); gr.userData.mesh = m; return gr;
+}
+function a3Walls(r) {
+  const T = .1, segs = [], sides = { n: [r.x + r.w / 2, r.z, r.w, true], s: [r.x + r.w / 2, r.z + r.d, r.w, true], w: [r.x, r.z + r.d / 2, r.d, false], e: [r.x + r.w, r.z + r.d / 2, r.d, false] };
+  for (const k in sides) {
+    const [cx, cz, len, hz] = sides[k];
+    if (k === r.door && len > 1.4) { const gap = .9, part = (len - gap) / 2, off = gap / 2 + part / 2; [-off, off].forEach(o => segs.push(hz ? { x: cx + o, z: cz, w: part, d: T } : { x: cx, z: cz + o, w: T, d: part })); }
+    else segs.push(hz ? { x: cx, z: cz, w: len, d: T } : { x: cx, z: cz, w: T, d: len });
+  }
+  return segs;
+}
+function a3Label(txt, col, sc) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 128; const x = c.getContext('2d');
+  x.direction = 'rtl'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  let fs = 48; const f = s => `700 ${s}px Cairo,Tahoma,Arial,sans-serif`; x.font = f(fs); while (x.measureText(txt).width > 460 && fs > 20) { fs -= 2; x.font = f(fs); }
+  const w = Math.min(500, x.measureText(txt).width + 40), l = 256 - w / 2, t = 22, h = 84, r = 22;
+  x.beginPath(); x.moveTo(l + r, t); x.arcTo(l + w, t, l + w, t + h, r); x.arcTo(l + w, t + h, l, t + h, r); x.arcTo(l, t + h, l, t, r); x.arcTo(l, t, l + w, t, r); x.closePath();
+  x.fillStyle = 'rgba(3,23,34,.78)'; x.fill(); x.lineWidth = 3; x.strokeStyle = col; x.stroke(); x.fillStyle = col; x.fillText(txt, 256, 66);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false })); s.scale.set(sc * 4, sc, 1); s.renderOrder = 10; return s;
+}
+function a3Build() {
+  const g = A3.grp; while (g.children.length) { const o = g.children[0]; g.remove(o); o.traverse(n => { if (n.geometry) n.geometry.dispose(); if (n.material) { if (n.material.map) n.material.map.dispose(); n.material.dispose(); } }); }
+  A3.pick = []; const occ = occupantsOf(A3.apt.id), C = 0x5ff3ff;
+  A3.lay.rooms.forEach(r => {
+    g.add(a3Box(r.w, .03, r.d, r.x + r.w / 2, .015, r.z + r.d / 2, C, .07, C, .5));
+    a3Walls(r).forEach(s => g.add(a3Box(s.w, 2.2, s.d, s.x, 1.1, s.z, C, .07, C, .85)));
+    const nm = a3Label(r.name, '#5ff3ff', .55); nm.position.set(r.x + r.w / 2, 2.75, r.z + r.d / 2); g.add(nm);
+    a3BedPos(r).forEach(p => {
+      const o = occ.find(z => z.bedIndex === p.bed), col = o ? 0x34ffa0 : 0x6aa7b8, y = .22;
+      const m = a3Box(p.bw, .28, p.bl, p.x, y, p.z, col, o ? .38 : .12, col, o ? 1 : .55); g.add(m); m.userData.mesh.userData.bed = p.bed; A3.pick.push(m.userData.mesh);
+      g.add(a3Box(p.bw, .75, .08, p.x, .42, p.z - p.bl / 2, col, .15, col, o ? 1 : .55));
+      g.add(a3Box(p.bw * .7, .1, p.bl * .22, p.x, .42, p.z - p.bl / 2 + .3, col, .3, col, .9));
+      const lb = o ? a3Label(o.name, '#34ffa0', .5) : a3Label('سرير ' + p.bed + ' · شاغر', '#8fc3d2', .4); lb.position.set(p.x, 1.45, p.z); g.add(lb);
+    });
+  });
+  g.position.set(-A3.c.x, 0, -A3.c.z);
+}
+function a3Center() { const b = a3Bounds(A3.lay); A3.c = { x: (b.x0 + b.x1) / 2, z: (b.z0 + b.z1) / 2 }; A3.R = Math.max(b.x1 - b.x0, b.z1 - b.z0, 4) / 2; }
+function a3Reset() { a3Center(); a3Build(); A3.az = .6; A3.pol = .95; const asp = A3.cam ? A3.cam.aspect : 1.5; A3.dist = Math.max(8, A3.R * 2.6) * (asp < 1.2 ? 1.6 : 1); }
+function a3Sync() { clearTimeout(A3.st); A3.st = setTimeout(() => { if (A3 && A3.grp) a3Build(); }, 90); }
+function a3Frame() {
+  if (!A3 || !A3.ren) return; A3.raf = requestAnimationFrame(a3Frame);
+  const t = performance.now() / 1000; if (A3.auto && !A3.drag) A3.az += .0035;
+  A3.dist = Math.min(Math.max(A3.dist, 3), A3.R * 7 + 10); A3.pol = Math.min(1.5, Math.max(.05, A3.pol));
+  A3.cam.position.set(Math.sin(A3.pol) * Math.sin(A3.az) * A3.dist, Math.cos(A3.pol) * A3.dist + .8, Math.sin(A3.pol) * Math.cos(A3.az) * A3.dist); A3.cam.lookAt(0, .8, 0);
+  A3.scan.position.y = ((t * .45) % 1) * 2.6; A3.ren.render(A3.scn, A3.cam);
+}
+function a3Bind(cv) {
+  const P = new Map(); let moved = 0, pd = 0;
+  cv.addEventListener('pointerdown', e => { try { cv.setPointerCapture(e.pointerId); } catch (_) { } P.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0; A3.drag = true; if (P.size === 2) { const [a, b] = [...P.values()]; pd = Math.hypot(a.x - b.x, a.y - b.y); } });
+  cv.addEventListener('pointermove', e => {
+    const p = P.get(e.pointerId); if (!p) return; const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+    if (P.size === 1) { A3.az -= dx * .008; A3.pol -= dy * .006; }
+    else if (P.size === 2) { const [a, b] = [...P.values()], d = Math.hypot(a.x - b.x, a.y - b.y); if (pd && d) A3.dist *= pd / d; pd = d; }
+  });
+  const up = e => { if (!P.has(e.pointerId)) return; P.delete(e.pointerId); if (!P.size) { A3.drag = false; if (moved < 6 && e.type === 'pointerup') a3Pick(e); } };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  cv.addEventListener('wheel', e => { e.preventDefault(); A3.dist *= e.deltaY > 0 ? 1.1 : .9; }, { passive: false });
+}
+function a3Pick(e) {
+  const r = A3.cvEl.getBoundingClientRect(), v = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), rc = new THREE.Raycaster();
+  rc.setFromCamera(v, A3.cam); const h = rc.intersectObjects(A3.pick, false)[0], box = $('a3-info');
+  if (!h) { box.hidden = true; return; }
+  const n = h.object.userData.bed, o = occupantsOf(A3.apt.id).find(z => z.bedIndex === n), rm = A3.lay.rooms.find(x => x.beds.includes(n));
+  box.innerHTML = `<b style="color:#5ff3ff">سرير ${n}</b> — ${esc(rm ? rm.name : '')}<br>` + (o ? `<b style="color:#34ffa0;font-size:14px">${esc(o.name)}</b><br>${esc(o.role || '')}${o.phone ? `<br><a style="color:#8fe;direction:ltr;display:inline-block" href="tel:${esc(o.phone)}">${esc(o.phone)}</a>` : ''}${o.entryDate ? `<br>دخل: ${esc(o.entryDate)}` : ''}` : '<span style="opacity:.8">سرير شاغر</span>');
+  box.hidden = false;
+}
+const A3S = 34, a3Sn = v => Math.round(v * 2) / 2;
+function a3PlanDraw() {
+  const sv = $('a3-svg'); if (!sv) return; const L = A3.lay;
+  if (!A3.dg || !A3.vb) { const b = a3Bounds(L); A3.vb = [(b.x0 - 2) * A3S, (b.z0 - 2) * A3S, (b.x1 - b.x0 + 4) * A3S, (b.z1 - b.z0 + 4) * A3S]; }
+  sv.setAttribute('viewBox', A3.vb.join(' ')); const v = A3.vb;
+  let h = `<defs><pattern id="a3g" width="${A3S}" height="${A3S}" patternUnits="userSpaceOnUse"><path d="M${A3S} 0H0V${A3S}" fill="none" stroke="#0b3446" stroke-width="1"/></pattern></defs><rect x="${v[0]}" y="${v[1]}" width="${v[2]}" height="${v[3]}" fill="url(#a3g)"/>`;
+  L.rooms.forEach(r => {
+    const sel = r.id === A3.sel, X = r.x * A3S, Z = r.z * A3S, W = r.w * A3S, D = r.d * A3S; let door = '';
+    const dd = { n: [X + W / 2 - 15, Z, X + W / 2 + 15, Z], s: [X + W / 2 - 15, Z + D, X + W / 2 + 15, Z + D], w: [X, Z + D / 2 - 15, X, Z + D / 2 + 15], e: [X + W, Z + D / 2 - 15, X + W, Z + D / 2 + 15] }[r.door];
+    if (dd) door = `<line x1="${dd[0]}" y1="${dd[1]}" x2="${dd[2]}" y2="${dd[3]}" stroke="#ffd24d" stroke-width="6"/>`;
+    h += `<g data-r="${r.id}" style="cursor:move"><rect x="${X}" y="${Z}" width="${W}" height="${D}" fill="${sel ? 'rgba(95,243,255,.25)' : 'rgba(95,243,255,.1)'}" stroke="${sel ? '#fff' : '#5ff3ff'}" stroke-width="${sel ? 3 : 1.5}"/>${door}<text x="${X + W / 2}" y="${Z + D / 2 - 2}" text-anchor="middle" fill="#bff6ff" font-size="15" font-weight="700" style="pointer-events:none">${esc(r.name)}</text><text x="${X + W / 2}" y="${Z + D / 2 + 15}" text-anchor="middle" fill="#8fc3d2" font-size="12" style="pointer-events:none">${r.beds.length} سرير</text><rect data-h="1" x="${X + W - 8}" y="${Z + D - 8}" width="16" height="16" rx="3" fill="#5ff3ff" style="cursor:nwse-resize"/></g>`;
+  });
+  sv.innerHTML = h;
+}
+function a3Side() {
+  const s = $('a3-side'); if (!A3.edit) { s.hidden = true; return; } s.hidden = false;
+  const L = A3.lay, a = A3.apt, r = L.rooms.find(x => x.id === A3.sel) || null, occ = occupantsOf(a.id), used = {};
+  L.rooms.forEach(x => x.beds.forEach(b => used[b] = x));
+  let chips = ''; for (let i = 1; i <= a.totalBeds; i++) { const o = occ.find(z => z.bedIndex === i), u = used[i]; chips += `<button type="button" data-bed="${i}" class="a3-chip ${r && u === r ? 'on' : ''} ${u && u !== r ? 'oth' : ''} ${!u ? 'no' : ''}" title="${esc(o ? o.name : 'شاغر')}${u ? ' — ' + esc(u.name) : ' — غير موزع'}">${i}<small>${o ? esc(o.name.split(' ')[0]) : '—'}</small></button>`; }
+  const props = r ? `<div class="a3-g"><div style="grid-column:1/-1"><label>اسم الغرفة</label><input data-f="name" value="${esc(r.name)}"></div>
+    <div><label>العرض (م)</label><input data-f="w" type="number" step=".5" min="1.5" value="${r.w}"></div><div><label>الطول (م)</label><input data-f="d" type="number" step=".5" min="1.5" value="${r.d}"></div>
+    <div><label>الموضع س</label><input data-f="x" type="number" step=".5" value="${r.x}"></div><div><label>الموضع ص</label><input data-f="z" type="number" step=".5" value="${r.z}"></div>
+    <div style="grid-column:1/-1"><label>مكان الباب</label><select data-f="door"><option value="n"${r.door === 'n' ? ' selected' : ''}>فوق</option><option value="s"${r.door === 's' ? ' selected' : ''}>تحت</option><option value="e"${r.door === 'e' ? ' selected' : ''}>يمين</option><option value="w"${r.door === 'w' ? ' selected' : ''}>شمال</option></select></div></div>
+    <div class="a3-h">اضغط على رقم السرير عشان تضيفه للغرفة دي أو تشيله منها (المنقّط = لسه مش في أي غرفة):</div><div class="a3-chips">${chips}</div>` : `<div class="a3-h">اضغط على غرفة في الرسم عشان تعدّلها.</div>`;
+  s.innerHTML = `<div class="a3-h">اسحب الغرفة لتحريكها، واسحب المربع الصغير في ركنها لتغيير المقاس. المربع الواحد = متر. الخط الأصفر = الباب.</div>
+    <svg id="a3-svg" style="width:100%;max-height:300px;background:#031722;border:1px solid #0e4a5c;border-radius:8px;direction:ltr;touch-action:none;user-select:none"></svg>${props}
+    <div class="a3-row"><button type="button" id="a3-add">➕ غرفة</button><button type="button" id="a3-del">🗑 حذف الغرفة</button><button type="button" id="a3-auto">🔄 توزيع تلقائي</button></div>
+    <div class="a3-row"><button type="button" class="pri" id="a3-save">💾 حفظ التصميم</button><button type="button" id="a3-cancel">إلغاء التعديل</button></div>`;
+  a3PlanDraw();
+}
+function a3SideBind() {
+  const s = $('a3-side'), room = id => A3.lay.rooms.find(x => x.id === id);
+  s.addEventListener('pointerdown', e => {
+    const sv = e.target.closest('#a3-svg'); if (!sv) return; const g = e.target.closest('[data-r]'); if (!g) return;
+    const r = room(g.dataset.r); if (!r) return; const m = sv.getScreenCTM().inverse(), pt = ev => { const p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m); return { x: p.x / A3S, z: p.y / A3S }; };
+    const p0 = pt(e), mode = e.target.dataset.h ? 'rs' : 'mv', o = { x: r.x, z: r.z, w: r.w, d: r.d }; A3.sel = r.id; A3.dg = true; e.preventDefault();
+    const mv = ev => { const p = pt(ev); if (mode === 'mv') { r.x = a3Sn(o.x + p.x - p0.x); r.z = a3Sn(o.z + p.z - p0.z); } else { r.w = Math.max(1.5, a3Sn(o.w + p.x - p0.x)); r.d = Math.max(1.5, a3Sn(o.d + p.z - p0.z)); } a3PlanDraw(); a3Sync(); };
+    const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); A3.dg = false; a3Side(); a3Sync(); };
+    window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+    a3PlanDraw();
+  });
+  s.addEventListener('input', e => {
+    const f = e.target.dataset.f; if (!f) return; const r = room(A3.sel); if (!r) return; const v = e.target.value;
+    if (f === 'name') r.name = v; else if (f === 'door') r.door = v; else { const n = parseFloat(v); if (!isFinite(n)) return; r[f] = (f === 'w' || f === 'd') ? Math.max(1.5, n) : n; }
+    a3PlanDraw(); a3Sync();
+  });
+  s.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return; const r = room(A3.sel), L = A3.lay;
+    if (b.dataset.bed && r) { const n = +b.dataset.bed; if (r.beds.includes(n)) r.beds = r.beds.filter(x => x !== n); else { L.rooms.forEach(x => x.beds = x.beds.filter(y => y !== n)); r.beds.push(n); } a3Side(); a3Sync(); }
+    else if (b.id === 'a3-add') { const bb = a3Bounds(L), id = 'r' + Date.now().toString(36); L.rooms.push({ id, name: 'غرفة ' + (L.rooms.length + 1), x: a3Sn(bb.x1 + 1), z: a3Sn(bb.z0), w: 3.5, d: 3.1, beds: [], door: 's' }); A3.sel = id; a3Side(); a3Sync(); }
+    else if (b.id === 'a3-del' && r) { if (r.beds.length && !confirm('الغرفة فيها أسرّة، هتبقى غير موزعة. تحذف؟')) return; L.rooms = L.rooms.filter(x => x !== r); A3.sel = null; a3Side(); a3Sync(); }
+    else if (b.id === 'a3-auto') { if (!confirm('هيتم إعادة توزيع الغرف تلقائيًا (ما لم تحفظ). متأكد؟')) return; A3.lay = a3Auto(A3.apt); A3.sel = null; A3.vb = null; a3Side(); a3Sync(); }
+    else if (b.id === 'a3-save') a3Save();
+    else if (b.id === 'a3-cancel') { A3.edit = false; A3.lay = a3Eff(A3.apt); A3.sel = null; a3Mode(); a3Build(); }
+  });
+}
+async function a3Save() {
+  const a = A3.apt; if (!A3.lay.rooms.length) return toast('ضيف غرفة واحدة على الأقل', 'warning');
+  const layout = { rooms: A3.lay.rooms.map(r => ({ id: r.id, name: String(r.name || 'غرفة').slice(0, 40), x: r.x, z: r.z, w: r.w, d: r.d, door: r.door, beds: r.beds })) };
+  try { await updateDoc(doc(db, 'apartments', a.id), { layout }); a.layout = layout; toast('تم حفظ تصميم الشقة', 'success'); A3.edit = false; A3.lay = a3Eff(a); A3.sel = null; a3Mode(); a3Build(); }
+  catch (err) { toast(errMsg(err), 'error'); }
+}
+function a3Mode() { const b = $('a3-ed'); if (b) b.classList.toggle('on', !!A3.edit); a3Side(); A3.resize && A3.resize(); }
+window.a3Close = () => {
+  if (!A3) return; cancelAnimationFrame(A3.raf); clearTimeout(A3.st); if (A3.ro) A3.ro.disconnect();
+  try { if (A3.grp) A3.grp.traverse(n => { if (n.geometry) n.geometry.dispose(); if (n.material) { if (n.material.map) n.material.map.dispose(); n.material.dispose(); } }); if (A3.ren) { A3.ren.dispose(); A3.ren.forceContextLoss && A3.ren.forceContextLoss(); } } catch (_) { }
+  const el = $('a3'); if (el) el.remove(); A3 = null; document.removeEventListener('keydown', a3Key);
+};
+function a3Key(e) { if (e.key === 'Escape' && !(A3 && A3.edit)) window.a3Close(); }
+window.openApt3D = async id => {
+  const a = S.apts.find(x => x.id === id); if (!a) return; window.a3Close();
+  if (!$('a3-css')) { const st = document.createElement('style'); st.id = 'a3-css'; st.textContent = A3_CSS; document.head.appendChild(st); }
+  const occN = occupantsOf(a.id).length, canEd = isAdmin();
+  const el = document.createElement('div'); el.id = 'a3'; el.className = 'a3'; el.dir = 'rtl';
+  el.innerHTML = `<div class="a3-top"><b>🏢 شقة ${esc(a.number)} — مجسّم ثلاثي الأبعاد</b><span>${esc(a.location || '')} · ${occN}/${a.totalBeds} سرير مشغول</span>
+    <div class="a3-btns"><button id="a3-rot" class="on">⟳ دوران تلقائي</button><button id="a3-tp">⬇ من فوق</button><button id="a3-rst">↺ إعادة الضبط</button>${canEd ? '<button id="a3-ed">✏️ تعديل التصميم</button>' : ''}<button id="a3-x">✕ إغلاق</button></div></div>
+    <div class="a3-body"><div class="a3-cv" id="a3-cv"><canvas id="a3-c"></canvas><div class="a3-ld" id="a3-ld">جاري تحميل المجسّم…</div><div id="a3-info" class="a3-info" hidden></div>
+    <div class="a3-leg"><span><i style="background:#34ffa0"></i>مشغول</span><span><i style="background:#6aa7b8"></i>شاغر</span><span style="opacity:.7">اضغط على سرير لتفاصيله · اسحب للدوران · عجلة/قرص للتكبير</span></div></div><div id="a3-side" class="a3-side" hidden></div></div>`;
+  document.body.appendChild(el); document.addEventListener('keydown', a3Key);
+  A3 = { apt: a, lay: a3Eff(a), edit: false, sel: null, auto: true, drag: false, dg: false, pick: [] };
+  const mine = A3; $('a3-x').onclick = window.a3Close;
+  try { await a3Load(); } catch (e) { if (A3 === mine) $('a3-ld').textContent = e.message; return; }
+  if (A3 !== mine) return;
+  try {
+    const cvEl = $('a3-c'), host = $('a3-cv'); A3.cvEl = cvEl;
+    A3.ren = new THREE.WebGLRenderer({ canvas: cvEl, antialias: true }); A3.ren.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); A3.ren.setClearColor(0x03111b);
+    A3.scn = new THREE.Scene(); A3.scn.fog = new THREE.FogExp2(0x03111b, .012); A3.cam = new THREE.PerspectiveCamera(50, 1, .1, 400); A3.grp = new THREE.Group(); A3.scn.add(A3.grp);
+    const grid = new THREE.GridHelper(60, 60, 0x1a7a92, 0x0b3446); grid.material.transparent = true; grid.material.opacity = .45; A3.scn.add(grid);
+    A3.scan = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshBasicMaterial({ color: 0x5ff3ff, transparent: true, opacity: .05, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending })); A3.scan.rotation.x = -Math.PI / 2; A3.scn.add(A3.scan);
+    A3.resize = () => { const w = host.clientWidth, h = host.clientHeight; if (!w || !h) return; A3.ren.setSize(w, h, false); A3.cam.aspect = w / h; A3.cam.updateProjectionMatrix(); };
+    A3.ro = new ResizeObserver(A3.resize); A3.ro.observe(host); A3.resize();
+    a3Reset(); a3Bind(cvEl); a3SideBind(); $('a3-ld').remove(); a3Frame();
+  } catch (e) { if (A3 === mine) { const l = $('a3-ld'); if (l) l.textContent = 'المتصفح/الجهاز مش داعم WebGL: ' + (e.message || e); } return; }
+  $('a3-rot').onclick = e => { A3.auto = !A3.auto; e.currentTarget.classList.toggle('on', A3.auto); };
+  $('a3-tp').onclick = () => { A3.pol = .05; };
+  $('a3-rst').onclick = () => { a3Reset(); };
+  if ($('a3-ed')) $('a3-ed').onclick = () => { A3.edit = !A3.edit; if (A3.edit) { A3.auto = false; $('a3-rot').classList.remove('on'); A3.sel = A3.lay.rooms[0] ? A3.lay.rooms[0].id : null; A3.vb = null; } else { A3.lay = a3Eff(A3.apt); } a3Mode(); a3Build(); };
 };
 
 /* ---------------------- الطلبات والمصاريف ---------------------- */
@@ -10831,7 +11055,7 @@ window.runAptsImport = async () => {
     const ops = []; const now = Date.now();
     aptPlan.apts.forEach(p => {
       const ref = p.id ? doc(db, 'apartments', p.id) : doc(collection(db, 'apartments')); const id = ref.id;
-      ops.push(b => b.set(ref, { number: p.number, type: p.type, location: p.location, totalBeds: p.beds, contractEnd: p.contract, supervisorUid: p.supUid, supervisorName: p.supName, supervisorPhone: (sup0 => (sup0 && sup0.phone) || (S.apts.find(x => x.id === p.id) || {}).supervisorPhone || '')(S.users.find(u => u.id === p.supUid)), whatsappLink: p.wa, mapLink: p.map }));
+      ops.push(b => b.set(ref, { number: p.number, type: p.type, location: p.location, totalBeds: p.beds, contractEnd: p.contract, supervisorUid: p.supUid, supervisorName: p.supName, supervisorPhone: (sup0 => (sup0 && sup0.phone) || (S.apts.find(x => x.id === p.id) || {}).supervisorPhone || '')(S.users.find(u => u.id === p.supUid)), whatsappLink: p.wa, mapLink: p.map, ...(((x0) => x0 && x0.layout ? { layout: x0.layout } : {})(S.apts.find(x => x.id === p.id))) }));
       ops.push(b => b.set(doc(db, 'apartmentsFinance', id), { rent: p.rent }));
       p.evict.forEach(e => ops.push(b => b.delete(doc(db, 'employees', e.id))));
       p.emps.forEach(e => {
