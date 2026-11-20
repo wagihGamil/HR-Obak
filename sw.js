@@ -1,6 +1,6 @@
 // Service worker بسيط: يخلي الموقع قابل للتثبيت كتطبيق (من غير كاش للبيانات)
 // + كاش لملفات نموذج التعرف على الوجه (face/ و CDN) عشان تتحمل مرة واحدة بس
-const FC='face-models-v1';
+const FC='face-models-v1'; // v2: manifest حقيقي
 self.addEventListener('install',e=>self.skipWaiting());
 self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch',e=>{
