@@ -26,6 +26,17 @@ service cloud.firestore {
     }
     function wr(m) { return canA(m, 'add') || canA(m, 'edit') || canA(m, 'delete'); }
 
+    // ===== دائرة الاعتماد على مستويين (تحضير الباصات + العمالة الخارجية) =====
+    // apprCfg/<مديول> = { l1: [uids اللي بيعملوا الموافقة الأولى] }. لو l1 فاضية: النظام القديم (صلاحية appr).
+    // مع وجود l1: الموافقة النهائية (approved) للأدمن بس، واليوزر المحدد يقدر يخلّي الحالة l1 أو يرفض.
+    function apprPath(m) { return /databases/$(database)/documents/apprCfg/$(m); }
+    function twoLv(m)    { return exists(apprPath(m)) && get(apprPath(m)).data.get('l1', []).size() > 0; }
+    function isL1(m)     { return active() && exists(apprPath(m)) && get(apprPath(m)).data.get('l1', []).hasAny([request.auth.uid]); }
+    function apprOK(m)   { return isAdmin() || (canA(m, 'appr') && !twoLv(m)); }
+    function l1Upd(m)    { return isL1(m) && resource.data.get('st', 'approved') in ['pending', 'rejected'] && request.resource.data.get('st', '') in ['l1', 'rejected']
+                            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['st', 'a1', 'a1at', 'ab', 'aat', 'rn']); }
+    function l1New(m)    { return isL1(m) && request.resource.data.get('st', '') == 'l1'; }
+
     // ===== مديولات الشؤون الإدارية: صلاحية الدخول = can(<مديول>,'view') =====
     function hasModule(m) { return can(m, 'view'); }
     // مشرف الشقة: حقل supervisor=true (ومعاه access.housing)
@@ -117,9 +128,9 @@ service cloud.firestore {
       allow create, update, delete: if canA('cars','cfg');
     }
     match /busAdv/{id} {
-      allow read:   if wr('cars');
-      allow create: if (canA('cars','add') || canA('cars','edit')) && (canA('cars','appr') || request.resource.data.get('st','') == 'pending');
-      allow update: if canA('cars','appr') || (canA('cars','edit') && request.resource.data.get('st','') == 'pending');
+      allow read:   if wr('cars') || isL1('cars');
+      allow create: if (canA('cars','add') || canA('cars','edit')) && (apprOK('cars') || request.resource.data.get('st','') == 'pending' || l1New('cars'));
+      allow update: if apprOK('cars') || l1Upd('cars') || (canA('cars','edit') && request.resource.data.get('st','') == 'pending');
       allow delete: if canA('cars','edit') || canA('cars','delete');
     }
     match /busCfg/{id} {
@@ -127,9 +138,9 @@ service cloud.firestore {
       allow create, update, delete: if canA('cars','cfg');
     }
     match /busLog/{id} {
-      allow read:   if wr('cars');
-      allow create: if canA('cars','add') && (canA('cars','appr') || request.resource.data.get('st','') == 'pending');
-      allow update: if canA('cars','appr') || (canA('cars','edit') && request.resource.data.get('st','') == 'pending');
+      allow read:   if wr('cars') || isL1('cars');
+      allow create: if canA('cars','add') && (apprOK('cars') || request.resource.data.get('st','') == 'pending' || l1New('cars'));
+      allow update: if apprOK('cars') || l1Upd('cars') || (canA('cars','edit') && request.resource.data.get('st','') == 'pending');
       allow delete: if canA('cars','delete');
     }
     match /carsFiles/{id} {
@@ -282,7 +293,7 @@ service cloud.firestore {
 
     // ===== ID (كروت تصريح الدخول: الموظفون + الظهر + الصور) =====
     match /idCards/{id} {
-      allow read:  if can('idcard','view') || ((id == 'emps' || id == 'pw') && (anyA('resign') || anyA('hiring'))) || (id == 'cfg' && anyA('hiring')) || (id.matches('ph_.*') && anyA('hiring')) || ((id == 'emps' || id.matches('ph_.*')) && canA('attend','edit')) || (id == 'emps' && (anyA('payroll') || anyA('payrev')));
+      allow read:  if can('idcard','view') || ((id == 'emps' || id == 'pw') && (anyA('resign') || anyA('hiring'))) || (id == 'cfg' && anyA('hiring')) || (id.matches('ph_.*') && anyA('hiring')) || ((id == 'emps' || id.matches('ph_.*')) && canA('attend','edit')) || (id == 'emps' && (anyA('payroll') || anyA('payrev') || anyA('kpis')));
       allow write: if wr('idcard') || ((id == 'emps' || id.matches('ph_.*')) && canA('hiring','add'));
     }
 
@@ -339,6 +350,29 @@ service cloud.firestore {
       allow create, update, delete: if canA('payrev','ovr');
     }
     // ===== مديول التوظيف: جدول المرشحين (السير الذاتية نفسها مبتتخزنش) =====
+    // ===== KPIS: الوصف الوظيفي + المؤشرات + دفعات الحوافز =====
+    match /kpiJobs/{id} {
+      allow read:   if anyA('kpis');
+      allow create: if canA('kpis','edit');
+      allow update: if canA('kpis','edit');
+      allow delete: if canA('kpis','delete');
+    }
+    match /kpiAssign/{id} {
+      allow read:   if anyA('kpis');
+      allow create, update: if canA('kpis','edit') || canA('kpis','pay');
+      allow delete: if canA('kpis','edit');
+    }
+    match /kpiBatches/{id} {
+      allow read:   if anyA('kpis');
+      allow create, update: if canA('kpis','eval');
+      allow delete: if canA('kpis','delete');
+    }
+    match /kpiEval/{id} {
+      allow read:   if anyA('kpis');
+      allow create, update: if canA('kpis','eval');
+      allow delete: if canA('kpis','delete');
+    }
+
     match /recCandidates/{id} {
       allow read:   if anyA('recruiting');
       allow create: if canA('recruiting','add');
@@ -347,13 +381,17 @@ service cloud.firestore {
     }
 
     match /recCfg/{id} {
-      allow read:  if anyA('recruiting');
+      allow read:  if anyA('recruiting') || (id == 'ai' && (anyA('hiring') || anyA('cars') || anyA('extlabor')));
       allow write: if canA('recruiting','cfg');
     }
 
     match /payCfg/{id} {
       allow read:   if anyA('payroll');
       allow create, update, delete: if canA('payroll','edit');
+    }
+    match /apprCfg/{id} {
+      allow read:   if isAdmin() || (id in ['cars', 'extlabor'] && anyA(id));
+      allow write:  if isAdmin() && id in ['cars', 'extlabor'];
     }
     match /extLaborContractors/{id} {
       allow read:   if anyA('extlabor');
@@ -377,8 +415,8 @@ service cloud.firestore {
     }
     match /extLaborDays/{id} {
       allow read:   if anyA('extlabor');
-      allow create: if canA('extlabor','add') && (canA('extlabor','appr') || request.resource.data.get('st','') == 'pending');
-      allow update: if canA('extlabor','appr')
+      allow create: if canA('extlabor','add') && (apprOK('extlabor') || request.resource.data.get('st','') == 'pending' || l1New('extlabor'));
+      allow update: if apprOK('extlabor') || l1Upd('extlabor')
                     || (canA('extlabor','edit') && request.resource.data.get('st','') == 'pending')
                     || (canA('extlabor','edit') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paid','paidAt']));
       allow delete: if canA('extlabor','delete');
