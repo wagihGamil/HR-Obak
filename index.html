@@ -5432,7 +5432,7 @@ function ocPrintModal(pre){
    <label><input type="checkbox" id="pr_a" ${C.E.length?'checked':'disabled'}> الهيكل الحالي للموظفين (أزرق)</label>
    <label><input type="checkbox" id="pr_r" ${C.P.length?'checked':'disabled'}> تقرير خطة التعيينات (المتبقي + المراحل)</label>
    <label style="margin-inline-start:22px"><input type="checkbox" id="pr_s"> الهيكلين فوق بعض في صفحة واحدة</label>
-   <label style="margin-inline-start:22px"><input type="checkbox" id="pr_n"> إظهار أسماء الموظفين في الهيكل الحالي</label>
+   <label style="margin-inline-start:22px"><input type="checkbox" id="pr_n" ${OC.names?'checked':''}> إظهار أسماء الموظفين في الكروت (الهيكل الحالي)</label>
    <div style="border-top:1px solid var(--line);padding-top:8px;margin-top:2px"><b style="font-size:13px">الإدارات</b>
     <label style="display:block;margin:4px 0"><input type="checkbox" id="pr_all" ${pre?'':'checked'}> كل الإدارات</label>
     <div id="pr_dl" style="display:none;max-height:170px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px 10px">${depts.map((d,i)=>`<label style="display:block;margin:3px 0"><input type="checkbox" class="pr_d" value="${i}" ${d===pre?'checked':''}> ${esc(d)}</label>`).join('')}</div>
