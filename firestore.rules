@@ -293,7 +293,7 @@ service cloud.firestore {
 
     // ===== ID (كروت تصريح الدخول: الموظفون + الظهر + الصور) =====
     match /idCards/{id} {
-      allow read:  if can('idcard','view') || ((id == 'emps' || id == 'pw') && (anyA('resign') || anyA('hiring'))) || (id == 'cfg' && anyA('hiring')) || (id.matches('ph_.*') && anyA('hiring')) || ((id == 'emps' || id.matches('ph_.*')) && canA('attend','edit')) || (id == 'emps' && (anyA('payroll') || anyA('payrev') || anyA('kpis') || anyA('forms')));
+      allow read:  if can('idcard','view') || ((id == 'emps' || id == 'pw') && (anyA('resign') || anyA('hiring'))) || (id == 'cfg' && anyA('hiring')) || (id.matches('ph_.*') && anyA('hiring')) || ((id == 'emps' || id.matches('ph_.*')) && canA('attend','edit')) || (id == 'emps' && (anyA('payroll') || anyA('payrev') || anyA('kpis') || anyA('forms') || anyA('custody')));
       allow write: if wr('idcard') || ((id == 'emps' || id.matches('ph_.*')) && canA('hiring','add'));
     }
 
@@ -351,6 +351,18 @@ service cloud.firestore {
     }
     // ===== مديول التوظيف: جدول المرشحين (السير الذاتية نفسها مبتتخزنش) =====
     // ===== KPIS: الوصف الوظيفي + المؤشرات + دفعات الحوافز =====
+    // ===== مهمات الموظفين (العهد) =====
+    match /custItems/{id} {
+      allow read:   if anyA('custody');
+      allow create, update: if canA('custody','settings');
+      allow delete: if canA('custody','settings');
+    }
+    match /custRecs/{id} {
+      allow read:   if anyA('custody');
+      allow create: if canA('custody','add');
+      allow update: if canA('custody','edit') || canA('custody','add');
+      allow delete: if canA('custody','delete') || canA('custody','edit');
+    }
     match /kpiJobs/{id} {
       allow read:   if anyA('kpis');
       allow create: if canA('kpis','edit');

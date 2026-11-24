@@ -2167,6 +2167,7 @@ const PERM = {
   links:{label:'لينكات هامة',acts:{view:'عرض اللينكات',edit:'إضافة وتعديل وحذف اللينكات'}},
   attend:{label:'الحضور',acts:{view:'تسجيل حضور وانصراف بالوجه (من موبايله)',report:'عرض تقارير حضور كل الموظفين',edit:'الإعدادات: المواقع وبصمات الوجوه وربط المستخدمين'}},
   extlabor:{label:'حساب عمالة خارجية',acts:{view:'دخول المديول وعرض الحسابات',add:'إضافة أيام عمل',edit:'تعديل الأيام + التهيئة (المقاولين واليوميات)',delete:'حذف الأيام'}},
+  custody:{label:'مهمات الموظفين (العهد)',acts:{view:'دخول المديول وعرض العهد والتقارير وإقرار الاستلام',add:'تسجيل عهدة على موظف',edit:'تسجيل إرجاع العهد',delete:'حذف سطور العهد',settings:'التهيئة: إضافة وتعديل وحذف المهمات'}},
   kpis:{label:'KPIS (الوصف الوظيفي وتقييم الأداء)',acts:{view:'دخول المديول وعرض الوصف الوظيفي والـ KPIs',edit:'تعديل الوصف الوظيفي والـ KPIs وربط الموظفين',eval:'تقييم الموظفين (إدخال النسب) في دفعات الحوافز',pay:'رؤية وتعديل قيمة الحافز الأساسي والمبالغ المستحقة',delete:'حذف الوظائف والشهور'}},
   recruiting:{label:'التوظيف (السير الذاتية والمرشحين)',acts:{view:'دخول المديول وعرض المرشحين',add:'رفع سير ذاتية وإضافة مرشحين',edit:'تعديل بيانات المرشحين (ورفع سيرة لمرشح موجود)',delete:'حذف المرشحين',cfg:'إعداد الربط مع Google Drive (رابط السكربت والمفتاح)'}},
   payroll:{label:'المرتبات (payroll)',acts:{view:'دخول المديول وعرض العقود وحساب المرتبات',edit:'إنشاء وتعديل العقود + إدخال البدلات والخصومات + إعدادات الحساب',delete:'حذف العقود'}},
@@ -2204,6 +2205,7 @@ const ICONS={
   links:'<svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
   payrev:'<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/><path d="M9 15l2 2 4-4"/></svg>',
   attend:'<svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="4"/><path d="M4 21c0-4 3.5-6 8-6s8 2 8 6"/><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3"/></svg>',
+  custody:'<svg viewBox="0 0 24 24"><path d="M3 7h18v13H3z"/><path d="M8 7V4h8v3M3 13h18"/></svg>',
   kpis:'<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/><path d="M13 8l3-3 3 3"/></svg>',
   recruiting:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.5-3.2 2.6-5 5.5-5s5 1.8 5.5 5"/><circle cx="17.5" cy="10" r="2.4"/><path d="M16 14.2c2.4-.3 4.2.9 4.8 3.3"/></svg>',
   payroll:'<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v.01M18 14.5v.01"/></svg>',
@@ -2225,6 +2227,7 @@ const MODS={
   links:{title:'لينكات هامة',color:'linear-gradient(135deg,#1aa39a,#0b6b65)',subs:null},
   attend:{title:'الحضور',color:'linear-gradient(135deg,#1d7a4b,#0f4d2f)',subs:null},
   extlabor:{title:'حساب عمالة خارجية',color:'linear-gradient(135deg,#8a6d3b,#5a4220)',subs:null},
+  custody:{title:'مهمات الموظفين (العهد)',color:'linear-gradient(135deg,#b45309,#78350f)',subs:null},
   kpis:{title:'KPIS — الوصف الوظيفي وتقييم الأداء',color:'linear-gradient(135deg,#0d9488,#115e59)',subs:null},
   recruiting:{title:'التوظيف — السير الذاتية والمرشحين',color:'linear-gradient(135deg,#7c3aed,#4c1d95)',subs:null},
   payroll:{title:'payroll — العقود والمرتبات',color:'linear-gradient(135deg,#0f766e,#134e4a)',subs:null},
@@ -2931,7 +2934,7 @@ const WF_FORMS=[
    <table class="wtb ex"><thead><tr><th style="width:20mm">المسلسل</th><th style="width:40mm">المبلغ</th><th style="width:38mm">التاريخ</th><th>بيان الصرف</th></tr></thead><tbody>${rows}</tbody></table>
    <table class="wtb ex" style="width:60%;margin-top:4mm"><tbody><tr><td class="hd">اجمالى قيمه المصروفات</td><td>${wfI('tot','100%','readonly tabindex="-1" style="font-weight:700"')}</td></tr><tr><td class="hd">رصيد سلفه العمل</td><td>${wfI('adv','100%','type="number" min="0" step="any" inputmode="decimal"')}</td></tr><tr><td class="hd">باقى المبلغ المستحق</td><td>${wfI('rem','100%','readonly tabindex="-1" style="font-weight:700"')}</td></tr></tbody></table>
    <div class="wsr" style="margin-top:12mm;font-size:10.5pt"><b>مقدم الكشف</b><b>المدير الاداري</b><b>محاسب الخزنه</b><b>مدير الحسابات</b><b>امر الصرف</b><b>معاون المدير العام</b></div>`; }},
- {id:'receipt',title:'إيصال استلام مهمات عمل',desc:'إيصال استلام عهدة/مهمات عمل على سبيل الأمانة (بصمة وتوقيع المستلم)',land:false,
+ {id:'receipt',hide:true,title:'إيصال استلام مهمات عمل',desc:'إيصال استلام عهدة/مهمات عمل على سبيل الأمانة (بصمة وتوقيع المستلم)',land:false,
   init:()=>({date:wfTodayISO(),co:'أوباك للصناعات الغذائية'}),
   html:()=>`${wfHdr()}
    <div class="wrw big" style="margin:1mm 0"><b>التاريخ /</b> ${wfD('date')}</div>
@@ -3013,7 +3016,7 @@ function wfCss(){ if($('wfcss')) return; const st=document.createElement('style'
 function wfTabs(){ return wfAllowed()?`<div class="wftabs"><button type="button" data-wft="print" class="${WF.tab!=='links'?'on':''}">🖨 نماذج للطباعة</button><button type="button" data-wft="links" class="${WF.tab==='links'?'on':''}">🔗 نماذج جوجل</button></div>`:''; }
 const wfDef=id=>WF_FORMS.find(f=>f.id===id);
 function wfRender(){ wfCss(); const f=WF.cur&&wfDef(WF.cur); if(f){ wfEdit(f); return; }
-  $('view').innerHTML=`<div class="card">${wfTabs()}<div class="tb"><h2 style="margin:0">نماذج العمل</h2></div><div class="muted" style="font-size:13px;margin-top:4px">اختار النموذج، املأ البيانات، وبعدين اضغط «طباعة / حفظ PDF».</div><div class="wfgrid">${WF_FORMS.map(f=>`<div class="wfc"><b>${esc(f.title)}</b><div class="d">${esc(f.desc)}</div><button class="btn pri" type="button" data-wfo="${f.id}">تعبئة وطباعة</button></div>`).join('')}</div></div>`; }
+  $('view').innerHTML=`<div class="card">${wfTabs()}<div class="tb"><h2 style="margin:0">نماذج العمل</h2></div><div class="muted" style="font-size:13px;margin-top:4px">اختار النموذج، املأ البيانات، وبعدين اضغط «طباعة / حفظ PDF».</div><div class="wfgrid">${WF_FORMS.filter(f=>!f.hide).map(f=>`<div class="wfc"><b>${esc(f.title)}</b><div class="d">${esc(f.desc)}</div><button class="btn pri" type="button" data-wfo="${f.id}">تعبئة وطباعة</button></div>`).join('')}</div></div>`; }
 function wfFit(){ const f=wfDef(WF.cur); if(!f) return; const pw=(f.land?297:210)*3.7795, ph=(f.land?209:296)*3.7795, av=Math.max(300,($('view').clientWidth||window.innerWidth)-40), s=Math.min(1,av/pw); document.querySelectorAll('.wfwrap').forEach(w=>{ const p=w.querySelector('.wfp'); w.style.width=(pw*s)+'px'; w.style.height=(ph*s)+'px'; p.style.transform=`scale(${s})`; }); }
 /* ---- ربط النماذج بأسماء الموظفين (من مديول الـ ID) ---- */
 // خريطة: خاصية الموظف (n الاسم، nid الرقم القومي، code الكود، j الوظيفة، d الإدارة، t تاريخ التعيين) ← مفتاح الحقل في النموذج
@@ -3033,7 +3036,7 @@ async function wfEmpInit(f){ const bar=$('wf_pickbar'); if(!bar) return; const L
   if(f.id==='overtime'){ const dl=document.createElement('datalist'); dl.id='wf_emps_n'; dl.innerHTML=L.map(e=>`<option value="${esc(e.n)}">${esc(e.j||'')}</option>`).join(''); $('wfarea').appendChild(dl); const p=$('wfarea'); p.querySelectorAll('[data-k^="n"]').forEach(el=>{ if(/^n\d+$/.test(el.dataset.k)) el.setAttribute('list','wf_emps_n'); });
     p.addEventListener('change',ev=>{ const t=ev.target, mm=t.dataset&&/^n(\d+)$/.exec(t.dataset.k||''); if(!mm) return; const e=L.find(x=>x.n===t.value.trim()); if(!e) return; const j=p.querySelector(`[data-k="j${mm[1]}"]`); if(j&&e.j){ j.value=e.j; WF.vals[f.id]['j'+mm[1]]=e.j; } }); } }
 function wfEdit(f){ if(!WF.vals[f.id]) WF.vals[f.id]=f.init();
-  $('view').innerHTML=`<div class="card"><div class="wfbar"><button class="btn" type="button" data-wfback="1">‹ رجوع للنماذج</button><b>${esc(f.title)}</b><span style="flex:1"></span><button class="btn" type="button" data-wfclr="1">مسح الحقول</button><button class="btn pri" type="button" data-wfprint="1">🖨 طباعة / حفظ PDF</button></div><div id="wf_pickbar" class="wfbar" style="margin:-2px 0 8px;background:#eef6ff;border:1px solid #bcd6f5;border-radius:8px;padding:6px 10px;flex-wrap:wrap;gap:8px">جارٍ تحميل الموظفين…</div><div class="muted" style="font-size:12.5px;margin-bottom:8px">املأ الحقول الملوّنة مباشرة على الورقة. الحقول الفاضية بتتطبع كخط منقّط تكتب عليه بالقلم. ورق الطباعة A4${f.land?' بالعرض':' بالطول'}.</div><div id="wfarea">${[].concat(f.html()).map((h,i)=>`<div class="wfwrap" style="${i?'margin-top:16px':''}"><div class="wfp${f.land?' land':''}${f.border?' bdr':''}${f.dbl?' dbl':''}">${f.wm?`<img class="wm" src="${WF_WM}" alt="">`:''}${h}</div></div>`).join('')}</div></div>`;
+  $('view').innerHTML=`<div class="card"><div class="wfbar">${CUR.mod==='custody'?'':'<button class="btn" type="button" data-wfback="1">‹ رجوع للنماذج</button>'}<b>${esc(CUR.mod==='custody'?'إقرار استلام مهمات':f.title)}</b><span style="flex:1"></span><button class="btn" type="button" data-wfclr="1">مسح الحقول</button><button class="btn pri" type="button" data-wfprint="1">🖨 طباعة / حفظ PDF</button></div><div id="wf_pickbar" class="wfbar" style="margin:-2px 0 8px;background:#eef6ff;border:1px solid #bcd6f5;border-radius:8px;padding:6px 10px;flex-wrap:wrap;gap:8px">جارٍ تحميل الموظفين…</div>${CUR.mod==='custody'?cuPanel():''}<div class="muted" style="font-size:12.5px;margin-bottom:8px">املأ الحقول الملوّنة مباشرة على الورقة. الحقول الفاضية بتتطبع كخط منقّط تكتب عليه بالقلم. ورق الطباعة A4${f.land?' بالعرض':' بالطول'}.</div><div id="wfarea">${[].concat(f.html()).map((h,i)=>`<div class="wfwrap" style="${i?'margin-top:16px':''}"><div class="wfp${f.land?' land':''}${f.border?' bdr':''}${f.dbl?' dbl':''}">${f.wm?`<img class="wm" src="${WF_WM}" alt="">`:''}${h}</div></div>`).join('')}</div></div>`;
   const p=$('wfarea'), V=WF.vals[f.id];
   p.querySelectorAll('[data-k]').forEach(el=>{ const k=el.dataset.k; if(el.type==='checkbox') el.checked=!!V[k]; else if(V[k]!==undefined) el.value=V[k]; });
   const calc=()=>{ if(!f.calc) return; const r=f.calc(p); if(r){ V.tot=r.tot; V.rem=r.rem; } };
@@ -3055,7 +3058,7 @@ function wfClick(t){ if(CUR.mod!=='forms') return false;
   if(t.closest('[data-wfclr]')){ if(confirm('مسح كل الحقول؟')){ const f=wfDef(WF.cur); WF.vals[f.id]=f.init(); wfEdit(f); } return true; }
   if(t.closest('[data-wfprint]')){ wfPrint(); return true; }
   return false; }
-window.addEventListener('resize',()=>{ if(CUR.mod==='forms'&&WF.cur) wfFit(); });
+window.addEventListener('resize',()=>{ if((CUR.mod==='forms'||CUR.mod==='custody')&&WF.cur) wfFit(); });
 async function mountForms(){
   setLayout({view:true}); $('view').innerHTML='<div class="card muted">جارٍ التحميل…</div>';
   try{ WFORMS=await BE.listForms(); }catch(e){ $('view').innerHTML=`<div class="card bad">${esc(authMsg(e))}</div>`; return; }
@@ -8428,7 +8431,73 @@ document.addEventListener('click',e=>{ const a=e.target.closest&&e.target.closes
 document.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const a=e.target.closest&&e.target.closest('#pwaTile'); if(a){ e.preventDefault(); pwaInstall(); } } });
 
 /* ---------------- الموجّه / الشاشة الرئيسية ---------------- */
-const HOME_ORDER=['hiring','recruiting','kpis','insurance','resign','housing','cars','tasks','forms','links','payrev','payroll','attend','extlabor','orgchart','idcard','users','buffet','stationery'];
+
+/* ====================== مهمات الموظفين (العهد) ====================== */
+const CU={tab:'rep',items:[],recs:[],view:'emp',q:'',st:'with',sel:{}};
+const cuCan=a=>can('custody',a);
+const cuId=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const cuD=s=>{ const q=String(s||'').split('-'); return q.length===3?q[2]+'/'+q[1]+'/'+q[0]:(s||''); };
+const cuToday=()=>{ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+async function cuLoad(){ const [a,b]=await Promise.all([BE.rcList('custItems'),BE.rcList('custRecs')]); CU.items=a.sort((x,y)=>String(x.name).localeCompare(String(y.name),'ar')); CU.recs=b.sort((x,y)=>String(y.date||'').localeCompare(String(x.date||''))||(y.at||0)-(x.at||0)); }
+// سطور العهدة (سطر لكل مهمة على موظف)
+function cuLines(){ const L=[]; CU.recs.forEach(r=>(r.items||[]).forEach((it,i)=>L.push({rid:r.id,i,k:r.k||r.n,n:r.n,code:r.code||'',dept:r.dept||'',job:r.job||'',date:r.date,iid:it.iid||'',name:it.name,spec:it.spec||'',qty:+it.qty||1,ret:it.ret||''}))); return L; }
+function cuIssued(iid){ return cuLines().filter(l=>l.iid===iid&&!l.ret).reduce((s,l)=>s+l.qty,0); }
+function cuAvail(it){ const t=+it.qty||0; return t>0?t-cuIssued(it.id):null; }
+function cuTabs(){ const T=[]; if(cuCan('view')) T.push({k:'rep',t:'العهد والتقارير',on:CU.tab==='rep'},{k:'rcpt',t:'إقرار استلام مهمات',on:CU.tab==='rcpt'}); if(cuCan('settings')) T.push({k:'cfg',t:'التهيئة (المهمات)',on:CU.tab==='cfg'}); hdrTabs(T,k=>{ CU.tab=k; cuRender(); }); }
+async function mountCustody(){ setLayout({view:true}); $('view').innerHTML='<div class="card muted">جارٍ التحميل…</div>'; try{ await cuLoad(); }catch(er){ $('view').innerHTML=`<div class="card" style="color:#c62828">${esc(authMsg(er))}</div>`; return; } if(!cuCan('view')&&cuCan('settings')) CU.tab='cfg'; cuRender(); }
+function cuRender(){ cuTabs(); WF.cur=null; if(CU.tab==='rcpt'){ wfCss(); WF.cur='receipt'; wfEdit(wfDef('receipt')); return; } $('view').innerHTML=`<div class="card" id="cux">${CU.tab==='cfg'?cuCfgHtml():cuRepHtml()}</div>`; }
+const cuStCss=`<style>.cut{width:100%;border-collapse:collapse;font-size:13px}.cut th,.cut td{border:1px solid var(--line);padding:6px 8px;text-align:right;vertical-align:top}.cut th{background:#eef2f7}.cug{margin:14px 0 4px;font-weight:800;color:var(--navy)}.cuk{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.cuk span{background:#eef6ff;border:1px solid #bcd6f5;border-radius:8px;padding:4px 10px;font-weight:700}.cup{border:1.5px solid #bcd6f5;background:#f6faff;border-radius:10px;padding:10px 12px;margin:0 0 10px}.cupg{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px;margin:6px 0}.cupg label{display:flex;gap:6px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:13px}.cupg input[type=number]{width:64px!important;flex:none}.cupg input[type=checkbox]{width:auto!important;flex:none}.cuok{color:#1b7a3a;font-weight:700}.cubad{color:#c62828;font-weight:700}</style>`;
+function cuFilter(){ const q=CU.q.trim().toLowerCase(); return cuLines().filter(l=>(CU.st==='all'||(CU.st==='with'?!l.ret:!!l.ret))&&(!q||(l.n+' '+l.code+' '+l.dept+' '+l.name+' '+l.spec).toLowerCase().includes(q))); }
+function cuRepHtml(){ const L=cuFilter(), tq=L.reduce((s,l)=>s+l.qty,0), emps=new Set(L.map(l=>l.k)).size;
+  const bar=`<div class="tb" style="flex-wrap:wrap;gap:8px"><h2 style="margin:0">مهمات الموظفين</h2><select id="cu_view"><option value="emp" ${CU.view==='emp'?'selected':''}>تقرير حسب الموظف</option><option value="item" ${CU.view==='item'?'selected':''}>تقرير حسب المهمة</option><option value="log" ${CU.view==='log'?'selected':''}>السجل التفصيلي</option></select><select id="cu_st"><option value="with" ${CU.st==='with'?'selected':''}>مع الموظفين (غير مرتجعة)</option><option value="ret" ${CU.st==='ret'?'selected':''}>المرتجعة</option><option value="all" ${CU.st==='all'?'selected':''}>الكل</option></select><input type="search" id="cu_q" placeholder="بحث باسم الموظف أو المهمة…" value="${esc(CU.q)}"><span style="flex:1"></span><button class="btn" data-cu="print" type="button">🖨 طباعة التقرير</button><button class="btn" data-cu="xls" type="button">⬇ Excel</button></div><div class="cuk"><span>عدد الموظفين: ${emps}</span><span>إجمالي القطع: ${tq}</span><span>عدد السطور: ${L.length}</span></div>`;
+  return cuStCss+bar+(L.length?cuTable(L,true):'<div class="muted" style="padding:18px">مفيش عهد مسجلة بالفلتر ده. سجّل عهدة من تابة «إقرار استلام مهمات».</div>'); }
+function cuActs(l,ed){ return ed?`<td>${l.ret?`<button class="btn sm" data-cu="unret" data-r="${l.rid}" data-i="${l.i}" type="button">تراجع عن الإرجاع</button>`:`<button class="btn sm" data-cu="ret" data-r="${l.rid}" data-i="${l.i}" type="button">استلام مرتجع</button>`} <button class="btn sm" data-cu="open" data-r="${l.rid}" type="button">فتح الإقرار</button>${cuCan('delete')?` <button class="btn sm" data-cu="del" data-r="${l.rid}" data-i="${l.i}" type="button">🗑</button>`:''}</td>`:''; }
+function cuTable(L,ed){ const ed2=ed&&(cuCan('edit')||cuCan('delete')||cuCan('view')), th=h=>`<th>${h}</th>`, st=l=>l.ret?`<span class="cuok">مرتجعة ${cuD(l.ret)}</span>`:'<span class="cubad">مع الموظف</span>';
+  if(CU.view==='emp'){ const g=new Map(); L.forEach(l=>{ if(!g.has(l.k)) g.set(l.k,[]); g.get(l.k).push(l); });
+    return [...g.values()].sort((a,b)=>String(a[0].n).localeCompare(String(b[0].n),'ar')).map(a=>`<div class="cug">${esc(a[0].n)}${a[0].code?' ('+esc(a[0].code)+')':''}${a[0].job?' — '+esc(a[0].job):''}${a[0].dept?' — '+esc(a[0].dept):''} <span class="muted">· إجمالي ${a.reduce((s,l)=>s+l.qty,0)} قطعة</span></div><div style="overflow:auto"><table class="cut"><tr>${th('المهمة')}${th('الوصف / المواصفات')}${th('العدد')}${th('تاريخ الاستلام')}${th('الحالة')}${ed2?th('إجراءات'):''}</tr>${a.map(l=>`<tr><td>${esc(l.name)}</td><td>${esc(l.spec)}</td><td>${l.qty}</td><td>${cuD(l.date)}</td><td>${st(l)}</td>${cuActs(l,ed2)}</tr>`).join('')}</table></div>`).join(''); }
+  if(CU.view==='item'){ const g=new Map(); L.forEach(l=>{ const k=l.iid||l.name; if(!g.has(k)) g.set(k,[]); g.get(k).push(l); });
+    return [...g.values()].sort((a,b)=>String(a[0].name).localeCompare(String(b[0].name),'ar')).map(a=>{ const it=CU.items.find(x=>x.id===a[0].iid), av=it?cuAvail(it):null; return `<div class="cug">${esc(a[0].name)} <span class="muted">· مع الموظفين ${a.filter(l=>!l.ret).reduce((s,l)=>s+l.qty,0)}${it&&+it.qty?` من ${it.qty} — المتاح ${av}`:''}</span></div><div style="overflow:auto"><table class="cut"><tr>${th('الموظف')}${th('الكود')}${th('الإدارة')}${th('العدد')}${th('تاريخ الاستلام')}${th('الحالة')}${ed2?th('إجراءات'):''}</tr>${a.map(l=>`<tr><td>${esc(l.n)}</td><td>${esc(l.code)}</td><td>${esc(l.dept)}</td><td>${l.qty}</td><td>${cuD(l.date)}</td><td>${st(l)}</td>${cuActs(l,ed2)}</tr>`).join('')}</table></div>`; }).join(''); }
+  return `<div style="overflow:auto"><table class="cut"><tr>${th('التاريخ')}${th('الموظف')}${th('الكود')}${th('الإدارة')}${th('المهمة')}${th('الوصف')}${th('العدد')}${th('الحالة')}${ed2?th('إجراءات'):''}</tr>${L.map(l=>`<tr><td>${cuD(l.date)}</td><td>${esc(l.n)}</td><td>${esc(l.code)}</td><td>${esc(l.dept)}</td><td>${esc(l.name)}</td><td>${esc(l.spec)}</td><td>${l.qty}</td><td>${st(l)}</td>${cuActs(l,ed2)}</tr>`).join('')}</table></div>`; }
+function cuCfgHtml(){ return cuStCss+`<div class="tb" style="flex-wrap:wrap;gap:8px"><h2 style="margin:0">التهيئة — المهمات المتاحة للتسليم</h2><span style="flex:1"></span><button class="btn pri" data-cu="newitem" type="button">＋ مهمة جديدة</button></div><div class="muted" style="font-size:12.5px;margin:4px 0 8px">سجّل هنا كل أنواع المهمات/العهد (لابتوب، موبايل، سيارة…) بعددها ووصفها. بتظهر بعد كده في تابة «إقرار استلام مهمات» تختار منها.</div>`+(CU.items.length?`<div style="overflow:auto"><table class="cut"><tr><th>المهمة</th><th>الوصف / المواصفات</th><th>العدد الكلي</th><th>مع الموظفين</th><th>المتاح</th><th></th></tr>${CU.items.map(it=>{ const av=cuAvail(it); return `<tr><td><b>${esc(it.name)}</b></td><td>${esc(it.desc||'')}</td><td>${+it.qty||'—'}</td><td>${cuIssued(it.id)}</td><td>${av===null?'—':(av<0?`<span class="cubad">${av}</span>`:av)}</td><td><button class="btn sm" data-cu="edititem" data-id="${it.id}" type="button">تعديل</button> <button class="btn sm" data-cu="delitem" data-id="${it.id}" type="button">🗑</button></td></tr>`; }).join('')}</table></div>`:'<div class="muted" style="padding:18px">مفيش مهمات متسجلة لسه. اضغط «مهمة جديدة».</div>'); }
+function cuItemModal(id){ const it=CU.items.find(x=>x.id===id)||{}; const m=ocModal(`<h3 style="margin:0 0 10px">${id?'تعديل المهمة':'مهمة جديدة'}</h3><label>اسم المهمة</label><input id="ci_n" value="${esc(it.name||'')}" placeholder="مثال: لابتوب"><label>الوصف / المواصفات</label><textarea id="ci_d" rows="3" placeholder="مثال: Dell Latitude 5440 - i7 - رام 16">${esc(it.desc||'')}</textarea><label>العدد الكلي (اختياري — لحساب المتاح)</label><input id="ci_q" type="number" min="0" value="${it.qty||''}"><div style="display:flex;gap:8px;margin-top:12px"><button class="btn pri" id="ci_ok" type="button">حفظ</button><button class="btn" data-ocx type="button">إلغاء</button></div>`,460);
+  m.querySelector('#ci_ok').onclick=async()=>{ const n=m.querySelector('#ci_n').value.trim(); if(!n){ toast('اكتب اسم المهمة',true); return; } try{ await BE.rcSet('custItems',id||cuId('ci_'),{name:n,desc:m.querySelector('#ci_d').value.trim(),qty:+m.querySelector('#ci_q').value||0,at:it.at||Date.now(),by:it.by||ME.name||ME.email||''}); m.remove(); toast('تم الحفظ ✓'); await cuLoad(); cuRender(); }catch(er){ toast(authMsg(er),true); } }; }
+// لوحة اختيار المهمات داخل إقرار الاستلام
+function cuPanel(){ const its=CU.items; return `<div class="cup" id="cu_panel"><b style="font-size:13px">📦 اختار المهمات من التهيئة:</b>${its.length?`<div class="cupg">${its.map(it=>{ const s=CU.sel[it.id], av=cuAvail(it); return `<label title="${esc(it.desc||'')}"><input type="checkbox" data-cuck="${it.id}" ${s?'checked':''}> <span style="flex:1">${esc(it.name)}${av!==null?` <small class="muted">(متاح ${av})</small>`:''}</span><input type="number" min="1" data-cuq="${it.id}" value="${s?s.qty:1}"></label>`; }).join('')}</div>`:`<div class="muted" style="font-size:12.5px;margin:4px 0">${cuCan('settings')?'مفيش مهمات في التهيئة لسه — ضيفها من تابة «التهيئة»، أو اكتب المهمة يدويًا في الإقرار.':'مفيش مهمات في التهيئة لسه — اكتب المهمة يدويًا في الإقرار.'}</div>`}<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><button class="btn" data-cu="apply" type="button">⬇ حطّ المختار في الإقرار</button>${cuCan('add')?'<button class="btn pri" data-cu="save" type="button">💾 سجّل العهدة على الموظف</button>':''}<span id="cu_msg" class="muted" style="font-size:12.5px"></span></div></div>`; }
+function cuApply(){ const f=wfDef('receipt'), V=WF.vals.receipt, p=$('wfarea'); const S=CU.items.filter(i=>CU.sel[i.id]); if(!S.length){ toast('اختار مهمة واحدة على الأقل',true); return false; }
+  V.item=S.map(i=>(CU.sel[i.id].qty>1?CU.sel[i.id].qty+' × ':'')+i.name).join('\n'); V.spec=S.filter(i=>i.desc).map(i=>i.name+': '+i.desc).join('\n');
+  [['item',V.item],['spec',V.spec]].forEach(([k,v])=>{ const el=p.querySelector(`[data-k="${k}"]`); if(el) el.value=v; }); wfFit(); return true; }
+async function cuSave(){ const V=WF.vals.receipt, S=CU.items.filter(i=>CU.sel[i.id]); if(!String(V.name||'').trim()){ toast('اختار/اكتب اسم الموظف الأول',true); return; }
+  let items=S.map(i=>({iid:i.id,name:i.name,spec:i.desc||'',qty:CU.sel[i.id].qty,ret:''}));
+  if(!items.length&&String(V.item||'').trim()) items=String(V.item).split('\n').map(x=>x.trim()).filter(Boolean).map(x=>({iid:'',name:x,spec:'',qty:1,ret:''})); 
+  if(!items.length){ toast('اختار مهمة من التهيئة أو اكتبها في الإقرار',true); return; }
+  const over=items.filter(x=>{ const it=CU.items.find(i=>i.id===x.iid); const a=it?cuAvail(it):null; return a!==null&&x.qty>a; }); if(over.length&&!confirm('الكمية المطلوبة أكبر من المتاح في: '+over.map(x=>x.name).join('، ')+'\nتسجّل برضو؟')) return;
+  await wfEmpsLoad(); const e=(WF.emps||[]).find(x=>x.n===String(V.name).trim())||{};
+  const rec={k:e.k||'',n:String(V.name).trim(),code:e.code||'',dept:e.d||'',job:V.job||e.j||'',nid:V.nid||'',date:V.date||cuToday(),items,form:{...V},at:Date.now(),by:ME.name||ME.email||''};
+  try{ await BE.rcSet('custRecs',cuId('cr_'),rec); toast('اتسجلت العهدة على «'+rec.n+'» ✓'); CU.sel={}; await cuLoad(); cuRender(); }catch(er){ toast(authMsg(er),true); } }
+async function cuMark(rid,i,ret){ const r=CU.recs.find(x=>x.id===rid); if(!r) return; const items=r.items.map((x,j)=>j===i?{...x,ret:ret}:x); const {id,...d}=r; try{ await BE.rcSet('custRecs',rid,{...d,items}); await cuLoad(); cuRender(); }catch(er){ toast(authMsg(er),true); } }
+function cuRows(){ return cuFilter().map(l=>({'الموظف':l.n,'الكود':l.code,'الإدارة':l.dept,'الوظيفة':l.job,'المهمة':l.name,'الوصف':l.spec,'العدد':l.qty,'تاريخ الاستلام':cuD(l.date),'الحالة':l.ret?'مرتجعة '+cuD(l.ret):'مع الموظف'})); }
+async function cuXls(){ const R=cuRows(); if(!R.length){ toast('لا توجد بيانات',true); return; } await loadXLSX(); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(R),'مهمات الموظفين'); const it=CU.items.map(i=>({'المهمة':i.name,'الوصف':i.desc||'','العدد الكلي':+i.qty||'','مع الموظفين':cuIssued(i.id),'المتاح':cuAvail(i)===null?'':cuAvail(i)})); if(it.length) XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(it),'التهيئة'); XLSX.writeFile(wb,'مهمات_الموظفين.xlsx'); }
+function cuPrint(){ const L=cuFilter(); if(!L.length){ toast('لا توجد بيانات للطباعة',true); return; } const T={emp:'حسب الموظف',item:'حسب المهمة',log:'السجل التفصيلي'}[CU.view]; kpPrintDoc('تقرير مهمات الموظفين',`<h1>تقرير مهمات الموظفين — ${T}</h1><p>التاريخ: ${cuD(cuToday())} — ${CU.st==='with'?'العهد الحالية مع الموظفين':CU.st==='ret'?'العهد المرتجعة':'كل العهد'}</p>`+cuTable(L,false).replace(/class="cut"/g,'border="1" style="width:100%;border-collapse:collapse;font-size:10pt"').replace(/class="cug"/g,'style="font-weight:bold;margin:4mm 0 1mm"').replace(/class="(cuok|cubad)"/g,'')); }
+function cuClick(t){ if(CUR.mod!=='custody') return false;
+  if(t.closest('[data-wfclr]')){ if(confirm('مسح كل الحقول؟')){ const f=wfDef('receipt'); WF.vals.receipt=f.init(); CU.sel={}; wfEdit(f); } return true; }
+  if(t.closest('[data-wfprint]')){ wfPrint(); return true; }
+  const b=t.closest('[data-cu]'); if(!b) return false; const a=b.dataset.cu, r=b.dataset.r, i=+b.dataset.i;
+  if(a==='print') cuPrint(); else if(a==='xls') cuXls(); else if(a==='newitem') cuItemModal(null); else if(a==='edititem') cuItemModal(b.dataset.id);
+  else if(a==='delitem'){ const it=CU.items.find(x=>x.id===b.dataset.id); if(it&&confirm(`حذف المهمة «${it.name}» من التهيئة؟ (العهد المسجلة بتفضل زي ما هي)`)) BE.rcDel('custItems',it.id).then(()=>cuLoad()).then(cuRender).catch(er=>toast(authMsg(er),true)); }
+  else if(a==='ret'){ if(!cuCan('edit')) return true; const d=prompt('تاريخ الإرجاع (yyyy-mm-dd):',cuToday()); if(d) cuMark(r,i,d); }
+  else if(a==='unret'){ if(cuCan('edit')) cuMark(r,i,''); }
+  else if(a==='del'){ const rec=CU.recs.find(x=>x.id===r); if(rec&&cuCan('delete')&&confirm('حذف السطر ده من العهدة؟')){ const items=rec.items.filter((_,j)=>j!==i); const p=items.length?BE.rcSet('custRecs',r,(({id,...d})=>({...d,items}))(rec)):BE.rcDel('custRecs',r); p.then(()=>cuLoad()).then(cuRender).catch(er=>toast(authMsg(er),true)); } }
+  else if(a==='open'){ const rec=CU.recs.find(x=>x.id===r); if(rec&&rec.form){ WF.vals.receipt={...rec.form}; CU.sel={}; CU.tab='rcpt'; cuRender(); } else toast('الإقرار ده مفيش نسخة محفوظة منه',true); }
+  else if(a==='apply'){ if(cuApply()) $('cu_msg').textContent='✔ اتحطت المهمات في الإقرار'; }
+  else if(a==='save') cuSave();
+  return true; }
+document.addEventListener('change',e=>{ if(CUR.mod!=='custody') return; const t=e.target;
+  if(t.id==='cu_view'){ CU.view=t.value; cuRender(); } else if(t.id==='cu_st'){ CU.st=t.value; cuRender(); }
+  else if(t.dataset&&t.dataset.cuck){ const q=document.querySelector(`[data-cuq="${t.dataset.cuck}"]`); if(t.checked) CU.sel[t.dataset.cuck]={qty:Math.max(1,+(q&&q.value)||1)}; else delete CU.sel[t.dataset.cuck]; }
+  else if(t.dataset&&t.dataset.cuq){ if(CU.sel[t.dataset.cuq]) CU.sel[t.dataset.cuq].qty=Math.max(1,+t.value||1); } });
+document.addEventListener('input',e=>{ if(CUR.mod==='custody'&&e.target.id==='cu_q'){ const p=e.target.selectionStart; CU.q=e.target.value; $('cux').innerHTML=cuRepHtml(); const q=$('cu_q'); q.focus(); try{ q.setSelectionRange(p,p); }catch(_){} } });
+
+const HOME_ORDER=['hiring','recruiting','kpis','custody','insurance','resign','housing','cars','tasks','forms','links','payrev','payroll','attend','extlabor','orgchart','idcard','users','buffet','stationery'];
 function showHome(){
   CUR={mod:null,sub:null}; $('mod').hidden=true; $('adm').hidden=true; $('home').hidden=false; $('subnav').innerHTML=''; $('modTitle').textContent='أوباك — الموارد البشرية والشؤون الإدارية';
   const apps=HOME_ORDER.filter(k=>MODS[k]&&canMod(k));
@@ -8445,7 +8514,7 @@ function openModule(m,sub){
   $('adm').hidden=true; $('mod').hidden=false;
   const subs=MODS[m].subs?MODS[m].subs.filter(s=>can(m,s[2])):[];
   $('subnav').innerHTML=subs.map(s=>`<a data-sub="${s[0]}" href="#/${m}/${s[0]}">${s[1]}</a>`).join('');
-  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='users') mountUsers(); else if(m==='forms') mountForms(); else if(m==='links') mountLinks(); else if(m==='payrev') mountPayRev(sub); else if(m==='extlabor') mountExtLabor(); else if(m==='payroll') mountPayroll(); else if(m==='recruiting') mountRecruiting(); else if(m==='kpis') mountKpis(); else if(m==='attend') mountAttend(); else if(m==='orgchart') mountOrg(); else if(m==='idcard') mountID();
+  if(m==='hiring') mountHiring(); else if(m==='resign') mountResign(); else if(m==='insurance') mountInsurance(sub); else if(m==='users') mountUsers(); else if(m==='forms') mountForms(); else if(m==='links') mountLinks(); else if(m==='payrev') mountPayRev(sub); else if(m==='extlabor') mountExtLabor(); else if(m==='payroll') mountPayroll(); else if(m==='recruiting') mountRecruiting(); else if(m==='kpis') mountKpis(); else if(m==='custody') mountCustody(); else if(m==='attend') mountAttend(); else if(m==='orgchart') mountOrg(); else if(m==='idcard') mountID();
   window.scrollTo(0,0);
 }
 function route(){
@@ -8504,6 +8573,7 @@ document.addEventListener('click',e=>{
   if(t.closest('#u_new')) userModal(null);
   if(t.closest('#mg_go')) runMigrate();
   if(formsClick(t)) return;
+  if(cuClick(t)) return;
   if(linksClick(t)) return;
   if(orgClick(t)) return;
   if(idClick(t)) return;
