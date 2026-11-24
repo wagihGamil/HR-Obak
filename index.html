@@ -2931,6 +2931,26 @@ const WF_FORMS=[
    <table class="wtb ex"><thead><tr><th style="width:20mm">المسلسل</th><th style="width:40mm">المبلغ</th><th style="width:38mm">التاريخ</th><th>بيان الصرف</th></tr></thead><tbody>${rows}</tbody></table>
    <table class="wtb ex" style="width:60%;margin-top:4mm"><tbody><tr><td class="hd">اجمالى قيمه المصروفات</td><td>${wfI('tot','100%','readonly tabindex="-1" style="font-weight:700"')}</td></tr><tr><td class="hd">رصيد سلفه العمل</td><td>${wfI('adv','100%','type="number" min="0" step="any" inputmode="decimal"')}</td></tr><tr><td class="hd">باقى المبلغ المستحق</td><td>${wfI('rem','100%','readonly tabindex="-1" style="font-weight:700"')}</td></tr></tbody></table>
    <div class="wsr" style="margin-top:12mm;font-size:10.5pt"><b>مقدم الكشف</b><b>المدير الاداري</b><b>محاسب الخزنه</b><b>مدير الحسابات</b><b>امر الصرف</b><b>معاون المدير العام</b></div>`; }},
+ {id:'receipt',title:'إيصال استلام مهمات عمل',desc:'إيصال استلام عهدة/مهمات عمل على سبيل الأمانة (بصمة وتوقيع المستلم)',land:false,
+  init:()=>({date:wfTodayISO(),co:'أوباك للصناعات الغذائية'}),
+  html:()=>`${wfHdr()}
+   <div class="wrw big" style="margin:1mm 0"><b>التاريخ /</b> ${wfD('date')}</div>
+   <div class="wtt" style="margin:4mm 0 6mm;font-size:20pt">إيصــــــال استلام مهمات عمل</div>
+   <div class="wrw big" style="margin:3mm 0"><b>استلمت أنا /</b> ${wfI('name','50mm')} <b style="margin-right:4mm">المقيم /</b> ${wfI('addr','50mm')}</div>
+   <div class="wrw big" style="margin:3mm 0"><b>وأحمل بطاقة قومي رقم /</b> ${wfI('nid','40mm','inputmode="numeric"')} <b style="margin-right:4mm">وأعمل بوظيفة /</b> ${wfI('job','40mm')}</div>
+   <div class="wrw big" style="margin:3mm 0"><b>من شركة /</b> ${wfI('co','58mm')} <b style="margin-right:4mm">ويمثلها قانونًا السيد /</b> ${wfI('rep','38mm')}</div>
+   <div class="big" style="margin:3mm 0"><b>ما هو عبارة عن /</b> ${wfTA('item',3)}</div>
+   <div class="big" style="margin:3mm 0"><b>بمواصفات /</b> ${wfTA('spec',3)}</div>
+   <p class="wp big" style="margin-top:6mm;line-height:2;font-size:13pt">وذلك لاستخدامه في إنجاز جميع أعمال الشركة المسندة لي من قبل الشركة داخلها وخارجها.</p>
+   <p class="wp big" style="line-height:2;font-size:13pt">وذلك على سبيل الأمانة على أن أقوم بردها للشركة حين انتهاء علاقة العمل أو طلب الشركة رده في أي وقت، وفي حالة عدم رده أو هلاكه أعتبر خائنًا للأمانة ومبددًا له وأتحمل المسئولية القانونية بشقيها المدنية والجنائية.</p>
+   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-top:12mm;gap:8mm">
+    <div style="flex:1;display:grid;gap:6mm">
+     <div class="wsg"><b>المستلم /</b>${wfI('rcv','70mm')}</div>
+     <div class="wsg"><b>رقم البطاقة القومي /</b>${wfI('nid2','62mm','inputmode="numeric"')}</div>
+     <div class="wsg"><b>التوقيع /</b>${wfI('sig','70mm')}</div>
+    </div>
+    <div style="text-align:center"><b>البصمة /</b><div style="width:32mm;height:32mm;border:1.5px solid #000;margin-top:2mm"></div></div>
+   </div>`},
  {id:'salary',title:'شهادة تعريف بالراتب',desc:'شهادة للموظف بالوظيفة وصافي الدخل (وش وظهر)',land:false,dbl:true,
   init:()=>({date:wfTodayISO()}),
   html:()=>[`${wfHdr()}<div class="wrw big" style="margin-top:8mm;font-size:15pt"><b>السادة :</b> ${wfI('to','90mm')}</div>
