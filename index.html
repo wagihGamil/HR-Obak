@@ -666,6 +666,15 @@ table.xf td.wr{white-space:normal;overflow:hidden;line-height:1.22}
               <input type="tel" id="apt-supphone" dir="ltr" placeholder="01xxxxxxxxx" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" style="text-align:right">
             </div>
           </div>
+          <div>
+            <label class="block font-bold mb-1">رقم تليفون صاحب الشقة (المالك)</label>
+            <input type="tel" id="apt-ownerphone" dir="ltr" placeholder="01xxxxxxxxx" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" style="text-align:right">
+          </div>
+          <div>
+            <label class="block font-bold mb-1">الأثاث الموجود في الشقة <span class="text-[11px] font-normal text-slate-500">(بيظهر تلقائي كرسم هولوجرام في عرض 3D)</span></label>
+            <div id="apt-furn" class="space-y-1.5"></div>
+            <button type="button" id="apt-furn-add" class="mt-1.5 px-3 py-1.5 bg-cyan-100 hover:bg-cyan-200 text-cyan-800 font-bold rounded-lg text-xs">+ إضافة أثاث</button>
+          </div>
           <p class="text-[11px] text-slate-500">قائمة المشرفين تظهر من تاب "إدارة المستخدمين" (المستخدمون بصلاحية مشرف).</p>
           <div class="pt-2 flex gap-2">
             <button type="submit" id="btn-save-apt" class="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl"><i class="fa-solid fa-floppy-disk ml-1"></i> حفظ الشقة</button>
@@ -9097,7 +9106,9 @@ function renderAptList() {
         <div><span class="text-slate-400">الإيجار:</span> <strong>${fmt(S.fin[a.id])} ج.م</strong></div>
         <div><span class="text-slate-400">العقد حتى:</span> <strong>${contractBadge(a.contractEnd)}</strong></div>
         <div class="col-span-2"><span class="text-slate-400">المشرف:</span> <strong>${esc(a.supervisorName || 'غير محدد')}</strong>${supWaBtn(a)}</div>
-        <div class="col-span-2">${linkBtns(a) || '<span class="text-slate-400">لا يوجد رابط جروب واتساب</span>'}</div></div>
+        <div class="col-span-2">${linkBtns(a) || '<span class="text-slate-400">لا يوجد رابط جروب واتساب</span>'}</div>
+        ${a.ownerPhone ? `<div class="col-span-2"><span class="text-slate-400">المالك:</span> <a href="tel:${esc(a.ownerPhone)}" dir="ltr" class="font-bold text-brand-700">${esc(a.ownerPhone)}</a></div>` : ''}
+        ${(a.furniture && a.furniture.length) ? `<div class="col-span-2"><span class="text-slate-400">الأثاث:</span> ${aptFurnSummary(a.furniture)}</div>` : ''}</div>
       <div class="flex gap-2 pt-1 border-t border-slate-200">
         <button onclick="openApt3D('${a.id}')" class="py-1.5 px-3 bg-cyan-100 hover:bg-cyan-200 text-cyan-800 font-bold rounded-lg text-xs" title="عرض هولوجرام ثلاثي الأبعاد">🧊 3D</button>
         <button onclick="editApt('${a.id}')" class="flex-1 py-1.5 bg-slate-200 hover:bg-slate-300 font-bold rounded-lg text-xs"><i class="fa-solid fa-pen ml-1"></i> تعديل</button>
@@ -9117,7 +9128,7 @@ $('apt-manage-form').addEventListener('submit', async e => {
   const supUid = $('apt-supervisor').value;
   const sup = S.users.find(u => u.id === supUid);
   const data = { number: $('apt-number').value.trim(), type: $('apt-type').value, location: $('apt-location').value.trim() || 'غير محدد',
-    totalBeds: beds, contractEnd: $('apt-contract-end').value, supervisorUid: supUid, supervisorName: sup ? sup.name : '', supervisorPhone: ($('apt-supphone').value.trim() || (sup && sup.phone) || ''), whatsappLink: waLink, mapLink };
+    totalBeds: beds, contractEnd: $('apt-contract-end').value, supervisorUid: supUid, supervisorName: sup ? sup.name : '', supervisorPhone: ($('apt-supphone').value.trim() || (sup && sup.phone) || ''), whatsappLink: waLink, mapLink, ownerPhone: $('apt-ownerphone').value.trim(), furniture: aptFurnClean() };
   { const a0 = id && S.apts.find(x => x.id === id); if (a0 && a0.layout) data.layout = a0.layout; }
   try {
     const ref = id ? doc(db, 'apartments', id) : doc(collection(db, 'apartments'));
@@ -9137,7 +9148,7 @@ $('apt-manage-form').addEventListener('submit', async e => {
 window.editApt = id => {
   const a = S.apts.find(x => x.id === id); if (!a) return;
   $('apt-id-hidden').value = a.id; $('apt-number').value = a.number; $('apt-type').value = a.type; $('apt-location').value = a.location; $('apt-whatsapp').value = a.whatsappLink || ''; $('apt-map').value = a.mapLink || '';
-  $('apt-beds').value = a.totalBeds; $('apt-rent').value = S.fin[a.id] ?? 0; $('apt-contract-end').value = a.contractEnd;
+  $('apt-beds').value = a.totalBeds; $('apt-rent').value = S.fin[a.id] ?? 0; $('apt-contract-end').value = a.contractEnd; $('apt-ownerphone').value = a.ownerPhone || ''; aptFurnLoad(a.furniture);
   renderSupervisorOptions(); $('apt-supervisor').value = a.supervisorUid || ''; { const _su = S.users.find(u => u.id === a.supervisorUid); $('apt-supphone').value = a.supervisorPhone || (_su && _su.phone) || ''; } if (!$('apt-supervisor').dataset.ph) { $('apt-supervisor').dataset.ph = 1; $('apt-supervisor').addEventListener('change', () => { const u = S.users.find(x => x.id === $('apt-supervisor').value); if (u && u.phone) $('apt-supphone').value = u.phone; }); }
   $('apt-form-title').textContent = 'تعديل بيانات الشقة'; window.scrollTo({ top: 0, behavior: 'smooth' });
 };
@@ -9151,7 +9162,7 @@ window.deleteApt = id => {
 };
 window.resetAptForm = () => {
   $('apt-manage-form').reset(); $('apt-id-hidden').value = ''; $('apt-form-title').textContent = 'إضافة شقة جديدة';
-  $('apt-beds').value = 4; $('apt-rent').value = 8000;
+  $('apt-beds').value = 4; $('apt-rent').value = 8000; aptFurnLoad([]);
 };
 
 /* ---------------------- مجسّم الشقة ثلاثي الأبعاد (هولوجرام) ---------------------- */
@@ -9179,10 +9190,84 @@ function a3Load() {
   if (window.THREE) return Promise.resolve();
   return A3P || (A3P = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'; s.onload = res; s.onerror = () => { A3P = null; rej(new Error('تعذر تحميل مكتبة الـ3D — تأكد من الإنترنت')); }; document.head.appendChild(s); }));
 }
-function a3Dims(n) { n = Math.max(n, 1); const cols = Math.min(n, 3), rows = Math.ceil(n / 3); return { w: +(cols * 1.5 + .6).toFixed(1), d: +(rows * 2.5 + .6).toFixed(1) }; }
+
+/* ---------------- الأثاث: قائمة + نماذج هولوجرام ---------------- */
+// g: r = بيتوزع على الغرف تلقائي، c = المنطقة العامة (مطبخ/صالة). w,d,h بالمتر
+const A3F = {
+  wardrobe: { n: 'دولاب', g: 'r', w: .9, d: .5, h: 2 }, bedside: { n: 'كومودينو', g: 'r', w: .45, d: .4, h: .5 }, desk: { n: 'مكتب', g: 'r', w: 1.1, d: .55, h: .75 },
+  fan: { n: 'مروحة', g: 'r', w: .4, d: .4, h: 1.2 }, ac: { n: 'تكييف', g: 'r', w: .9, d: .25, h: .3 },
+  fridge: { n: 'ثلاجة', g: 'c', w: .7, d: .7, h: 1.7 }, stove: { n: 'بوتاجاز', g: 'c', w: .6, d: .6, h: .9 }, washer: { n: 'غسالة', g: 'c', w: .6, d: .6, h: .85 },
+  heater: { n: 'سخان', g: 'c', w: .5, d: .5, h: .8 }, tv: { n: 'تلفزيون', g: 'c', w: .9, d: .3, h: .9 }, table: { n: 'ترابيزة', g: 'c', w: 1.2, d: .8, h: .75 },
+  chair: { n: 'كرسي', g: 'c', w: .45, d: .45, h: .9 }, sofa: { n: 'كنبة', g: 'c', w: 1.8, d: .8, h: .85 }, other: { n: 'أخرى', g: 'c', w: .5, d: .5, h: .5 }
+};
+let AF = [];
+function aptFurnLoad(a) { AF = (a || []).map(x => ({ k: A3F[x.k] ? x.k : 'other', q: Math.max(1, x.q | 0), nm: x.nm || '', room: x.room || '' })); aptFurnRender(); }
+function aptFurnClean() { return AF.map(x => ({ k: x.k, q: Math.min(99, Math.max(1, x.q | 0)), ...(x.k === 'other' ? { nm: (x.nm || '').trim().slice(0, 30) || 'أثاث' } : {}), ...(x.room ? { room: x.room } : {}) })); }
+const aptFurnName = x => x.k === 'other' ? (x.nm || 'أثاث') : (A3F[x.k] || A3F.other).n;
+function aptFurnSummary(f) { return (f || []).map(x => `<span class="inline-block bg-amber-50 border border-amber-200 text-amber-800 rounded px-1.5 mx-0.5">${esc(aptFurnName(x))}${x.q > 1 ? ' ×' + x.q : ''}</span>`).join(''); }
+function aptFurnRender() {
+  const box = $('apt-furn'); if (!box) return;
+  box.innerHTML = AF.map((x, i) => `<div class="flex gap-1.5 items-center"><select data-fk="${i}" class="px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs flex-1">${Object.keys(A3F).map(k => `<option value="${k}"${x.k === k ? ' selected' : ''}>${A3F[k].n}</option>`).join('')}</select>
+    ${x.k === 'other' ? `<input data-fn="${i}" value="${esc(x.nm)}" placeholder="اسم الأثاث" class="px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs flex-1">` : ''}
+    <input data-fq="${i}" type="number" min="1" max="99" value="${x.q}" class="w-16 px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs" title="العدد"><button type="button" data-fd="${i}" class="px-2 py-1 bg-rose-100 text-rose-700 rounded-lg text-xs">✕</button></div>`).join('') || '<div class="text-[11px] text-slate-400">لسه ما اتضافش أثاث</div>';
+}
+document.addEventListener('click', e => { const t = e.target; if (!t.closest) return; if (t.id === 'apt-furn-add') { AF.push({ k: 'wardrobe', q: 1, nm: '', room: '' }); aptFurnRender(); } const d = t.closest('[data-fd]'); if (d) { AF.splice(+d.dataset.fd, 1); aptFurnRender(); } });
+document.addEventListener('change', e => { const t = e.target; if (t.dataset && t.dataset.fk !== undefined) { AF[+t.dataset.fk].k = t.value; aptFurnRender(); } });
+document.addEventListener('input', e => { const t = e.target; if (!t.dataset) return; if (t.dataset.fq !== undefined) AF[+t.dataset.fq].q = parseInt(t.value) || 1; if (t.dataset.fn !== undefined) AF[+t.dataset.fn].nm = t.value; });
+aptFurnLoad([]);
+// توزيع الأثاث: وحدات لكل غرفة + المنطقة العامة
+function a3FurnPlan(L, a) {
+  const real = L.rooms.filter(r => r.id !== 'rx'), by = {}, common = []; let rr = 0; real.forEach(r => by[r.id] = []);
+  A3.furn.forEach(x => {
+    const m = A3F[x.k] || A3F.other, nm = aptFurnName(x);
+    for (let i = 0; i < Math.max(1, x.q | 0); i++) {
+      const u = { k: x.k, nm, w: m.w, d: m.d, h: m.h };
+      if (x.room && by[x.room]) by[x.room].push(u);
+      else if (x.room === 'c' || m.g === 'c' || !real.length) common.push(u);
+      else by[real[rr++ % real.length].id].push(u);
+    }
+  });
+  real.forEach(r => {
+    r._n = 0; r._s = 0; r.fu = []; let nx = r.x + .15, sx = r.x + .15;
+    by[r.id].forEach(u => {
+      if (nx + u.w <= r.x + r.w - .1 || sx + u.w > r.x + r.w - .1) { u.px = nx + u.w / 2; u.pz = r.z + .12 + u.d / 2; u.rot = 0; nx += u.w + .1; r._n = Math.max(r._n, u.d + .25); }
+      else { u.px = sx + u.w / 2; u.pz = r.z + r.d - .12 - u.d / 2; u.rot = Math.PI; sx += u.w + .1; r._s = Math.max(r._s, u.d + .25); }
+      r.fu.push(u);
+    });
+  });
+  let zone = null;
+  if (common.length) {
+    const bb = a3Bounds(L), cols = Math.min(4, common.length), rows = Math.ceil(common.length / cols), cw = 1.9, ch = 1.6;
+    zone = { x: bb.x1 + 1.2, z: bb.z0, w: cols * cw + .4, d: rows * ch + .4, fu: common };
+    common.forEach((u, i) => { u.px = zone.x + .2 + cw * ((i % cols) + .5); u.pz = zone.z + .2 + ch * (Math.floor(i / cols) + .5); u.rot = 0; });
+  }
+  return zone;
+}
+function a3Model(k, W, D, H, col) {
+  const G = new THREE.Group(), add = (w, h, d, x, y, z, fo) => G.add(a3Box(w, h, d, x, y, z, col, fo == null ? .16 : fo, col, .95));
+  const cyl = (r, h, x, y, z) => { const g = new THREE.CylinderGeometry(r, r, h, 14), m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .16, depthWrite: false, blending: THREE.AdditiveBlending })), l = new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: .95 })), gr = new THREE.Group(); gr.add(m, l); gr.position.set(x, y, z); G.add(gr); };
+  switch (k) {
+    case 'wardrobe': add(W, H, D, 0, H / 2, 0); add(.03, H * .92, .02, 0, H / 2, D / 2 + .01, .6); add(.04, .2, .03, -.08, H * .5, D / 2 + .03, .8); add(.04, .2, .03, .08, H * .5, D / 2 + .03, .8); break;
+    case 'fridge': add(W, H, D, 0, H / 2, 0); add(W * .98, .02, .02, 0, H * .68, D / 2 + .01, .7); add(.04, .35, .03, W * .35, H * .84, D / 2 + .03, .8); add(.04, .5, .03, W * .35, H * .4, D / 2 + .03, .8); break;
+    case 'stove': add(W, H, D, 0, H / 2, 0); [[-.15, -.15], [.15, -.15], [-.15, .15], [.15, .15]].forEach(p => cyl(.09, .02, p[0], H + .01, p[1])); add(W * .7, .3, .02, 0, H * .45, D / 2 + .01, .5); break;
+    case 'washer': add(W, H, D, 0, H / 2, 0); cyl(.2, .03, 0, H * .48, D / 2 + .02); G.children[G.children.length - 1].rotation.x = Math.PI / 2; add(W * .8, .08, .02, 0, H - .1, D / 2 + .01, .5); break;
+    case 'heater': cyl(.22, H, 0, H / 2 + .1, 0); add(.06, .1, .06, 0, .05, 0, .5); break;
+    case 'tv': add(W, .6, .05, 0, H - .3, 0, .22); add(.1, .3, .1, 0, .45, 0); add(W * .5, .03, .25, 0, .02, 0); add(W * .7, .5, .01, 0, H - .3, .03, .5); break;
+    case 'table': add(W, .05, D, 0, H, 0, .3); [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(p => add(.05, H, .05, p[0] * (W / 2 - .06), H / 2, p[1] * (D / 2 - .06), .5)); break;
+    case 'desk': add(W, .04, D, 0, H, 0, .3); add(.05, H, D * .9, -W / 2 + .05, H / 2, 0); add(.05, H, D * .9, W / 2 - .05, H / 2, 0); add(W * .9, .3, .02, 0, H - .2, -D / 2 + .05, .4); break;
+    case 'chair': add(W, .05, D, 0, .45, 0, .3); add(W, .5, .05, 0, .72, -D / 2 + .03); [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(p => add(.04, .45, .04, p[0] * (W / 2 - .03), .22, p[1] * (D / 2 - .03), .5)); break;
+    case 'sofa': add(W, .4, D, 0, .25, 0, .22); add(W, .45, .18, 0, .6, -D / 2 + .1); add(.18, .35, D, -W / 2 + .1, .5, 0); add(.18, .35, D, W / 2 - .1, .5, 0); break;
+    case 'fan': cyl(.03, 1, 0, .6, 0); cyl(.18, .03, 0, 1.15, 0); G.children[G.children.length - 1].rotation.x = Math.PI / 2; cyl(.15, .03, 0, .02, 0); break;
+    case 'ac': add(W, H, D, 0, 1.9, 0, .22); add(W * .85, .03, .02, 0, 1.82, D / 2 + .01, .7); break;
+    case 'bedside': add(W, H, D, 0, H / 2, 0); add(W * .8, .02, .02, 0, H * .6, D / 2 + .01, .7); break;
+    default: add(W, H, D, 0, H / 2, 0);
+  }
+  return G;
+}
+function a3Dims(n, fx) { n = Math.max(n, 1); const cols = Math.min(n, 3), rows = Math.ceil(n / 3); return { w: +(Math.max(cols * 1.5 + .6, fx ? 2.6 : 0)).toFixed(1), d: +(rows * 2.5 + .6 + (fx || 0)).toFixed(1) }; }
 function a3Auto(a) {
-  const N = Math.max(1, a.totalBeds | 0), per = N <= 3 ? N : (N <= 6 ? Math.ceil(N / 2) : 3), cnt = Math.ceil(N / per), rooms = []; let b = 1;
-  for (let i = 0; i < cnt; i++) { const k = Math.min(per, N - b + 1), d = a3Dims(k); rooms.push({ id: 'r' + (i + 1), name: 'غرفة ' + (i + 1), w: d.w, d: d.d, beds: Array.from({ length: k }, (_, j) => b + j), door: 's', x: 0, z: 0 }); b += k; }
+  const fx = (a.furniture || []).some(f => (A3F[f.k] || A3F.other).g === 'r' && f.room !== 'c') ? .8 : 0, N = Math.max(1, a.totalBeds | 0), per = N <= 3 ? N : (N <= 6 ? Math.ceil(N / 2) : 3), cnt = Math.ceil(N / per), rooms = []; let b = 1;
+  for (let i = 0; i < cnt; i++) { const k = Math.min(per, N - b + 1), d = a3Dims(k, fx); rooms.push({ id: 'r' + (i + 1), name: 'غرفة ' + (i + 1), w: d.w, d: d.d, beds: Array.from({ length: k }, (_, j) => b + j), door: 's', x: 0, z: 0 }); b += k; }
   const nt = Math.ceil(cnt / 2), top = rooms.slice(0, nt), bot = rooms.slice(nt), topD = Math.max(...top.map(r => r.d));
   let x = 0; top.forEach(r => { r.x = x; r.z = topD - r.d; r.door = 's'; x += r.w; });
   x = 0; bot.forEach(r => { r.x = x; r.z = topD + 1.4; r.door = 'n'; x += r.w; });
@@ -9203,9 +9288,10 @@ function a3Eff(a) {
 }
 function a3BedPos(r) {
   const n = r.beds.length; if (!n) return [];
-  let cols = Math.min(Math.max(1, Math.floor((r.w - .2) / 1.5)), n), rows = Math.max(Math.floor((r.d - .2) / 2.5), Math.ceil(n / cols), 1);
-  const sx = r.w / cols, sz = r.d / rows;
-  return r.beds.slice().sort((a, b) => a - b).map((b, k) => ({ bed: b, x: r.x + sx * ((k % cols) + .5), z: r.z + sz * (Math.floor(k / cols) + .5), bw: Math.min(1, sx * .7), bl: Math.min(2, sz * .8) }));
+  const zn = r._n || 0, D = r.d - zn - (r._s || 0);
+  let cols = Math.min(Math.max(1, Math.floor((r.w - .2) / 1.5)), n), rows = Math.max(Math.floor((D - .2) / 2.5), Math.ceil(n / cols), 1);
+  const sx = r.w / cols, sz = D / rows;
+  return r.beds.slice().sort((a, b) => a - b).map((b, k) => ({ bed: b, x: r.x + sx * ((k % cols) + .5), z: r.z + zn + sz * (Math.floor(k / cols) + .5), bw: Math.min(1, sx * .7), bl: Math.min(2, sz * .8) }));
 }
 function a3Box(w, h, d, x, y, z, fill, fo, edge, eo) {
   const g = new THREE.BoxGeometry(w, h, d), m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: fill, transparent: true, opacity: fo, depthWrite: false, blending: THREE.AdditiveBlending }));
@@ -9232,11 +9318,13 @@ function a3Label(txt, col, sc) {
 }
 function a3Build() {
   const g = A3.grp; while (g.children.length) { const o = g.children[0]; g.remove(o); o.traverse(n => { if (n.geometry) n.geometry.dispose(); if (n.material) { if (n.material.map) n.material.map.dispose(); n.material.dispose(); } }); }
-  A3.pick = []; const occ = occupantsOf(A3.apt.id), C = 0x5ff3ff;
+  A3.pick = []; const occ = occupantsOf(A3.apt.id), C = 0x5ff3ff, FC = 0xffc857; A3.zone = a3FurnPlan(A3.lay, A3.apt);
+  const putF = (u, nameOnly) => { const m = a3Model(u.k, u.w, u.d, u.h, FC); m.position.set(u.px, 0, u.pz); m.rotation.y = u.rot || 0; g.add(m); const lb = a3Label(u.nm, '#ffc857', .36); lb.position.set(u.px, u.h + .3 + (u.k === 'ac' ? 1.7 : 0), u.pz); g.add(lb); };
   A3.lay.rooms.forEach(r => {
     g.add(a3Box(r.w, .03, r.d, r.x + r.w / 2, .015, r.z + r.d / 2, C, .07, C, .5));
     a3Walls(r).forEach(s => g.add(a3Box(s.w, 2.2, s.d, s.x, 1.1, s.z, C, .07, C, .85)));
     const nm = a3Label(r.name, '#5ff3ff', .55); nm.position.set(r.x + r.w / 2, 2.75, r.z + r.d / 2); g.add(nm);
+    (r.fu || []).forEach(u => putF(u));
     a3BedPos(r).forEach(p => {
       const o = occ.find(z => z.bedIndex === p.bed), col = o ? 0x34ffa0 : 0x6aa7b8, y = .22;
       const m = a3Box(p.bw, .28, p.bl, p.x, y, p.z, col, o ? .38 : .12, col, o ? 1 : .55); g.add(m); m.userData.mesh.userData.bed = p.bed; A3.pick.push(m.userData.mesh);
@@ -9245,9 +9333,10 @@ function a3Build() {
       const lb = o ? a3Label(o.name, '#34ffa0', .5) : a3Label('سرير ' + p.bed + ' · شاغر', '#8fc3d2', .4); lb.position.set(p.x, 1.45, p.z); g.add(lb);
     });
   });
+  if (A3.zone) { const z = A3.zone; g.add(a3Box(z.w, .03, z.d, z.x + z.w / 2, .015, z.z + z.d / 2, FC, .06, FC, .6)); const zl = a3Label('المطبخ / الصالة — أثاث عام', '#ffc857', .5); zl.position.set(z.x + z.w / 2, 2.2, z.z + z.d / 2); g.add(zl); z.fu.forEach(u => putF(u)); }
   g.position.set(-A3.c.x, 0, -A3.c.z);
 }
-function a3Center() { const b = a3Bounds(A3.lay); A3.c = { x: (b.x0 + b.x1) / 2, z: (b.z0 + b.z1) / 2 }; A3.R = Math.max(b.x1 - b.x0, b.z1 - b.z0, 4) / 2; }
+function a3Center() { const b = a3Bounds(A3.lay); const z = a3FurnPlan(A3.lay, A3.apt); if (z) b.x1 = Math.max(b.x1, z.x + z.w); A3.c = { x: (b.x0 + b.x1) / 2, z: (b.z0 + b.z1) / 2 }; A3.R = Math.max(b.x1 - b.x0, b.z1 - b.z0, 4) / 2; }
 function a3Reset() { a3Center(); a3Build(); A3.az = .6; A3.pol = .95; const asp = A3.cam ? A3.cam.aspect : 1.5; A3.dist = Math.max(8, A3.R * 2.6) * (asp < 1.2 ? 1.6 : 1); }
 function a3Sync() { clearTimeout(A3.st); A3.st = setTimeout(() => { if (A3 && A3.grp) a3Build(); }, 90); }
 function a3Frame() {
@@ -9303,6 +9392,7 @@ function a3Side() {
     <div class="a3-h">اضغط على رقم السرير عشان تضيفه للغرفة دي أو تشيله منها (المنقّط = لسه مش في أي غرفة):</div><div class="a3-chips">${chips}</div>` : `<div class="a3-h">اضغط على غرفة في الرسم عشان تعدّلها.</div>`;
   s.innerHTML = `<div class="a3-h">اسحب الغرفة لتحريكها، واسحب المربع الصغير في ركنها لتغيير المقاس. المربع الواحد = متر. الخط الأصفر = الباب.</div>
     <svg id="a3-svg" style="width:100%;max-height:300px;background:#031722;border:1px solid #0e4a5c;border-radius:8px;direction:ltr;touch-action:none;user-select:none"></svg>${props}
+    ${A3.furn.length ? `<div class="a3-h" style="margin-top:8px">🪑 الأثاث — اختار مكان كل قطعة (تلقائي = بيتوزع لوحده):</div>${A3.furn.map((x, i) => `<div style="display:flex;gap:6px;align-items:center;margin:3px 0"><span style="flex:1">${esc(aptFurnName(x))}${x.q > 1 ? ' ×' + x.q : ''}</span><select data-fr="${i}" style="width:55%"><option value="">تلقائي</option><option value="c"${x.room === 'c' ? ' selected' : ''}>المطبخ / الصالة</option>${L.rooms.filter(q => q.id !== 'rx').map(q => `<option value="${esc(q.id)}"${x.room === q.id ? ' selected' : ''}>${esc(q.name)}</option>`).join('')}</select></div>`).join('')}` : '<div class="a3-h" style="margin-top:8px">لسه مفيش أثاث — ضيفه من «تعديل الشقة».</div>'}
     <div class="a3-row"><button type="button" id="a3-add">➕ غرفة</button><button type="button" id="a3-del">🗑 حذف الغرفة</button><button type="button" id="a3-auto">🔄 توزيع تلقائي</button></div>
     <div class="a3-row"><button type="button" class="pri" id="a3-save">💾 حفظ التصميم</button><button type="button" id="a3-cancel">إلغاء التعديل</button></div>`;
   a3PlanDraw();
@@ -9318,6 +9408,7 @@ function a3SideBind() {
     window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
     a3PlanDraw();
   });
+  s.addEventListener('change', e => { const i = e.target.dataset && e.target.dataset.fr; if (i === undefined) return; A3.furn[+i].room = e.target.value; a3Sync(); });
   s.addEventListener('input', e => {
     const f = e.target.dataset.f; if (!f) return; const r = room(A3.sel); if (!r) return; const v = e.target.value;
     if (f === 'name') r.name = v; else if (f === 'door') r.door = v; else { const n = parseFloat(v); if (!isFinite(n)) return; r[f] = (f === 'w' || f === 'd') ? Math.max(1.5, n) : n; }
@@ -9327,16 +9418,17 @@ function a3SideBind() {
     const b = e.target.closest('button'); if (!b) return; const r = room(A3.sel), L = A3.lay;
     if (b.dataset.bed && r) { const n = +b.dataset.bed; if (r.beds.includes(n)) r.beds = r.beds.filter(x => x !== n); else { L.rooms.forEach(x => x.beds = x.beds.filter(y => y !== n)); r.beds.push(n); } a3Side(); a3Sync(); }
     else if (b.id === 'a3-add') { const bb = a3Bounds(L), id = 'r' + Date.now().toString(36); L.rooms.push({ id, name: 'غرفة ' + (L.rooms.length + 1), x: a3Sn(bb.x1 + 1), z: a3Sn(bb.z0), w: 3.5, d: 3.1, beds: [], door: 's' }); A3.sel = id; a3Side(); a3Sync(); }
-    else if (b.id === 'a3-del' && r) { if (r.beds.length && !confirm('الغرفة فيها أسرّة، هتبقى غير موزعة. تحذف؟')) return; L.rooms = L.rooms.filter(x => x !== r); A3.sel = null; a3Side(); a3Sync(); }
+    else if (b.id === 'a3-del' && r) { if (r.beds.length && !confirm('الغرفة فيها أسرّة، هتبقى غير موزعة. تحذف؟')) return; L.rooms = L.rooms.filter(x => x !== r); A3.furn.forEach(x => { if (x.room === r.id) x.room = ''; }); A3.sel = null; a3Side(); a3Sync(); }
     else if (b.id === 'a3-auto') { if (!confirm('هيتم إعادة توزيع الغرف تلقائيًا (ما لم تحفظ). متأكد؟')) return; A3.lay = a3Auto(A3.apt); A3.sel = null; A3.vb = null; a3Side(); a3Sync(); }
     else if (b.id === 'a3-save') a3Save();
-    else if (b.id === 'a3-cancel') { A3.edit = false; A3.lay = a3Eff(A3.apt); A3.sel = null; a3Mode(); a3Build(); }
+    else if (b.id === 'a3-cancel') { A3.edit = false; A3.furn = JSON.parse(JSON.stringify(A3.apt.furniture || [])); A3.lay = a3Eff(A3.apt); A3.sel = null; a3Mode(); a3Build(); }
   });
 }
 async function a3Save() {
   const a = A3.apt; if (!A3.lay.rooms.length) return toast('ضيف غرفة واحدة على الأقل', 'warning');
   const layout = { rooms: A3.lay.rooms.map(r => ({ id: r.id, name: String(r.name || 'غرفة').slice(0, 40), x: r.x, z: r.z, w: r.w, d: r.d, door: r.door, beds: r.beds })) };
-  try { await updateDoc(doc(db, 'apartments', a.id), { layout }); a.layout = layout; toast('تم حفظ تصميم الشقة', 'success'); A3.edit = false; A3.lay = a3Eff(a); A3.sel = null; a3Mode(); a3Build(); }
+  const ids = new Set(layout.rooms.map(r => r.id)), furniture = A3.furn.map(x => ({ k: x.k, q: x.q, ...(x.nm ? { nm: x.nm } : {}), ...(x.room && (x.room === 'c' || ids.has(x.room)) ? { room: x.room } : {}) }));
+  try { await updateDoc(doc(db, 'apartments', a.id), { layout, furniture }); a.layout = layout; a.furniture = furniture; toast('تم حفظ تصميم الشقة', 'success'); A3.edit = false; A3.lay = a3Eff(a); A3.sel = null; a3Mode(); a3Build(); }
   catch (err) { toast(errMsg(err), 'error'); }
 }
 function a3Mode() { const b = $('a3-ed'); if (b) b.classList.toggle('on', !!A3.edit); a3Side(); A3.resize && A3.resize(); }
@@ -9356,7 +9448,7 @@ window.openApt3D = async id => {
     <div class="a3-body"><div class="a3-cv" id="a3-cv"><canvas id="a3-c"></canvas><div class="a3-ld" id="a3-ld">جاري تحميل المجسّم…</div><div id="a3-info" class="a3-info" hidden></div>
     <div class="a3-leg"><span><i style="background:#34ffa0"></i>مشغول</span><span><i style="background:#6aa7b8"></i>شاغر</span><span style="opacity:.7">اضغط على سرير لتفاصيله · اسحب للدوران · عجلة/قرص للتكبير</span></div></div><div id="a3-side" class="a3-side" hidden></div></div>`;
   document.body.appendChild(el); document.addEventListener('keydown', a3Key);
-  A3 = { apt: a, lay: a3Eff(a), edit: false, sel: null, auto: true, drag: false, dg: false, pick: [] };
+  A3 = { apt: a, lay: a3Eff(a), furn: JSON.parse(JSON.stringify(a.furniture || [])), edit: false, sel: null, auto: true, drag: false, dg: false, pick: [] };
   const mine = A3; $('a3-x').onclick = window.a3Close;
   try { await a3Load(); } catch (e) { if (A3 === mine) $('a3-ld').textContent = e.message; return; }
   if (A3 !== mine) return;
