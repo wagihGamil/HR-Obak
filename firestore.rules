@@ -55,6 +55,9 @@ service cloud.firestore {
       allow read:  if can('insurance','report') || can('insurance','s1') || can('insurance','s6');
       allow write: if can('insurance','import') || can('insurance','edit');
     }
+    match /insPlans/{id} {
+      allow read, write: if can('insurance','plan');
+    }
     match /settings/{id} {
       allow read:  if active();
       allow write: if isAdmin() || can('insurance','edit');

@@ -2156,7 +2156,7 @@ const ENABLE_INSURANCE=true;
 let BE=null, ME=null, CUR={mod:null,sub:null};
 const PERM = {
   hiring:{label:'أوراق تعيين الموظف',acts:{acks:'الإقرارات (أولها إيصال استلام المسوغات)',kin:'إقرار صلات القرابة',contract:'عقد العمل',policy:'سياسة الدوام'}},
-  insurance:{label:'مستندات التأمينات الاجتماعية',acts:{report:'الجدول الأساسي (عرض)',s1:'استمارة 1 (طلب اشتراك)',s6:'استمارة 6 (إخطار انتهاء اشتراك)',edit:'تعديل الجدول والإعدادات',import:'استيراد ملف الموظفين'}},
+  insurance:{label:'مستندات التأمينات الاجتماعية',acts:{report:'الجدول الأساسي (عرض)',s1:'استمارة 1 (طلب اشتراك)',s6:'استمارة 6 (إخطار انتهاء اشتراك)',edit:'تعديل الجدول والإعدادات',import:'استيراد ملف الموظفين',plan:'خطة التأمينات (تقسيم أسبوعي وتوزيع الموظفين)'}},
   resign:{label:'أوراق الاستقالة',acts:{rq:'طلب استقالة',rf:'نموذج الوزارة',er:'إنهاء علاقة العمل بالتوافق',ho:'الاستلام والتسليم',cl:'إخلاء طرف'}},
   housing:{label:'الشقق',acts:{view:'دخول مديول الشقق (تقرير الشقق — قراءة)'}},
   cars:{label:'خطوط سير نقل الموظفين',acts:{view:'دخول المديول (عرض)'}},
@@ -2216,7 +2216,7 @@ const ICONS={
 const MODS={
   hiring:{title:'أوراق تعيين الموظف',color:'linear-gradient(135deg,#e5383b,#a80f15)',subs:null},
   insurance:{title:'مستندات التأمينات الاجتماعية',color:'linear-gradient(135deg,#2f80ed,#1c4fa0)',
-    subs:[['report','الجدول الأساسي','report'],['s1','استمارة 1','s1'],['s6','استمارة 6','s6'],['import','استيراد الموظفين','import'],['settings','الإعدادات','edit']]},
+    subs:[['report','الجدول الأساسي','report'],['s1','استمارة 1','s1'],['s6','استمارة 6','s6'],['import','استيراد الموظفين','import'],['plan','خطة التأمينات','plan'],['settings','الإعدادات','edit']]},
   resign:{title:'أوراق الاستقالة',color:'linear-gradient(135deg,#f2994a,#c96a12)',subs:null},
   housing:{title:'الشقق',color:'linear-gradient(135deg,#2f80ed,#1c4fa0)',subs:null,adm:true},
   cars:{title:'خطوط سير نقل الموظفين',color:'linear-gradient(135deg,#7b61d9,#4a35a0)',subs:null,adm:true},
@@ -2456,16 +2456,62 @@ const rowLabel = r => `${r.code} — ${r.name}`;
 const findRow = code => INS.rows.find(r=>r.code===code);
 const effVal = (r,c)=>{ if(c.emp) return S(r[c.emp]); const v=(r.x||{})[c.x]; return (v==null||v==='')&&c.def?S(INS.defs[c.x]):S(v); };
 
+
+/* ====================== خطة التأمينات (توريد الاستمارات أسبوعيًا) ====================== */
+const PL={d:null};
+const plCan=()=>can('insurance','plan');
+const plIso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const plParse=s=>{ const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?new Date(+m[1],+m[2]-1,+m[3]):null; };
+const plAdd=(s,n)=>{ const d=plParse(s); d.setDate(d.getDate()+n); return plIso(d); };
+const plUid=()=>'w'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+const plHire=r=>{ const v=S(r.first); return /^\d{4}-\d{2}-\d{2}/.test(v)?v.slice(0,10):''; };
+async function plLoad(){ let d=null; try{ const L=await BE.rcList('insPlans'); d=L.find(x=>x.id==='main')||null; }catch(e){ toast(authMsg(e),true); throw e; } PL.d=d||{start:'',end:'',quota:20,weeks:[]}; if(!PL.d.weeks) PL.d.weeks=[]; }
+async function plSave(){ const {id,...d}=PL.d; try{ await BE.rcSet('insPlans','main',{...d,at:Date.now(),by:ME.name||ME.email||''}); }catch(e){ toast(authMsg(e),true); } }
+function plAssigned(){ const m=new Map(); PL.d.weeks.forEach(w=>(w.emps||[]).forEach(e=>m.set(e.c,w.id))); return m; }
+function plPool(){ const a=plAssigned(); return INS.rows.filter(r=>!a.has(r.code)).sort((x,y)=>{ const a=plHire(x),b=plHire(y); if(a&&!b) return -1; if(!a&&b) return 1; return a.localeCompare(b)||String(x.code).localeCompare(String(y.code),'en',{numeric:true}); }); }
+function plGen(){ const P=PL.d; if(!P.start||!P.end||P.end<P.start){ toast('حدد بداية ونهاية الخطة صح',true); return; }
+  if(P.weeks.some(w=>(w.emps||[]).length)&&!confirm('الأسابيع الحالية هتتعاد وتتمسح التوزيعات اللي فيها. تكمل؟')) return;
+  const q=Math.max(0,+P.quota||0); P.weeks=[]; let f=P.start; while(f<=P.end){ let t=plAdd(f,6); if(t>P.end) t=P.end; P.weeks.push({id:plUid(),from:f,to:t,q,emps:[]}); f=plAdd(t,1); } plSave().then(plRender); }
+function plAuto(){ const P=PL.d; if(!P.weeks.length){ toast('اعمل الأسابيع الأول',true); return; } const pool=plPool(); let n=0;
+  P.weeks.forEach(w=>{ w.emps=w.emps||[]; while(w.emps.length<(+w.q||0)&&pool.length){ w.emps.push({c:pool.shift().code,done:false}); n++; } });
+  toast(n?`اتوزع ${n} موظف حسب أولوية التعيين ✓`:'مفيش أماكن فاضية أو موظفين متبقيين'); plSave().then(plRender); }
+function plHtml(){ const P=PL.d, pool=plPool(), tot=P.weeks.reduce((s,w)=>s+(+w.q||0),0), asg=P.weeks.reduce((s,w)=>s+(w.emps||[]).length,0), dn=P.weeks.reduce((s,w)=>s+(w.emps||[]).filter(e=>e.done).length,0), today=plIso(new Date());
+  const wopt=sel=>`<option value="">— نقل إلى —</option>`+P.weeks.map((w,i)=>`<option value="${w.id}" ${w.id===sel?'disabled':''}>أسبوع ${i+1}</option>`).join('');
+  const dl=`<datalist id="pl_dl">${pool.map(r=>`<option value="${esc(rowLabel(r))}">`).join('')}</datalist>`;
+  return `<style>.plk{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.plk span{background:#eef6ff;border:1px solid #bcd6f5;border-radius:8px;padding:4px 10px;font-weight:700}.plw{border:1.5px solid var(--line);border-radius:12px;margin:12px 0;overflow:hidden}.plw.cur{border-color:#2f80ed;box-shadow:0 0 0 2px #cfe2ff}.plh{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#eef2f7;padding:8px 12px;font-weight:800}.plh input[type=number]{width:70px}.plt{width:100%;border-collapse:collapse;font-size:13px}.plt th,.plt td{border-top:1px solid var(--line);padding:5px 8px;text-align:right}.plt th{background:#fafbfc}.plr{color:#c62828;font-weight:700}.plg{color:#1b7a3a;font-weight:700}</style>
+  <div class="tb" style="flex-wrap:wrap;gap:8px"><h2 style="margin:0">خطة التأمينات — توريد الاستمارات</h2><span style="flex:1"></span><button class="btn" data-pl="print" type="button">🖨 طباعة الخطة</button><button class="btn" data-pl="xls" type="button">⬇ Excel</button></div>
+  <div class="cardlite" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:10px"><div><label>بداية الخطة</label><input type="date" id="pl_s" value="${esc(P.start||'')}"></div><div><label>نهاية الخطة</label><input type="date" id="pl_e" value="${esc(P.end||'')}"></div><div><label>عدد الاستمارات في الأسبوع</label><input type="number" min="0" id="pl_q" value="${P.quota||0}" style="width:110px"></div><button class="btn pri" data-pl="gen" type="button">📅 قسّم لأسابيع</button><button class="btn" data-pl="auto" type="button">⚡ وزّع تلقائيًا (أولوية التعيين)</button><button class="btn" data-pl="clear" type="button">إفراغ التوزيع</button></div>
+  <div class="muted" style="font-size:12.5px">التوزيع التلقائي بيرتب الموظفين من الأقدم تعيينًا (حسب «تاريخ بدأ الاشتراك» في الجدول الأساسي) ويملا كل أسبوع لحد عدد استماراته. وبعدها تقدر تضيف/تشيل/تنقل أي موظف بإيدك.</div>
+  <div class="plk"><span>الأسابيع: ${P.weeks.length}</span><span>إجمالي الاستمارات المخططة: ${tot}</span><span>الموزّع: ${asg}</span><span>تم توريده: ${dn}</span><span>متبقي بدون أسبوع: ${pool.length}</span></div>${dl}
+  ${P.weeks.map((w,i)=>{ const E=w.emps||[], over=E.length>(+w.q||0), cur=today>=w.from&&today<=w.to; return `<div class="plw ${cur?'cur':''}" data-w="${w.id}"><div class="plh"><span>الأسبوع ${i+1}</span><span class="muted" style="font-weight:600">${cuD(w.from)} ← ${cuD(w.to)}${cur?' (الأسبوع الحالي)':''}</span><span style="flex:1"></span><label style="font-weight:600">الاستمارات:</label><input type="number" min="0" data-plq="${w.id}" value="${w.q||0}"><span class="${over?'plr':E.length===+w.q&&E.length?'plg':''}">${E.length} / ${w.q||0}${over?' (زيادة)':''}</span><span class="muted" style="font-weight:600">تم: ${E.filter(e=>e.done).length}</span><input list="pl_dl" data-pladd="${w.id}" placeholder="＋ أضف موظف (كود أو اسم)…" style="min-width:200px" autocomplete="off"></div>
+   ${E.length?`<div style="overflow:auto"><table class="plt"><tr><th>م</th><th>الكود</th><th>الاسم</th><th>المهنة</th><th>تاريخ التعيين</th><th>تم التوريد</th><th></th></tr>${E.map((e,j)=>{ const r=findRow(e.c)||{code:e.c,name:'(غير موجود في الجدول)'}; return `<tr><td>${j+1}</td><td>${esc(r.code)}</td><td>${esc(r.name)}</td><td>${esc(S(r.job))}</td><td>${esc(showDate(plHire(r)))}</td><td><input type="checkbox" data-pldn="${w.id}|${esc(e.c)}" ${e.done?'checked':''}></td><td><select data-plmv="${w.id}|${esc(e.c)}">${wopt(w.id)}</select> <button class="btn sm" data-pl="rm" data-w="${w.id}" data-c="${esc(e.c)}" type="button">✕</button></td></tr>`; }).join('')}</table></div>`:'<div class="muted" style="padding:10px 12px">مفيش موظفين في الأسبوع ده.</div>'}</div>`; }).join('')||'<div class="muted" style="padding:18px">حدد بداية ونهاية الخطة وعدد الاستمارات في الأسبوع واضغط «قسّم لأسابيع».</div>'}
+  ${pool.length&&P.weeks.length?`<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:800">الموظفين اللي لسه من غير أسبوع (${pool.length}) — بترتيب الأولوية</summary><div style="overflow:auto;max-height:340px"><table class="plt"><tr><th>م</th><th>الكود</th><th>الاسم</th><th>المهنة</th><th>تاريخ التعيين</th><th>إضافة لأسبوع</th></tr>${pool.map((r,j)=>`<tr><td>${j+1}</td><td>${esc(r.code)}</td><td>${esc(r.name)}</td><td>${esc(S(r.job))}</td><td>${esc(showDate(plHire(r)))}</td><td><select data-plpool="${esc(r.code)}">${wopt('')}</select></td></tr>`).join('')}</table></div></details>`:''}`; }
+function plRender(){ const x=$('plx'); if(!x) return; const sc=window.scrollY; x.innerHTML=plHtml(); window.scrollTo(0,sc); }
+function plFind(id){ return PL.d.weeks.find(w=>w.id===id); }
+function plAddEmp(wid,c){ const w=plFind(wid); if(!w||!c) return; PL.d.weeks.forEach(v=>v.emps=(v.emps||[]).filter(e=>e.c!==c)); w.emps=w.emps||[]; w.emps.push({c,done:false}); plSave().then(plRender); }
+function plFlat(){ const o=[]; PL.d.weeks.forEach((w,i)=>(w.emps||[]).forEach((e,j)=>{ const r=findRow(e.c)||{code:e.c,name:''}; o.push({wk:i+1,from:w.from,to:w.to,q:w.q||0,n:j+1,code:r.code,name:r.name,job:S(r.job),hire:plHire(r),done:e.done?'نعم':'لا'}); })); return o; }
+async function plXls(){ const L=plFlat(); if(!L.length){ toast('مفيش توزيع',true); return; } await loadXLSX(); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(L.map(l=>({'الأسبوع':l.wk,'من':cuD(l.from),'إلى':cuD(l.to),'استمارات الأسبوع':l.q,'م':l.n,'الكود':l.code,'الاسم':l.name,'المهنة':l.job,'تاريخ التعيين':cuD(l.hire),'تم التوريد':l.done}))),'خطة التأمينات'); XLSX.writeFile(wb,'خطة_التأمينات.xlsx'); }
+function plPrint(){ const P=PL.d; if(!P.weeks.length){ toast('مفيش خطة',true); return; } kpPrintDoc('خطة التأمينات',`<h1>خطة توريد استمارات التأمينات</h1><p>من ${cuD(P.start)} إلى ${cuD(P.end)} — عدد الأسابيع ${P.weeks.length}</p>`+P.weeks.map((w,i)=>{ const E=w.emps||[]; return `<h2>الأسبوع ${i+1}: ${cuD(w.from)} ← ${cuD(w.to)} (${E.length} / ${w.q||0} استمارة)</h2>`+(E.length?`<table border="1" style="width:100%;border-collapse:collapse;font-size:10pt"><tr><td class="hd">م</td><td class="hd">الكود</td><td class="hd">الاسم</td><td class="hd">المهنة</td><td class="hd">تاريخ التعيين</td><td class="hd">تم التوريد</td></tr>${E.map((e,j)=>{ const r=findRow(e.c)||{code:e.c,name:''}; return `<tr><td>${j+1}</td><td>${esc(r.code)}</td><td>${esc(r.name)}</td><td>${esc(S(r.job))}</td><td>${esc(showDate(plHire(r)))}</td><td>${e.done?'✔':''}</td></tr>`; }).join('')}</table>`:'<p>—</p>'); }).join('')); }
+async function renderPlan(){ $('view').innerHTML='<div class="card muted">جارٍ التحميل…</div>'; try{ await plLoad(); }catch(e){ $('view').innerHTML=`<div class="card bad">${esc(authMsg(e))}</div>`; return; } if(CUR.sub!=='plan') return; $('view').innerHTML='<div class="card" id="plx"></div>'; plRender(); const x=$('plx');
+  x.onclick=e=>{ const b=e.target.closest('[data-pl]'); if(!b) return; const a=b.dataset.pl; if(a==='print') plPrint(); else if(a==='xls') plXls(); else if(a==='gen') { PL.d.start=$('pl_s').value; PL.d.end=$('pl_e').value; PL.d.quota=+$('pl_q').value||0; plGen(); } else if(a==='auto') plAuto(); else if(a==='clear'){ if(confirm('تفريغ كل الأسابيع من الموظفين؟')){ PL.d.weeks.forEach(w=>w.emps=[]); plSave().then(plRender); } } else if(a==='rm'){ const w=plFind(b.dataset.w); if(w){ w.emps=(w.emps||[]).filter(e=>e.c!==b.dataset.c); plSave().then(plRender); } } };
+  x.onchange=e=>{ const t=e.target, d=t.dataset||{};
+    if(d.plq){ const w=plFind(d.plq); if(w){ w.q=Math.max(0,+t.value||0); plSave().then(plRender); } }
+    else if(d.pldn){ const [wid,c]=d.pldn.split('|'), w=plFind(wid), em=w&&(w.emps||[]).find(e=>e.c===c); if(em){ em.done=t.checked; plSave().then(plRender); } }
+    else if(d.plmv){ if(t.value) plAddEmp(t.value,d.plmv.split('|')[1]); }
+    else if(d.plpool){ if(t.value) plAddEmp(t.value,d.plpool); }
+    else if(d.pladd){ const v=t.value.trim(); const r=INS.rows.find(r=>rowLabel(r)===v)||INS.rows.find(r=>r.code===v)||INS.rows.find(r=>S(r.name)===v); if(!r){ if(v) toast('مفيش موظف بالاسم/الكود ده في الجدول الأساسي',true); return; } plAddEmp(d.pladd,r.code); }
+    else if(t.id==='pl_s'||t.id==='pl_e'||t.id==='pl_q'){ PL.d.start=$('pl_s').value; PL.d.end=$('pl_e').value; PL.d.quota=+$('pl_q').value||0; plSave(); } }; }
+
 async function mountInsurance(sub){
   const subs=MODS.insurance.subs.filter(s=>can('insurance',s[2]));
   if(!sub||!subs.some(s=>s[0]===sub)) { location.hash='#/insurance/'+subs[0][0]; return; }
   CUR.sub=sub;
   document.querySelectorAll('#subnav a').forEach(a=>a.classList.toggle('on',a.dataset.sub===sub));
-  if(sub==='report'||sub==='settings'||sub==='import'){
+  if(sub==='report'||sub==='settings'||sub==='import'||sub==='plan'){
     setLayout({view:true}); $('view').innerHTML='<div class="card muted">جارٍ تحميل البيانات…</div>';
     try{ await insLoad(sub==='report'&&false); }catch(e){ $('view').innerHTML=`<div class="card bad">${esc(authMsg(e))}</div>`; return; }
     if(CUR.sub!==sub) return;
-    ({report:renderReport,settings:renderSettings,import:renderImport})[sub]();
+    ({report:renderReport,settings:renderSettings,import:renderImport,plan:renderPlan})[sub]();
   } else {
     setLayout({panel:'pn_ins',sheets:true});
     $('sheets').innerHTML='<div class="card muted" style="width:210mm;margin:14px auto">جارٍ تحميل البيانات…</div>';
