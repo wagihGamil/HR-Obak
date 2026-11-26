@@ -355,6 +355,12 @@ service cloud.firestore {
     // ===== مديول التوظيف: جدول المرشحين (السير الذاتية نفسها مبتتخزنش) =====
     // ===== KPIS: الوصف الوظيفي + المؤشرات + دفعات الحوافز =====
     // ===== مهمات الموظفين (العهد) =====
+    // ===== Salaries Survey =====
+    match /salSurvey/{id} {
+      allow read:   if anyA('salsurvey');
+      allow create, update: if canA('salsurvey','import') || canA('salsurvey','edit');
+      allow delete: if canA('salsurvey','delete') || canA('salsurvey','import');
+    }
     match /custItems/{id} {
       allow read:   if anyA('custody');
       allow create, update: if canA('custody','settings');
