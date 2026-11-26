@@ -2817,6 +2817,7 @@ async function mountUsers(){
 }
 function userAccessTags(u){
   if(u.isAdmin) return '<span class="tag2 adm">مدير — كل الصلاحيات</span>';
+  if(u.viewer) return '<span class="tag2" style="background:#e3f0ff;color:#1e5ea8">مشاهد فقط — كل المديولات</span>';
   if(u.supervisor){
     const nums=(window.ADM&&window.ADM.aptsOf)?window.ADM.aptsOf(u.uid):[];
     return '<span class="tag2 adm">مشرف شقة</span>'+(nums.length?nums.map(n=>`<span class="tag2">${esc(n)}</span>`).join(''):'<span class="muted">لا توجد شقق</span>');
@@ -2852,7 +2853,7 @@ async function runMigrate(){
 }
 function userModal(u){
   const isNew=!u; u=u||{name:'',email:'',isAdmin:false,supervisor:false,active:true,access:{}};
-  const utype=u.isAdmin?'admin':(u.supervisor?'sup':'user');
+  const utype=u.isAdmin?'admin':(u.supervisor?'sup':(u.viewer?'viewer':'user'));
   const perms=Object.entries(PERM).map(([m,d])=>{
     const cur=(u.access||{})[m]||[];
     return `<div class="mb" data-m="${m}"><h4><span>${d.label}</span><label style="margin:0"><input type="checkbox" data-all="${m}"> الكل</label></h4>
@@ -2870,6 +2871,7 @@ function userModal(u){
     ${isNew?`<div><label>كلمة المرور (6 على الأقل)</label><input id="um_pw" type="text" dir="ltr" style="text-align:right" autocomplete="off"></div>`:''}
     <div><label>نوع المستخدم</label><select id="um_type">
       <option value="user" ${utype==='user'?'selected':''}>مستخدم (بصلاحيات أحددها)</option>
+      <option value="viewer" ${utype==='viewer'?'selected':''}>مشاهد فقط (يشوف كل المديولات بدون إضافة أو تعديل أو حذف)</option>
       <option value="admin" ${utype==='admin'?'selected':''}>مدير نظام</option>
       <option value="sup" ${utype==='sup'?'selected':''}>مشرف شقة (شققه فقط)</option></select></div>
    </div>
@@ -2879,8 +2881,8 @@ function userModal(u){
    <div class="lerr" id="um_err"></div>
    <div style="display:flex;gap:8px;margin-top:14px"><button class="btn pri" id="um_save" type="button">حفظ</button><button class="btn" id="um_cancel" type="button">إلغاء</button></div></div>`;
   document.body.appendChild(m);
-  const sync=()=>{ const t=$('um_type').value, adm=t==='admin';
-    $('um_perm').hidden=(t==='sup'); $('um_aptsbox').hidden=(t!=='sup');
+  const sync=()=>{ const t=$('um_type').value, adm=t==='admin'||t==='viewer';
+    $('um_perm').hidden=(t==='sup'||t==='viewer'); $('um_aptsbox').hidden=(t!=='sup');
     $('um_perm').style.opacity=adm?.4:1; m.querySelectorAll('[data-pm],[data-all]').forEach(x=>x.disabled=adm);
     m.querySelectorAll('.mb').forEach(b=>{ const bx=[...b.querySelectorAll('[data-pm]')]; b.classList.toggle('off',!adm&&!bx.some(x=>x.checked)); const all=b.querySelector('[data-all]'); all.checked=bx.every(x=>x.checked);
       const ps=b.querySelector('.pset'); if(ps){ const v=b.querySelector('[data-pa="view"]'); if(v&&!adm&&bx.some(x=>x.checked&&x!==v)&&!v.checked) v.checked=true; ps.value=lvDetect(bx.filter(x=>x.checked).map(x=>x.dataset.pa),b.dataset.m); ps.disabled=adm; } }); };
@@ -2894,9 +2896,9 @@ function userModal(u){
   m.querySelector('#um_save').onclick=async()=>{
     const err=$('um_err'); err.textContent='';
     const type=$('um_type').value;
-    const access={}; m.querySelectorAll('[data-pm]').forEach(x=>{ if(x.checked){ (access[x.dataset.pm]=access[x.dataset.pm]||[]).push(x.dataset.pa); } });
+    const access={}; if(type==='viewer'){ Object.entries(PERM).forEach(([k,d])=>{ const v=d.lv?lvPre(k).view:(k==='insurance'?['report','s1','s6']:(d.acts&&d.acts.view?['view']:[])); if(v.length) access[k]=v.slice(); }); } else m.querySelectorAll('[data-pm]').forEach(x=>{ if(x.checked){ (access[x.dataset.pm]=access[x.dataset.pm]||[]).push(x.dataset.pa); } });
     const aptIds=[...m.querySelectorAll('[data-apt]')].filter(x=>x.checked).map(x=>x.dataset.apt);
-    const data={name:$('um_name').value.trim(),isAdmin:type==='admin',supervisor:type==='sup',active:$('um_active').checked,permV:2,phone:($('um_phone').value||'').trim(),access:type==='sup'?{housing:['view']}:access};
+    const data={name:$('um_name').value.trim(),isAdmin:type==='admin',supervisor:type==='sup',viewer:type==='viewer',active:$('um_active').checked,permV:2,phone:($('um_phone').value||'').trim(),access:type==='sup'?{housing:['view']}:access};
     if(!data.name){ err.textContent='اكتب الاسم'; return; }
     if(type==='sup' && !aptIds.length){ err.textContent='اختر شقة واحدة على الأقل للمشرف'; return; }
     if(u.uid===ME.uid && (!data.isAdmin||!data.active)){ err.textContent='مينفعش تشيل صلاحية المدير أو توقف حسابك انت'; return; }
